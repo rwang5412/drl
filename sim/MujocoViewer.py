@@ -1,6 +1,7 @@
-import mujoco
+import mujoco as mj
 import glfw
 import numpy as np
+from threading import Lock
 
 """
 Class to handle visualization of generic Mujoco models. Adapted from cassie-mujoco-sim
@@ -12,11 +13,16 @@ class MujocoViewer():
     def __init__(self,
                  model,
                  data,
+                 reset_qpos,
                  width=None,
                  height=None):
 
         self.model = model
         self.data = data
+        self.reset_qpos = reset_qpos
+        if len(self.reset_qpos) != self.model.nq:
+            print("Error: MujocoViewer reset qpos not correct size")
+            exit()
 
         self.is_alive = True
         self.paused = True
@@ -28,7 +34,7 @@ class MujocoViewer():
         if not height:
             _, height = glfw.get_video_mode(glfw.get_primary_monitor()).size
         self.window = glfw.create_window(
-            width, height, title, None, None)
+            width, height, "", None, None)
         glfw.make_context_current(self.window)
         glfw.swap_interval(1)
 
@@ -36,6 +42,8 @@ class MujocoViewer():
             self.window)
         window_width, _ = glfw.get_window_size(self.window)
         self._scale = framebuffer_width * 1.0 / window_width
+        self.viewport = mj.MjrRect(
+            0, 0, framebuffer_width, framebuffer_height)
 
         # set callbacks
         glfw.set_cursor_pos_callback(
@@ -48,175 +56,219 @@ class MujocoViewer():
         # create options, camera, scene, context
         self.vopt = mj.MjvOption()
         self.cam = mj.MjvCamera()
-        self.scn = mj.MjvScene(self.model, maxgeom=10000)
+        self.scn = mj.MjvScene(self.model, maxgeom=1000)
         self.pert = mj.MjvPerturb()
         self.ctx = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_150.value)
+        self.fontscale = 150
         # Set up mujoco visualization objects
-        # self.cam.type = mj.mjCAMERA_FIXED;
-        # self.cam.fixedcamid = 0;
-        mj.mjv_defaultCamera_fp(self.cam)
-        mj.mjv_defaultOption_fp(self.vopt)
+        # self.cam.type = mj.mjtCamera.mjCAMERA_FIXED
+        # self.cam.fixedcamid = 0
         self.vopt.flags[11] = 1    # Render applied forces
-        mj.mjr_defaultContext_fp(self.con)
-        mj.mjv_defaultScene_fp(self.scn)
-        mj.mjv_makeScene_fp(self.model, self.scn, 1000)
-        mj.mjr_makeContext_fp(self.model, self.con, fontscale)
 
         # Set interaction ctrl vars
-        self.lastx = 0.0
-        self.lasty = 0.0
-        self.button_left = False
-        self.button_middle = False
-        self.button_right = False
-        self.lastbutton = glfw.GLFW_MOUSE_BUTTON_1
-        self.lastclicktm = 0.0
-        self.showhelp = 0
-        self.showoption = False
-        self.showGRF = False
-        self.GRFcount = 0
-        self.showfullscreen = False
-        self.showsensor = False
-        self.slowmotion = False
-        self.showinfo = True
-        self.paused = True
-        self.framenum = 0
-        self.lastframenum = 0
-        self.marker_num = 0
-        self.perturb_body = 1
-        self.pipe_video_out = None
-        self.perturb_force = np.zeros(6)
+        self._lastx = 0.0
+        self._lasty = 0.0
+        self._button_left = False
+        self._button_middle = False
+        self._button_right = False
+        self._lastbutton = glfw.MOUSE_BUTTON_1
+        self._lastclicktm = 0.0
+        self._showhelp = False
+        self._showoption = False
+        self._showGRF = False
+        self._GRFcount = 0
+        self._showfullscreen = False
+        self._showsensor = False
+        self._slowmotion = False
+        self._showinfo = True
+        self._paused = True
+        self._framenum = 0
+        self._lastframenum = 0
+        self._marker_num = 0
+        self._perturb_body = 1
+        self._pipe_video_out = None
+        self._perturb_force = np.zeros(6)
+
+        self._gui_lock = Lock()
+        self._button_left_pressed = False
+        self._button_right_pressed = False
+        self._left_double_click_pressed = False
+        self._right_double_click_pressed = False
+        self._last_left_click_time = None
+        self._last_right_click_time = None
+        self._last_mouse_x = 0
+        self._last_mouse_y = 0
+        self._paused = False
+        self._transparent = False
+        self._contacts = False
+        self._joints = False
+        self._shadows = True
+        self._wire_frame = False
+        self._convex_hull_rendering = False
+        self._inertias = False
+        self._com = False
+        self._render_every_frame = True
+        self._image_idx = 0
+        self._image_path = "/tmp/frame_%07d.png"
+        self._time_per_render = 1 / 60.0
+        self._run_speed = 1.0
+        self._loop_count = 0
+        self._advance_by_one_step = False
+        self._hide_menus = False
+
+    def render(self):
+        if glfw.window_should_close(self.window):
+            glfw.destroy_window(self.window)
+            self.window = None
+            self.is_alive = False
+            return
+        with self._gui_lock:
+            mj.mjv_updateScene(
+                self.model,
+                self.data,
+                self.vopt,
+                self.pert,
+                self.cam,
+                mj.mjtCatBit.mjCAT_ALL.value,
+                self.scn)
+            mj.mjr_render(self.viewport, self.scn, self.ctx)
+            glfw.swap_buffers(self.window)
+        glfw.poll_events()
+
 
     def _key_callback(self, window, key, scancode, action, mods):
         if action != glfw.RELEASE:
-            if key == glfw.KEY_LEFT_ALT:
-                self._hide_menus = False
+            # Don't do anything if released the key
             return
-        # Switch cameras
-        elif key == glfw.KEY_TAB:
-            self.cam.fixedcamid += 1
-            self.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
-            if self.cam.fixedcamid >= self.model.ncam:
+        elif action == glfw.PRESS:
+            # If press 'P' with no mods, then attach camera to center of model
+            if key == glfw.KEY_P and mods == 0:
+                self.cam.type = mjCAMERA_TRACKING
+                self.cam.trackbodyid = mj.mj_name2id(self.m, mj.mjtObj.mjOBJ_BODY, "cassie-pelvis")
                 self.cam.fixedcamid = -1
-                self.cam.type = mujoco.mjtCamera.mjCAMERA_FREE
-        # Pause simulation
-        elif key == glfw.KEY_SPACE and self._paused is not None:
+                self.cam.distance = 3
+                self.cam.azimuth = 90
+                self.cam.elevation = -20
+            # Handle control key mod
+            if mods == glfw.MOD_CONTROL:
+                if key == glfw.KEY_A:
+                    self.cam.lookat = self.m.stat.center
+                    self.cam.distance = 1.5 * self.m.stat.extent
+                    self.cam.type = mj.mjtCamera.mjCAMERA_FREE
+                elif key == glfw.KEY_P: # Print out qpos
+                    qpos_str = "qpos: "
+                    for i in range(self.m.nq):
+                        qpos_str += f"{self.d.qpos[i]:.4f}"
+                        if i != self.m.nq - 1:
+                            qpos_str += ", "
+                    print(qpos_str)
+                elif key == glfw.KEY_T: # Save screenshot
+                    img = np.zeros(
+                        (glfw.get_framebuffer_size(
+                            self.window)[1], glfw.get_framebuffer_size(
+                            self.window)[0], 3), dtype=np.uint8)
+                    mj.mjr_readPixels(img, None, self.viewport, self.ctx)
+                    imageio.imwrite(self._image_path % self._image_idx, np.flipud(img))
+                    self._image_idx += 1
+            # Toggle visualization flags
+            for i in range(mj.mjNVISFLAG):
+                if key == mj.mjVISSTRING[i][2][0]:
+                    self.opt.flags[i] = 1 - self.opt.flags[i]
+                    # return
+                    # Don't return here due to overlapping key in VISSTRING and RNDSTRING. "," key
+                    # is in both, so if "," is pressed toggle both flags and return in RNDSTRING check
+            # Toggle rendering flags
+            for i in range(mj.mjNRNDFLAG):
+                if key == mj.mjRNDSTRING[i][2][0]:
+                    self.scn.flags[i] = 1 - self.scn.flags[i]
+                    return
+            # Toggle geom/site group
+            for i in range(mj.mjNGROUP):
+                if key == i + 48:   # Int('0') = 48
+                    if mods and glfw.MOD_SHIFT == True:
+                        self.opt.sitegroup[i] = 1 - self.opt.sitegroup[i]
+                    else:
+                        self.opt.geomgroup[i] = 1 - self.opt.geomgroup[i]
+        # Handle regular inidividual key presses
+        if key == glfw.KEY_F1:              # help
+            self._showhelp = not self._showhelp
+        elif key == glfw.KEY_F2:            # option
+            self._showoption = not self._showoption
+        elif key == glfw.KEY_F3:            # info
+            self._showinfo = not self._showinfo
+        elif key == glfw.KEY_F4:            # GRF
+            self._showGRF = not self._showGRF
+        elif key == glfw.KEY_F5:            # sensor figure
+            self._showsensor = not self._showsensor
+        elif key == glfw.KEY_F6:            # toggle fullscreen
+            self._showfullscreen = not self._showfullscreen
+        elif key == glfw.KEY_ENTER:         # toggle slow motion
+            self._slowmotion = not self._slowmotion
+        elif key == glfw.KEY_SPACE:         # pause
             self._paused = not self._paused
-        # Advances simulation by one step.
-        elif key == glfw.KEY_RIGHT and self._paused is not None:
-            self._advance_by_one_step = True
-            self._paused = True
-        # Slows down simulation
-        elif key == glfw.KEY_S and mods != glfw.MOD_CONTROL:
-            self._run_speed /= 2.0
-        # Speeds up simulation
-        elif key == glfw.KEY_F:
-            self._run_speed *= 2.0
-        # Turn off / turn on rendering every frame.
-        elif key == glfw.KEY_D:
-            self._render_every_frame = not self._render_every_frame
-        # Capture screenshot
-        elif key == glfw.KEY_T:
-            img = np.zeros(
-                (glfw.get_framebuffer_size(
-                    self.window)[1], glfw.get_framebuffer_size(
-                    self.window)[0], 3), dtype=np.uint8)
-            mujoco.mjr_readPixels(img, None, self.viewport, self.ctx)
-            imageio.imwrite(self._image_path % self._image_idx, np.flipud(img))
-            self._image_idx += 1
-        # Display contact forces
-        elif key == glfw.KEY_C:
-            self._contacts = not self._contacts
-            self.vopt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = self._contacts
-            self.vopt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = self._contacts
-        elif key == glfw.KEY_J:
-            self._joints = not self._joints
-            self.vopt.flags[mujoco.mjtVisFlag.mjVIS_JOINT] = self._joints
-        # Display mjtFrame
-        elif key == glfw.KEY_E:
-            self.vopt.frame += 1
-            if self.vopt.frame == mujoco.mjtFrame.mjNFRAME.value:
-                self.vopt.frame = 0
-        # Hide overlay menu
-        elif key == glfw.KEY_LEFT_ALT:
-            self._hide_menus = True
-        elif key == glfw.KEY_H:
-            self._hide_menus = not self._hide_menus
-        # Make transparent
-        elif key == glfw.KEY_R:
-            self._transparent = not self._transparent
-            if self._transparent:
-                self.model.geom_rgba[:, 3] /= 5.0
-            else:
-                self.model.geom_rgba[:, 3] *= 5.0
-        # Display inertia
-        elif key == glfw.KEY_I:
-            self._inertias = not self._inertias
-            self.vopt.flags[mujoco.mjtVisFlag.mjVIS_INERTIA] = self._inertias
-        # Display center of mass
-        elif key == glfw.KEY_M:
-            self._com = not self._com
-            self.vopt.flags[mujoco.mjtVisFlag.mjVIS_COM] = self._com
-        # Shadow Rendering
-        elif key == glfw.KEY_O:
-            self._shadows = not self._shadows
-            self.scn.flags[mujoco.mjtRndFlag.mjRND_SHADOW] = self._shadows
-        # Convex-Hull rendering
-        elif key == glfw.KEY_V:
-            self._convex_hull_rendering = not self._convex_hull_rendering
-            self.vopt.flags[
-                mujoco.mjtVisFlag.mjVIS_CONVEXHULL
-            ] = self._convex_hull_rendering
-        # Wireframe Rendering
-        elif key == glfw.KEY_W:
-            self._wire_frame = not self._wire_frame
-            self.scn.flags[mujoco.mjtRndFlag.mjRND_WIREFRAME] = self._wire_frame
-        # Geom group visibility
-        elif key in (glfw.KEY_0, glfw.KEY_1, glfw.KEY_2, glfw.KEY_3, glfw.KEY_4, glfw.KEY_5):
-            self.vopt.geomgroup[key - glfw.KEY_0] ^= 1
-        elif key == glfw.KEY_S and mods == glfw.MOD_CONTROL:
-            cam_config = {
-                "type": self.cam.type,
-                "fixedcamid": self.cam.fixedcamid,
-                "trackbodyid": self.cam.trackbodyid,
-                "lookat": self.cam.lookat.tolist(),
-                "distance": self.cam.distance,
-                "azimuth": self.cam.azimuth,
-                "elevation": self.cam.elevation
-            }
-            try:
-                with open(self.CONFIG_PATH, "w") as f:
-                    yaml.dump(cam_config, f)
-                print("Camera config saved at {}".format(self.CONFIG_PATH))
-            except Exception as e:
-                print(e)
-        # Quit
-        if key == glfw.KEY_ESCAPE:
-            print("Pressed ESC")
-            print("Quitting.")
-            glfw.set_window_should_close(self.window, True)
+        elif key == glfw.KEY_BACKSPACE:     # reset
+            mj.mj_resetData(self.m, self.d)
+            self.d.qpos[:] = self.reset_qpos
+            mj.mj_forward(self.m, self.d)
+        elif key == glfw.KEY_RIGHT:         # step forward
+            if self._paused:
+                mj.mj_step(self.m, self.d)
+        elif key == glfw.KEY_DOWN:          # step forward 100
+            if self._paused:
+                mj.mj_step(self.m, self.d, nstep=100)
+        elif key == glfw.KEY_ESCAPE:        # free camera
+            self.cam.type = mj.mjtCamera.mjCAMERA_FREE
+        elif key == glfw.KEY_EQUAL:         # bigger font
+            if self.fontscale < 200:
+                fontscale += 50
+                self.ctx = mj.MjrContext(self.model, fontscale)
+        elif key == glfw.KEY_MINUS:         # smaller font
+            if self.fonstacle > 100:
+                fontscale -= 50
+                self.ctx = mj.MjrContext(self.model, fontscale)
+        elif key == glfw.KEY_LEFT_BRACKET:  # previous fixed camera or free
+            if self.m.ncam > 0 and self.cam.type == mj.mjtCamera.mjCAMERA_FIXED:
+                if self.cam.fixedcamid > 0:
+                    self.cam.fixedcamid -= 1
+                else:
+                    self.cam.type = mj.mjtCamera.mjCAMERA_FREE
+        elif key == glfw.KEY_RIGHT_BRACKET:  # next fixed camera
+            if self.m.ncam > 0:
+                if self.cam.type != mj.mjtCamera.mjCAMERA_FIXED:
+                    self.cam.type = mj.mjtCamera.mjCAMERA_FIXED
+                elif self.cam.fixedcamid < self.m.ncam - 1:
+                    self.cam.fixedcamid += 1
+
         return
 
     def _cursor_pos_callback(self, window, xpos, ypos):
+        # no buttons down, nothing to do
         if not (self._button_left_pressed or self._button_right_pressed):
             return
+
+        # compute mouse displacement
+        dx = int(self._scale * xpos) - self._last_mouse_x
+        dy = int(self._scale * ypos) - self._last_mouse_y
+        self._last_mouse_x = int(self._scale * xpos)
+        self._last_mouse_y = int(self._scale * ypos)
+        width, height = glfw.get_framebuffer_size(window)
 
         mod_shift = (
             glfw.get_key(window, glfw.KEY_LEFT_SHIFT) == glfw.PRESS or
             glfw.get_key(window, glfw.KEY_RIGHT_SHIFT) == glfw.PRESS)
+
+        # determine action based on mouse button
         if self._button_right_pressed:
-            action = mujoco.mjtMouse.mjMOUSE_MOVE_H if mod_shift else mujoco.mjtMouse.mjMOUSE_MOVE_V
+            action = mj.mjtMouse.mjMOUSE_MOVE_H if mod_shift else mj.mjtMouse.mjMOUSE_MOVE_V
         elif self._button_left_pressed:
-            action = mujoco.mjtMouse.mjMOUSE_ROTATE_H if mod_shift else mujoco.mjtMouse.mjMOUSE_ROTATE_V
+            action = mj.mjtMouse.mjMOUSE_ROTATE_H if mod_shift else mj.mjtMouse.mjMOUSE_ROTATE_V
         else:
-            action = mujoco.mjtMouse.mjMOUSE_ZOOM
+            action = mj.mjtMouse.mjMOUSE_ZOOM
 
-        dx = int(self._scale * xpos) - self._last_mouse_x
-        dy = int(self._scale * ypos) - self._last_mouse_y
-        width, height = glfw.get_framebuffer_size(window)
-
+        # move perturb or camera
         with self._gui_lock:
             if self.pert.active:
-                mujoco.mjv_movePerturb(
+                mj.mjv_movePerturb(
                     self.model,
                     self.data,
                     action,
@@ -225,7 +277,7 @@ class MujocoViewer():
                     self.scn,
                     self.pert)
             else:
-                mujoco.mjv_moveCamera(
+                mj.mjv_moveCamera(
                     self.model,
                     action,
                     dx / height,
@@ -233,12 +285,12 @@ class MujocoViewer():
                     self.scn,
                     self.cam)
 
-        self._last_mouse_x = int(self._scale * xpos)
-        self._last_mouse_y = int(self._scale * ypos)
-
     def _mouse_button_callback(self, window, button, act, mods):
+        # update button state
         self._button_left_pressed = button == glfw.MOUSE_BUTTON_LEFT and act == glfw.PRESS
         self._button_right_pressed = button == glfw.MOUSE_BUTTON_RIGHT and act == glfw.PRESS
+
+        # Alt: swap left and right
 
         x, y = glfw.get_cursor_pos(window)
         self._last_mouse_x = int(self._scale * x)
@@ -273,13 +325,13 @@ class MujocoViewer():
         if key and self.pert.select > 0:
             # right: translate, left: rotate
             if self._button_right_pressed:
-                newperturb = mujoco.mjtPertBit.mjPERT_TRANSLATE
+                newperturb = mj.mjtPertBit.mjPERT_TRANSLATE
             if self._button_left_pressed:
-                newperturb = mujoco.mjtPertBit.mjPERT_ROTATE
+                newperturb = mj.mjtPertBit.mjPERT_ROTATE
 
             # perturbation onste: reset reference
             if newperturb and not self.pert.active:
-                mujoco.mjv_initPerturb(
+                mj.mjv_initPerturb(
                     self.model, self.data, self.scn, self.pert)
         self.pert.active = newperturb
 
@@ -302,7 +354,7 @@ class MujocoViewer():
             selpnt = np.zeros((3, 1), dtype=np.float64)
             selgeom = np.zeros((1, 1), dtype=np.int32)
             selskin = np.zeros((1, 1), dtype=np.int32)
-            selbody = mujoco.mjv_select(
+            selbody = mj.mjv_select(
                 self.model,
                 self.data,
                 self.vopt,
@@ -321,7 +373,7 @@ class MujocoViewer():
                     self.cam.lookat = selpnt.flatten()
                 # switch to tracking camera if dynamic body clicked
                 if selmode == 3 and selbody > 0:
-                    self.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
+                    self.cam.type = mj.mjtCamera.mjCAMERA_TRACKING
                     self.cam.trackbodyid = selbody
                     self.cam.fixedcamid = -1
             # set body selection
@@ -347,7 +399,7 @@ class MujocoViewer():
 
     def _scroll_callback(self, window, x_offset, y_offset):
         with self._gui_lock:
-            mujoco.mjv_moveCamera(
-                self.model, mujoco.mjtMouse.mjMOUSE_ZOOM, 0, -0.05 * y_offset, self.scn, self.cam)
+            mj.mjv_moveCamera(
+                self.model, mj.mjtMouse.mjMOUSE_ZOOM, 0, -0.05 * y_offset, self.scn, self.cam)
 
 

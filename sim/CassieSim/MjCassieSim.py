@@ -1,7 +1,7 @@
 import pathlib
 
 import mujoco as mj
-import mujoco_viewer
+from ..MujocoViewer import MujocoViewer
 from ..GenericSim import GenericSim
 
 class MjCassieSim(GenericSim):
@@ -35,7 +35,7 @@ class MjCassieSim(GenericSim):
         mj.mj_step(self.model, self.data)
 
     def viewer_init(self):
-        self.viewer = mujoco_viewer.MujocoViewer(self.model, self.data)
+        self.viewer = MujocoViewer(self.model, self.data)
 
     def viewer_render(self):
         if self.viewer.is_alive:

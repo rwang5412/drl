@@ -6,24 +6,30 @@ class GenericSim:
 
     def __init__(self) -> None:
         pass
-    
+
     def get_joint_pos():
         raise NotImplementedError
 
     def set_joint_pos():
         raise NotImplementedError
-    
+
     def get_joint_vel():
         raise NotImplementedError
-    
+
     def set_joint_vel():
         raise NotImplementedError
 
     def get_com_pos():
         raise NotImplementedError
-    
+
     def set_com_pos():
         raise NotImplementedError
 
     def step():
+        raise NotImplementedError
+
+    def viewer_init():
+        raise NotImplementedError
+
+    def viewer_draw():
         raise NotImplementedError
