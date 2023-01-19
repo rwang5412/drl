@@ -14,7 +14,7 @@ class MjCassieSim(GenericSim):
 
     def __init__(self) -> None:
         super().__init__()
-        model_path = pathlib.Path(__file__).parent.resolve() / "cassie.xml"
+        model_path = pathlib.Path(__file__).parent.resolve() / "cassiemujoco/cassie.xml"
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
         self.viewer = None

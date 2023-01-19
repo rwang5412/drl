@@ -1,7 +1,7 @@
-from sim.CassieSim import MjCassieSim
+from sim.CassieSim import MjCassieSim, LibCassieSim
 
 def test_mj_sim():
-    mj_sim = MjCassieSim()
+    mj_sim = MjDigitSim()
     mj_sim.viewer_init()
     while mj_sim.viewer.is_alive:
         if not mj_sim.viewer.paused:
@@ -11,7 +11,7 @@ def test_mj_sim():
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [MjCassieSim]
+    sim_list = [LibCassieSim]#, MjCassieSim]
     OKGREEN = '\033[92m'
     ENDC = '\033[0m'
     for sim in sim_list:

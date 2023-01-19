@@ -102,6 +102,7 @@ class MujocoViewer():
         self.fontscale = 150
         # Set up mujoco visualization objects
         # self.cam.type = mj.mjtCamera.mjCAMERA_FIXED
+        foo = mj.mjv_defaultFreeCamera(self.model, self.cam)
         # self.cam.fixedcamid = 0
         self.vopt.flags[11] = 1    # Render applied forces
 
@@ -314,7 +315,6 @@ class MujocoViewer():
         # move perturb or camera
         with self._gui_lock:
             if self.pert.active:
-                print("move perturb")
                 mj.mjv_movePerturb(
                     self.model,
                     self.data,

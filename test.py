@@ -18,3 +18,5 @@ if __name__ == "__main__":
         pass
     if args.sim:
         ts.test_all_sim()
+    else:
+        ts.test_mj_sim()
