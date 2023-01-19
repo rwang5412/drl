@@ -12,10 +12,6 @@ __pycache__/
 *.pyc
 *.mp4
 
-# C extensions
-*.so
-!libcassiemujoco.so
-
 # Distribution / packaging
 .Python
 build/
