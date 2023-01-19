@@ -1,11 +1,7 @@
 from sim.digit_sim import DigitArSim
 import asyncio
-import agility
 import agility.messages as msg
-import atexit
-import asyncio_atexit
 import numpy as np
-import time
 
 from sim.digit_sim.digit_ar_sim.llapi.llapictypes import (
     llapi_connected,
@@ -117,53 +113,55 @@ motor_pos_set['pos3'] = [
 async def test_ar_connect():
     ar = DigitArSim(path_to_ar_control=sim_path, args=conf)
     # Need to call this to connect API with simulator
-    await ar.api_setup()
-    print("connected with sim/api/llapi")
+    await ar.setup()
+    await ar.reset()
+    print("Connected with sim/api/llapi", ar.port)
     await ar.api.send(msg.SimulatorStart())
-    await ar.api_close()
-    ar.simulator_close()
+    await ar.close_all()
+    print("Closed all")
 
 async def test_ar_api_goto():
     ar = DigitArSim(path_to_ar_control=sim_path, args=conf)
     # Need to call this to connect API with simulator
-    await ar.api_setup()
+    await ar.setup()
+    await ar.reset()
     await ar.api.send(msg.SimulatorStart())
     ret = (await ar.api.wait_action(msg.ActionGoto(target={"xy": [2, 0]})))
     print(ret)
-    await ar.api_close()
-    ar.simulator_close()
+    await ar.close_all()
+    print("Closed all")
     
 async def test_ar_sim_forward():
     ar = DigitArSim(path_to_ar_control=sim_path, args=conf)
     # Need to call this to connect API with simulator
-    await ar.api_setup()
+    await ar.setup()
+    await ar.reset()
     # Send API actions, but this won't move robot, since the followings mannually sim-step
     await ar.api.send(msg.ActionGoto(target={"xy": [1, 0]}))
     
     # Test sim forward while running ar-control
     for _ in range(10):
-        await ar.sim_forward(dt=0.5)
-        await ar.api.send(msg.SimulatorPause())
-        await asyncio.sleep(0.1)
-        print("time={:3.2f}, x={:3.1f}, llapi-connected={}".format(
-            ar.t, ar.obs.base.translation[0], llapi_connected()))
+        await ar.sim_forward(dt=1)
+        # await ar.api.send(msg.SimulatorPause())
+        # await asyncio.sleep(0.1)
+        print("time={:3.2f}, x={:3.1f}".format(ar.t, ar.obs.base.translation[0]))
     if np.abs(ar.obs.base.translation[0] - 1) < 1e-2:
         print("success")
-    await ar.api_close()
-    ar.simulator_close()
+    await ar.close_all()
+    print("Closed all")
     
 async def test_ar_sim_llapi():
     ar = DigitArSim(path_to_ar_control=sim_path, args=conf)
     # Need to call this to connect API with simulator
-    await ar.api_setup()
-    # Send API actions, but this won;t move robot, since the followings mannually sim-step
+    await ar.setup()
+    await ar.reset()
     await ar.api.send(msg.ActionMove(velocity={'rpyxyz':[0,0,0,0.5,0,0]}))
     
     # Test sim forward while running ar-control
     for i in range(2):
         await ar.sim_forward(dt=1)
         print("time={:3.2f}, x={:3.1f}, llapi-connected={}".format(
-            ar.t, ar.obs.base.translation[0], llapi_connected()))
+            ar.t, ar.get_base_translation()[0], ar.is_llapi_connected()))
     
     # Test LLAPI mode toggle
     # To fully enable LLAPI and take over ar-control. Call sim_forward with actions for step 1 & 2
@@ -180,15 +178,15 @@ async def test_ar_sim_llapi():
     # Since LLAPI mode on, we can keep sending to execute custom commands.
     # Robot will fall in this test case. 
     # NOTE: still mystery about when Damping mode will turn on
-    for i in range(2):
+    for i in range(10):
         if i%3==1:
-            await ar.sim_forward(dt=1, actions=motor_pos_set['pos1'])
+            await ar.sim_forward(dt=0.5, actions=motor_pos_set['pos1'])
         elif i%3==2:
-            await ar.sim_forward(dt=1, actions=motor_pos_set['pos2'])
+            await ar.sim_forward(dt=0.5, actions=motor_pos_set['pos2'])
         else:
-            await ar.sim_forward(dt=1, actions=motor_pos_set['pos3'])
-        print("time={: 4.2f}, z-vel={: 3.2f}, llapi-connect={}, obs-error={}".format(
-            ar.t, ar.obs.base.linear_velocity[2], llapi_connected(), ar.obs.error))
+            await ar.sim_forward(dt=0.5, actions=motor_pos_set['pos3'])
+        print("time={: 4.2f}, z-vel={: 3.2f}, llapi-connect={}".format(
+            ar.t, ar.get_base_linear_velocity()[2], ar.is_llapi_connected()))
 
         # Example of applying damping mode
         # TODO: helei, ideally this will be triggered auto by ar-control. Need to try with hardware.
@@ -197,5 +195,5 @@ async def test_ar_sim_llapi():
         #     break
         # await asyncio.sleep(5)
 
-    await ar.api_close()
-    ar.simulator_close()
+    await ar.close_all()
+    print("Closed all")
