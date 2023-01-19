@@ -1,3 +1,5 @@
+import numpy as np
+
 class GenericSim:
     """
     A base class to define the functions that interact with simulator.
@@ -7,29 +9,35 @@ class GenericSim:
     def __init__(self) -> None:
         pass
 
-    def get_joint_pos():
+    def get_joint_pos(self):
         raise NotImplementedError
 
-    def set_joint_pos():
+    def set_joint_pos(self, pos: np.ndarray):
         raise NotImplementedError
 
-    def get_joint_vel():
+    def get_joint_vel(self):
         raise NotImplementedError
 
-    def set_joint_vel():
+    def set_joint_vel(self, vel: np.ndarray):
         raise NotImplementedError
 
-    def get_com_pos():
+    def get_com_pos(self):
         raise NotImplementedError
 
-    def set_com_pos():
+    def set_com_pos(self, pos: np.ndarray):
         raise NotImplementedError
 
-    def step():
+    def get_torque(self):
         raise NotImplementedError
 
-    def viewer_init():
+    def set_torque(self, torque: np.ndarray):
         raise NotImplementedError
 
-    def viewer_draw():
+    def sim_forward(self, dt: float = None):
+        raise NotImplementedError
+
+    def viewer_init(self):
+        raise NotImplementedError
+
+    def viewer_draw(self):
         raise NotImplementedError

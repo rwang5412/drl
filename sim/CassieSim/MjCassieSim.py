@@ -1,9 +1,9 @@
-import pathlib
-
 import mujoco as mj
 import numpy as np
-from ..MujocoViewer import MujocoViewer
+import pathlib
+
 from ..GenericSim import GenericSim
+from ..MujocoViewer import MujocoViewer
 
 class MjCassieSim(GenericSim):
 
@@ -37,10 +37,10 @@ class MjCassieSim(GenericSim):
     def get_motor_pos(self):
         return self.data.qpos[self.motor_inds]
 
-    def set_torque(self, torque):
+    def set_torque(self, torque: np.ndarray):
         self.data.ctrl[:] = torque
 
-    def step(self):
+    def sim_forward(self, dt: float = None):
         mj.mj_step(self.model, self.data)
 
     def viewer_init(self):
