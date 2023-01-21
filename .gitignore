@@ -1,6 +1,5 @@
 docs/build/*
 
-
 ./trained_models/
 .vscode/
 MUJOCO_LOG.TXT

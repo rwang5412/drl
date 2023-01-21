@@ -1,6 +1,6 @@
 import numpy as np
 
-from sim.CassieSim import MjCassieSim
+from sim.cassie_sim import MjCassieSim
 
 OKGREEN = '\033[92m'
 FAIL = '\033[91m'
