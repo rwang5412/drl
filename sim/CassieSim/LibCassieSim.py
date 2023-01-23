@@ -17,11 +17,9 @@ class LibCassieSim(GenericSim):
     def __init__(self, *args, **kwargs) -> None:
         self.state_est_size  = 35
         self.num_actuators   = 10
-        print("before sim")
         # self.sim = CassieSim(modelfile=kwargs['modelfile'], terrain=kwargs['terrain'], perception=kwargs['perception'])
         # self.sim = CassieSim(terrain=kwargs['terrain'], perception=kwargs['perception'])
-        self.sim = CassieSim(terrain=kwargs['terrain'], perception=kwargs['perception'])
-        print("made sim")
+        self.sim = CassieSim()
         self.vis = None
 
         self.motor_pos_idx      = [7, 8, 9, 14, 20, 21, 22, 23, 28, 34]
@@ -63,7 +61,10 @@ class LibCassieSim(GenericSim):
 
     def sim_forward(self, dt: float = None):
         # NOTE: Ok to assume libcassie always at 2kHz?
-        num_step = dt // 0.0005
+        if dt:
+            num_step = dt // 0.0005
+        else:
+            num_step = 1
         for i in range(num_step):
             self.robot_state = self.sim.step_pd(self.u)
 
@@ -71,4 +72,4 @@ class LibCassieSim(GenericSim):
         self.viewer = CassieVis(self.sim)
 
     def viewer_render(self):
-        self.vis.draw(self.sim)
+        self.viewer.draw(self.sim)

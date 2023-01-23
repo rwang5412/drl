@@ -145,7 +145,7 @@ class MujocoViewer():
             glfw.destroy_window(self.window)
             self.window = None
             self.is_alive = False
-            return
+            return False
         # # Apply perturbations
         if self.pert.select > 0:
             self.data.xfrc_applied = np.zeros((self.model.nbody, 6))
@@ -179,6 +179,7 @@ class MujocoViewer():
                     self.viewport, str_paused, str_info, self.ctx)
             glfw.swap_buffers(self.window)
         glfw.poll_events()
+        return True
 
 
     def _key_callback(self, window, key, scancode, action, mods):

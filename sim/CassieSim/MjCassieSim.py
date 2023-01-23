@@ -1,7 +1,7 @@
 import pathlib
-
 import mujoco as mj
 import numpy as np
+
 from ..MujocoViewer import MujocoViewer
 from ..GenericSim import GenericSim
 

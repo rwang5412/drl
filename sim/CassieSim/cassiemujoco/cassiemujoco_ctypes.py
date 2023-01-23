@@ -26,7 +26,7 @@ else:
     ctypes._pointer_t_type_cache = {}
     def POINTER_T(pointee):
         # a pointer should have the same length as LONG
-        fake_ptr_base_type = ctypes.c_uint64 
+        fake_ptr_base_type = ctypes.c_uint64
         # specific case for c_void_p
         if pointee is None: # VOID pointer type. c_void_p.
             pointee = type(None) # ctypes.c_void_p # ctypes.c_ulong
@@ -47,7 +47,7 @@ else:
                 raise TypeError('This is not a ctypes pointer.')
             def __init__(self, **args):
                 raise TypeError('This is not a ctypes pointer. It is not instanciable.')
-        _class = type('LP_%d_%s'%(8, clsname), (_T,),{}) 
+        _class = type('LP_%d_%s'%(8, clsname), (_T,),{})
         ctypes._pointer_t_type_cache[clsname] = _class
         return _class
 
@@ -1072,7 +1072,7 @@ __all__ = \
     'elmo_out_t', 'pack_cassie_in_t', 'cassie_sim_apply_force','cassie_sim_full_reset',
     'cassie_leg_out_t', 'wait_for_packet',
     'struct_c__SA_cassie_leg_in_t', 'struct_c__SA_state_joint_out_t',
-    'process_packet_header', 'cassie_sim_release', 'cassie_sim_foot_forces', 
+    'process_packet_header', 'cassie_sim_release', 'cassie_sim_foot_forces',
     'cassie_sim_foot_positions', 'cassie_sim_foot_velocities', 'struct_c__SA_state_foot_out_t',
     'cassie_sim_cm_position','cassie_sim_centroid_inertia',
     'cassie_sim_cm_velocity','cassie_sim_angular_momentum',
@@ -1092,7 +1092,7 @@ __all__ = \
     'cassie_sim_loop_constraint_info',
     'cassie_sim_body_ipos', 'cassie_sim_set_body_ipos',
     'cassie_sim_geom_friction', 'cassie_sim_set_geom_friction',
-    'cassie_sim_set_const', 
+    'cassie_sim_set_const',
     'cassie_sim_geom_rgba', 'cassie_sim_geom_name_rgba', 'cassie_sim_set_geom_rgba', 'cassie_sim_set_geom_name_rgba',
     'cassie_sim_geom_quat', 'cassie_sim_geom_name_quat', 'cassie_sim_set_geom_quat', 'cassie_sim_set_geom_name_quat',
     'cassie_sim_geom_pos', 'cassie_sim_geom_name_pos', 'cassie_sim_set_geom_pos', 'cassie_sim_set_geom_name_pos',
@@ -1103,9 +1103,9 @@ __all__ = \
     'cassie_sim_foot_quat', 'cassie_sim_body_vel', 'cassie_sim_set_body_name_mass',
     'cassie_sim_get_hfield_nrow', 'cassie_sim_get_hfield_ncol', 'cassie_sim_get_nhfielddata',
     'cassie_sim_get_hfield_size', 'cassie_sim_set_hfield_size', 'cassie_sim_hfielddata', 'cassie_sim_set_hfielddata',
-    'cassie_sim_foot_quat', 'cassie_sim_body_vel', 'cassie_sim_set_body_name_mass', 'cassie_vis_set_cam', 
+    'cassie_sim_foot_quat', 'cassie_sim_body_vel', 'cassie_sim_set_body_name_mass', 'cassie_vis_set_cam',
     'cassie_sim_joint_filter', 'cassie_sim_drive_filter', 'cassie_sim_set_joint_filter', 'cassie_sim_set_drive_filter',
-    'cassie_sim_get_joint_filter',  'cassie_sim_get_drive_filter', 
+    'cassie_sim_get_joint_filter',  'cassie_sim_get_drive_filter',
     'cassie_sim_torque_delay', 'cassie_sim_set_torque_delay', 'drive_filter_t', 'joint_filter_t',
     'cassie_sim_params', 'cassie_sim_nv', 'cassie_sim_nbody', 'cassie_sim_nq', 'cassie_sim_ngeom',
     'cassie_vis_record_frame', 'cassie_vis_init_recording', 'cassie_vis_close_recording', 'cassie_vis_window_resize', 'cassie_vis_attach_cam',

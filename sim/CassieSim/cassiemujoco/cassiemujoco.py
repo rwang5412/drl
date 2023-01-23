@@ -24,7 +24,6 @@ _dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Initialize libcassiesim
 default_model = _dir_path +  "/cassie.xml"
-print("model", default_model)
 cassie_mujoco_init(str.encode(default_model))
 
 # Interface classes
