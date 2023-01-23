@@ -1,6 +1,5 @@
 docs/build/*
 
-
 ./trained_models/
 .vscode/
 MUJOCO_LOG.TXT
@@ -11,10 +10,6 @@ __pycache__/
 *$py.class
 *.pyc
 *.mp4
-
-# C extensions
-*.so
-!libcassiemujoco.so
 
 # Distribution / packaging
 .Python

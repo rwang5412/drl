@@ -60,9 +60,8 @@ class MujocoViewer():
         self.model = model
         self.data = data
         self.reset_qpos = reset_qpos
-        if len(self.reset_qpos) != self.model.nq:
-            print("Error: MujocoViewer reset qpos not correct size")
-            exit()
+        assert len(self.reset_qpos) == self.model.nq, \
+               f"Size of MujocoViewer reset qpos does not match model nq size"
 
         self.is_alive = True
         self.paused = True
@@ -101,9 +100,12 @@ class MujocoViewer():
         self.ctx = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_150.value)
         self.fontscale = 150
         # Set up mujoco visualization objects
-        # self.cam.type = mj.mjtCamera.mjCAMERA_FIXED
-        foo = mj.mjv_defaultFreeCamera(self.model, self.cam)
-        # self.cam.fixedcamid = 0
+        self.cam.type = mj.mjtCamera.mjCAMERA_TRACKING
+        self.cam.trackbodyid = 0
+        self.cam.fixedcamid = -1
+        self.cam.distance = 3
+        self.cam.azimuth = 90
+        self.cam.elevation = -20
         self.vopt.flags[11] = 1    # Render applied forces
 
         # Set interaction ctrl vars
@@ -162,8 +164,12 @@ class MujocoViewer():
                 self.scn)
             mj.mjr_render(self.viewport, self.scn, self.ctx)
             if self._showhelp:
-                mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value, mj.mjtGridPos.mjGRID_TOPLEFT,
-                    self.viewport, HELP_TITLE, HELP_CONTENT, self.ctx)
+                mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value,
+                               mj.mjtGridPos.mjGRID_TOPLEFT,
+                               self.viewport,
+                               HELP_TITLE,
+                               HELP_CONTENT,
+                               self.ctx)
             if self._showinfo:
                 if self.paused:
                     str_paused = "\nPaused"
@@ -175,8 +181,12 @@ class MujocoViewer():
                 else:
                     str_slow = ""
                 str_info = str_slow + f"\n\n{self.data.time:.2f}"
-                mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value, mj.mjtGridPos.mjGRID_BOTTOMLEFT,
-                    self.viewport, str_paused, str_info, self.ctx)
+                mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value,
+                               mj.mjtGridPos.mjGRID_BOTTOMLEFT,
+                               self.viewport,
+                               str_paused,
+                               str_info,
+                               self.ctx)
             glfw.swap_buffers(self.window)
         glfw.poll_events()
         return True
@@ -190,7 +200,7 @@ class MujocoViewer():
             # If press 'P' with no mods, then attach camera to center of model
             if key == glfw.KEY_P and mods == 0:
                 self.cam.type = mj.mjtCamera.mjCAMERA_TRACKING
-                self.cam.trackbodyid = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, "cassie-pelvis")
+                self.cam.trackbodyid = 0
                 self.cam.fixedcamid = -1
                 self.cam.distance = 3
                 self.cam.azimuth = 90
@@ -429,6 +439,11 @@ class MujocoViewer():
 
     def _scroll_callback(self, window, x_offset, y_offset):
         with self._gui_lock:
-            mj.mjv_moveCamera(self.model, mj.mjtMouse.mjMOUSE_ZOOM, 0, -0.05 * y_offset, self.scn, self.cam)
+            mj.mjv_moveCamera(self.model,
+                              mj.mjtMouse.mjMOUSE_ZOOM,
+                              0,
+                              -0.05 * y_offset,
+                              self.scn,
+                              self.cam)
 
 
