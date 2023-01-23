@@ -9,40 +9,52 @@ class GenericSim:
     def __init__(self) -> None:
         pass
 
-    def get_joint_pos(self):
+    def get_joint_position(self):
         raise NotImplementedError
 
-    def set_joint_pos(self, pos: np.ndarray):
+    def set_joint_position(self, position: np.ndarray):
         raise NotImplementedError
 
-    def get_joint_vel(self):
+    def get_joint_velocity(self):
         raise NotImplementedError
 
-    def set_joint_vel(self, vel: np.ndarray):
+    def set_joint_velocity(self, velocity: np.ndarray):
         raise NotImplementedError
 
-    def get_com_pos(self):
+    def get_motor_position(self):
         raise NotImplementedError
 
-    def set_com_pos(self, pos: np.ndarray):
+    def set_motor_position(self, position: np.ndarray):
         raise NotImplementedError
 
-    def get_com_trans_vel(self):
+    def get_motor_velocity(self):
         raise NotImplementedError
 
-    def set_com_trans_vel(self, vel: np.ndarray):
+    def set_motor_velocity(self, velocity: np.ndarray):
         raise NotImplementedError
 
-    def get_com_quat(self):
+    def get_base_translation(self):
         raise NotImplementedError
 
-    def set_com_quat(self, quat: np.ndarray):
+    def set_base_translation(self, pose: np.ndarray):
         raise NotImplementedError
 
-    def get_com_rot_vel(self):
+    def get_base_linear_velocity(self):
         raise NotImplementedError
 
-    def set_com_rot_vel(self, vel: np.ndarray):
+    def set_base_linear_velocity(self, velocity: np.ndarray):
+        raise NotImplementedError
+
+    def get_base_orientation(self):
+        raise NotImplementedError
+
+    def set_base_orientation(self, quat: np.ndarray):
+        raise NotImplementedError
+
+    def get_base_angular_velocity(self):
+        raise NotImplementedError
+
+    def set_base_angular_velocity(self, velocity: np.ndarray):
         raise NotImplementedError
 
     def get_torque(self):

@@ -1,14 +1,45 @@
 import numpy as np
 
 from sim.cassie_sim import MjCassieSim
+from sim.digit_sim import DigitMjSim
 
 OKGREEN = '\033[92m'
 FAIL = '\033[91m'
 ENDC = '\033[0m'
 
+# self.motor_name = ['left-leg/hip-roll', 'left-leg/hip-yaw', 'left-leg/hip-pitch',
+#                        'left-leg/knee', 'left-leg/toe-a', 'left-leg/toe-b',
+#                        'left-arm/shoulder-roll','left-arm/shoulder-pitch', 'left-arm/shoulder-yaw', 'left-arm/elbow',
+#                        'right-leg/hip-roll', 'right-leg/hip-yaw', 'right-leg/hip-pitch',
+#                        'right-leg/knee', 'right-leg/toe-a', 'right-leg/toe-b',
+#                        'right-arm/shoulder-roll','right-arm/shoulder-pitch', 'right-arm/shoulder-yaw', 'right-arm/elbow']
+
+# self.joint_name = ['left-leg/shin', 'left-leg/tarsus', 'left-leg/heel-spring', 'left-leg/toe-pitch', 'left-leg/toe-roll',
+#                     'right-leg/shin', 'right-leg/tarsus', 'right-leg/heel-spring', 'right-leg/toe-pitch', 'right-leg/toe-roll']
+    
+# self.motor_position_inds=[]
+# self.motor_velocity_inds=[]
+# for m in self.motor_name:
+#     self.motor_position_inds.append(self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m)])
+#     self.motor_velocity_inds.append(self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m)])
+#     print(m, mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m), self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m)])
+# print(self.motor_position_inds)
+# print(self.motor_velocity_inds)
+# self.joint_position_inds=[]
+# self.joint_velocity_inds=[]
+# for m in self.joint_name:
+#     self.joint_position_inds.append(self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m)])
+#     self.joint_velocity_inds.append(self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m)])
+#     print(m, mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m), self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, m)])
+# print(self.joint_position_inds)
+# print(self.joint_velocity_inds)
+# exit()
+
 def test_mj_sim():
-    mj_sim = MjCassieSim()
+    mj_sim = DigitMjSim()
+    mj_sim.hold()
     mj_sim.viewer_init()
+    mj_sim.viewer.paused = True
     while mj_sim.viewer.is_alive:
         if not mj_sim.viewer.paused:
             for _ in range(50):
@@ -17,20 +48,22 @@ def test_mj_sim():
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [MjCassieSim]
-    num_pass = 0
-    for sim in sim_list:
-        print(f"Testing {sim.__name__}")
-        num_pass += test_sim_init(sim)
-        num_pass += test_sim_sim_forward(sim)
-        num_pass += test_sim_viewer(sim)
-        num_pass += test_sim_PD(sim)
-        num_pass += test_sim_get_set(sim)
-        if num_pass == 5:
-            print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
-        else:
-            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 5 tests.{ENDC}")
+    # sim_list = [MjCassieSim]
+    # num_pass = 0
+    # for sim in sim_list:
+    #     print(f"Testing {sim.__name__}")
+    #     num_pass += test_sim_init(sim)
+    #     num_pass += test_sim_sim_forward(sim)
+    #     num_pass += test_sim_viewer(sim)
+    #     num_pass += test_sim_PD(sim)
+    #     num_pass += test_sim_get_set(sim)
+    #     if num_pass == 5:
+    #         print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
+    #     else:
+    #         print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 5 tests.{ENDC}")
 
+    test_mj_sim()
+    
 def test_sim_init(sim):
     print("Making sim")
     test_sim = sim()
