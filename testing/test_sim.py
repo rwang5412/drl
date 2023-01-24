@@ -98,8 +98,7 @@ def test_sim_PD(sim):
         for i in range(3000):
             test_sim.set_PD(test_sim.offset, np.zeros(test_sim.num_actuators), test_sim.kp, test_sim.kd)
             test_sim.sim_forward()
-            print(i, test_sim.viewer.is_alive)
-            if i%100==0:
+            if i%100==0 and test_sim.viewer.is_alive:
                 test_sim.viewer_render()
     test_sim.release()
     if np.any((test_sim.get_motor_position() - test_sim.offset) > 1e-1):
