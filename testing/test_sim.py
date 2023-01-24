@@ -3,11 +3,6 @@ import mujoco as mj
 
 from sim.cassie_sim import MjCassieSim
 from sim.digit_sim import DigitMjSim
-
-OKGREEN = '\033[92m'
-FAIL = '\033[91m'
-ENDC = '\033[0m'
-
 from .common import (
     DIGIT_MOTOR_NAME,
     DIGIT_JOINT_NAME,
@@ -15,8 +10,13 @@ from .common import (
     CASSIE_JOINT_NAME
 )
 
-# NOTE: This is left here to simplify test when developing sim.
+OKGREEN = '\033[92m'
+FAIL = '\033[91m'
+ENDC = '\033[0m'
+
 def test_mj_sim():
+    """This is left here to simplify test when developing sim.
+    """
     # mj_sim = MjCassieSim()
     mj_sim = DigitMjSim()
     mj_sim.reset()
