@@ -5,6 +5,9 @@ import pathlib
 from ..GenericSim import GenericSim
 from ..MujocoViewer import MujocoViewer
 
+WARNING = '\033[93m'
+ENDC = '\033[0m'
+
 class DigitMjSim(GenericSim):
   """Wrapper for Digit Mujoco.
   """
@@ -68,8 +71,6 @@ class DigitMjSim(GenericSim):
   def sim_forward(self, dt: float=None):
     if dt:
       num_steps = int(dt / self.model.opt.timestep)
-      WARNING = '\033[93m'
-      ENDC = '\033[0m'
       if num_steps * self.model.opt.timestep != dt:
         raise RuntimeError(f"{WARNING}Warning: {dt} does not fit evenly within the sim timestep of"
             f" {self.model.opt.timestep}, simulating forward"
