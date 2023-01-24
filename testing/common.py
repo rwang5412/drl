@@ -1,3 +1,7 @@
+"""
+This file includes some constants that are used for mujoco or ar-control. 
+"""
+
 # Testing utils for Digit ar-control
 SIM_PATH = './sim/digit_sim/digit_ar_sim/ar-control'
 
@@ -49,7 +53,7 @@ MOTOR_POSITION_SET['pos3'] = [
 0.3, -0.0943845, 0.0, 0.3633,
 ]
 
-# Readable strings for motor and joint definitions. These are also used for testing.
+# Readable strings for motor and joint definitions. These are also used for Mujoco testing.
 DIGIT_MOTOR_NAME = [
   'left-leg/hip-roll', 'left-leg/hip-yaw', 'left-leg/hip-pitch', 'left-leg/knee', 
   'left-leg/toe-a', 'left-leg/toe-b',
