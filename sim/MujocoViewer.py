@@ -191,7 +191,6 @@ class MujocoViewer():
         glfw.poll_events()
         return True
 
-
     def _key_callback(self, window, key, scancode, action, mods):
         if action == glfw.RELEASE:
             # Don't do anything if released the key

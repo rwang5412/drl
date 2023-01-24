@@ -48,7 +48,7 @@ class MjCassieSim(GenericSim):
         assert pos.ndim == 1, \
                f"set_joint_pos did not receive a 1 dimensional array"
         assert len(pos) == len(self.joint_pos_inds), \
-               f"set_joint_pos did not receive array of size ({len(joint_pos_inds)})"
+               f"set_joint_pos did not receive array of size ({len(self.joint_pos_inds)})"
         self.data.qpos[self.joint_pos_inds] = pos
         mj.mj_forward(self.model, self.data)
 
@@ -59,8 +59,8 @@ class MjCassieSim(GenericSim):
         assert vel.ndim == 1, \
                f"set_joint_vel did not receive a 1 dimensional array"
         assert len(vel) == len(self.joint_vel_inds), \
-               f"set_joint_vel did not receive array of size ({len(joint_vel_inds)})"
-        self.data.qpos[self.joint_vel_inds] = vel
+               f"set_joint_vel did not receive array of size ({len(self.joint_vel_inds)})"
+        self.data.qvel[self.joint_vel_inds] = vel
         mj.mj_forward(self.model, self.data)
 
     def get_motor_pos(self):
@@ -72,6 +72,17 @@ class MjCassieSim(GenericSim):
         assert len(pos) == len(self.motor_pos_inds), \
                f"set_motor_pos did not receive array of size {len(self.motor_pos_inds)}"
         self.data.qpos[self.motor_pos_inds] = pos
+        mj.mj_forward(self.model, self.data)
+
+    def get_motor_vel(self):
+        return self.data.qvel[self.motor_vel_inds]
+
+    def set_motor_vel(self, vel: np.ndarray):
+        assert vel.ndim == 1, \
+               f"set_motor_vel did not receive a 1 dimensional array"
+        assert len(vel) == len(self.motor_vel_inds), \
+               f"set_motor_vel did not receive array of size {len(self.motor_vel_inds)}"
+        self.data.qvel[self.motor_vel_inds] = vel
         mj.mj_forward(self.model, self.data)
 
     def get_com_pos(self):
@@ -189,9 +200,20 @@ class MjCassieSim(GenericSim):
         self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos)
 
     def viewer_render(self):
+        assert not self.viewer is None, \
+               f"viewer has not been initalized yet, can not render"
         if self.viewer.is_alive:
             self.viewer.render()
             return True
         else:
             print("Error: Viewer not alive, can not render.")
+            return False
+
+    def viewer_paused(self):
+        assert not self.viewer is None, \
+               f"viewer has not been initalized yet, can not check paused status"
+        if self.viewer.is_alive:
+            return self.viewer.is_paused
+        else:
+            print("Error: Viewer not alive, can not check paused status.")
             return False

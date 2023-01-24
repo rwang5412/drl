@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 from sim.cassie_sim import MjCassieSim
 from sim.cassie_sim import LibCassieSim
@@ -18,8 +19,8 @@ def test_mj_sim():
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    # sim_list = [LibCassieSim]#, MjCassieSim]
-    sim_list = [MjCassieSim]
+    sim_list = [LibCassieSim]#, MjCassieSim]
+    # sim_list = [MjCassieSim]
     OKGREEN = '\033[92m'
     ENDC = '\033[0m'
     num_pass = 0
@@ -56,10 +57,14 @@ def test_sim_viewer(sim):
     test_sim.viewer_init()
     render_state = test_sim.viewer_render()
     while render_state:
-        if not test_sim.viewer.paused:
+        start_t = time.time()
+        if not test_sim.viewer_paused():
             for _ in range(50):
                 test_sim.sim_forward()
         render_state = test_sim.viewer_render()
+        # Assume 2kHz sim for now
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
     print("Passed sim viewer")
     return True
 
@@ -87,6 +92,8 @@ def test_sim_get_set(sim):
     # Test getters
     test_sim.get_joint_pos()
     test_sim.get_joint_vel()
+    test_sim.get_motor_pos()
+    test_sim.get_motor_vel()
     test_sim.get_com_pos()
     test_sim.get_com_trans_vel()
     test_sim.get_com_quat()
@@ -96,9 +103,11 @@ def test_sim_get_set(sim):
     # Test setters
     test_sim.set_joint_pos(np.zeros(test_sim.num_joint))
     test_sim.set_joint_vel(np.zeros(test_sim.num_joint))
-    test_sim.set_com_pos(np.zeros(3))
+    test_sim.set_motor_pos(np.zeros(test_sim.num_actuators))
+    test_sim.set_motor_vel(np.zeros(test_sim.num_actuators))
+    test_sim.set_com_pos(2*np.ones(3))
     test_sim.set_com_trans_vel(np.zeros(3))
-    test_sim.set_com_quat(np.zeros(4))
+    test_sim.set_com_quat(np.array([0, 0.6987058, 0.2329019, 0.6764369]))
     test_sim.set_com_rot_vel(np.zeros(3))
     test_sim.set_torque(np.zeros(test_sim.num_actuators))
 

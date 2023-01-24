@@ -20,6 +20,18 @@ class GenericSim:
 
     def set_joint_vel(self, vel: np.ndarray):
         raise NotImplementedError
+    
+    def get_motor_pos(self):
+        raise NotImplementedError
+
+    def set_motor_pos(self, pos: np.ndarray):
+        raise NotImplementedError
+
+    def get_motor_vel(self):
+        raise NotImplementedError
+
+    def set_motor_vel(self, vel: np.ndarray):
+        raise NotImplementedError
 
     def get_com_pos(self):
         raise NotImplementedError
@@ -66,5 +78,5 @@ class GenericSim:
     def viewer_init(self):
         raise NotImplementedError
 
-    def viewer_draw(self):
+    def viewer_render(self):
         raise NotImplementedError
