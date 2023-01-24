@@ -445,4 +445,9 @@ class MujocoViewer():
                               self.scn,
                               self.cam)
 
-
+    def close(self):
+        self.ctx.free()
+        glfw.window_should_close(self.window)
+        glfw.destroy_window(self.window)
+        self.window = None
+        self.is_alive = False

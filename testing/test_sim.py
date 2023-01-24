@@ -91,13 +91,14 @@ def test_sim_PD(sim):
     test_sim.reset()
     test_sim.set_base_position(np.array([0, 0, 1.5]))
     test_sim.hold()
-    test_sim.viewer_init()
     for _ in range(1000):
         test_sim.sim_forward()
+    test_sim.viewer_init()
     while test_sim.viewer.is_alive:
         for i in range(3000):
             test_sim.set_PD(test_sim.offset, np.zeros(test_sim.num_actuators), test_sim.kp, test_sim.kd)
             test_sim.sim_forward()
+            print(i, test_sim.viewer.is_alive)
             if i%100==0:
                 test_sim.viewer_render()
     test_sim.release()
