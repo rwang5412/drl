@@ -37,6 +37,7 @@ def test_mj_sim():
 
 def test_all_sim():
     # test_mj_sim()
+    # exit()
     # TODO: Add other sims to this list after implemented
     sim_list = [MjCassieSim, DigitMjSim]
     num_pass = 0
