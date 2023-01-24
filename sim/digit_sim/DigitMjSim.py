@@ -15,10 +15,10 @@ class DigitMjSim(GenericSim):
     self.data = mj.MjData(self.model)
     self.viewer = None
 
-    self.motor_position_inds=[7, 8, 9, 14, 18, 23, 30, 31, 32, 33, 34, 35, 36, 41, 45, 50, 57, 58, 59, 60]
-    self.motor_velocity_inds=[6, 7, 8, 12, 16, 20, 26, 27, 28, 29, 30, 31, 32, 36, 40, 44, 50, 51, 52, 53]
-    self.joint_position_inds=[15, 16, 17, 28, 29, 42, 43, 44, 55, 56]
-    self.joint_velocity_inds=[13, 14, 15, 24, 25, 37, 38, 39, 48, 49]
+    self.motor_position_inds = [7, 8, 9, 14, 18, 23, 30, 31, 32, 33, 34, 35, 36, 41, 45, 50, 57, 58, 59, 60]
+    self.motor_velocity_inds = [6, 7, 8, 12, 16, 20, 26, 27, 28, 29, 30, 31, 32, 36, 40, 44, 50, 51, 52, 53]
+    self.joint_position_inds = [15, 16, 17, 28, 29, 42, 43, 44, 55, 56]
+    self.joint_velocity_inds = [13, 14, 15, 24, 25, 37, 38, 39, 48, 49]
 
     self.base_position_inds = [0, 1, 2]
     self.base_orientation_inds = [3, 4, 5, 6]
@@ -35,21 +35,34 @@ class DigitMjSim(GenericSim):
     self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
     
     # TODO: helei, need to actually write the conrod q correctly. Need IK for this.
-    self.reset_qpos = np.array([0, 0, 1, 1, 0, 0, 0,
-                      0.332, -0.00524161, 0.178407, 1,0,0,0, 0.21412, 0.00520115, -0.228917,
-                      0.0544359, -0.000953898, 1,0,0,0, 0.00220685, 1,0,0,0, -0.0521339, 0.0516071,
-                      -0.332, 0.00523932, -0.178411, 1,0,0,0, -0.214114, -0.00520115, 0.222871,
-                      -0.0544391, 0.000977788, 1,0,0,0, -0.002214, 1,0,0,0, 0.0521441, -0.0516029,
-                      -0.106437, 0.89488, -0.00867663, 0.344684,
-                      0.106339, -0.894918, 0.00889888, -0.344627
-                      ])
+    self.reset_qpos = np.array([0, 0, 1,  1, 0 ,0 ,0,
+      3.33020155e-01, -2.66178730e-02, 1.92369587e-01, 
+      9.93409734e-01, -1.04126145e-03, 1.82534311e-03, 1.14597921e-01,
+      2.28971047e-01, 1.48527831e-03, -2.31455693e-01, 4.55857916e-04, 
+      -1.29734322e-02,  
+      9.89327705e-01, 1.45524756e-01, 1.73630859e-03, 7.08678995e-03, 
+      -2.03852305e-02,
+      9.88035432e-01, 1.53876629e-01, 6.59769560e-05, 1.03905844e-02,
+      -3.52778547e-03, -5.54992074e-02, 
+      -1.05542715e-01, 8.94852532e-01, -8.63756398e-03, 3.44780280e-01,
+      -3.33020070e-01, 2.66195360e-02, -1.92382190e-01,
+      9.93409659e-01, 1.04481446e-03, 1.82489637e-03, -1.14598546e-01,
+      -2.28971188e-01, -1.48636971e-03, 2.31454977e-01, -4.53425792e-04,
+      1.41299940e-02,
+      9.89323654e-01, -1.45521550e-01, 1.80177609e-03, -7.67726135e-03,
+      1.93767895e-02,
+      9.88041418e-01, -1.53872399e-01, 1.26073837e-05, -9.87117790e-03,
+      2.36874210e-03, 5.55559678e-02,
+      1.05444698e-01, -8.94890429e-01, 8.85979401e-03, -3.44723293e-01
+    ])
 
   def reset(self, qpos: np.ndarray=None):
     if qpos:
-      assert len(qpos) == self.model.nq, f"reset qpos with {len(qpos)}, but should be {self.model.nq}"
+      assert len(qpos) == self.model.nq, f"reset qpos len={len(qpos)}, but should be {self.model.nq}"
       self.data.qpos = qpos
     else:
       self.data.qpos = self.reset_qpos
+    mj.mj_forward(self.model, self.data)
   
   def sim_forward(self, dt: float=None):
     if dt:
@@ -97,12 +110,13 @@ class DigitMjSim(GenericSim):
             f"set_PD P_gain was not array of size {self.model.nu}"
     assert len(kd) == self.model.nu, \
             f"set_PD D_gain was not array of size {self.model.nu}"
-    torque = kp * (p - self.data.qpos[self.motor_pos_inds]) + \
-              kd * (d - self.data.qvel[self.motor_vel_inds])
+    torque = kp * (p - self.data.qpos[self.motor_position_inds]) + \
+              kd * (d - self.data.qvel[self.motor_velocity_inds])
     self.data.ctrl[:] = torque
     
   def hold(self):
     """Set stiffness/damping for base 6DOF so base is fixed
+    TODO: helei, this is an old funky stuff same for cassie, left hip-roll motor is somehow coupled with the base joint, so left-hip-roll is not doing things correctly.
     """
     for i in range(3):
       self.model.jnt_stiffness[i] = 1e5
