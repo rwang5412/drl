@@ -54,7 +54,7 @@ class MjCassieSim(GenericSim):
         if dt:
             num_steps = int(dt / self.model.opt.timestep)
             if num_steps * self.model.opt.timestep != dt:
-                print(f"{WARNING}Warning: {dt} does not fit evenly within the sim timestep of"
+                raise RuntimeError(f"{WARNING}Warning: {dt} does not fit evenly within the sim timestep of"
                     f" {self.model.opt.timestep}, simulating forward"
                     f" {num_steps * self.model.opt.timestep}s instead.{ENDC}")
         else:
@@ -110,8 +110,7 @@ class MjCassieSim(GenericSim):
         if self.viewer.is_alive:
             self.viewer.render()
         else:
-            print("Error: Viewer not alive, can not render.")
-            return
+            raise RuntimeError("Error: Viewer not alive, can not render.")
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
