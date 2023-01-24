@@ -65,7 +65,11 @@
     <body name='torso/base' pos='0 0 1.01' euler='-0 0 -0'>
       <camera name='track' pos='0 -3 1' zaxis='0 -1 0.5' mode='track'/>
       <inertial pos='0.001636612541 0.0002001180789 0.2593064529' mass='15.028392' fullinertia='0.3759052548 0.3441935 0.09873232746 -8.776732849e-05 0.008498611229 6.621611757e-05' />
-      <joint type='free' limited='false'/>
+      <!-- <joint type='free' limited='false'/> -->
+      <joint type='slide' axis='1 0 0' limited='false'/>
+      <joint type='slide' axis='0 1 0' limited='false'/>
+      <joint type='slide' axis='0 0 1' limited='false' ref='1.01'/>
+      <joint type='ball' limited='false'/>
       <site name='torso/base/imu' pos='0 0 0' euler='0 -90 0'/>
       <geom type='mesh' mesh='torso/base-0' pos='0 0 0' euler='-0 0 -0' material='robot'/>
       <geom type='mesh' mesh='torso/base-1' pos='-0.001 0.091 0' euler='0 -90 0' material='robot'/>

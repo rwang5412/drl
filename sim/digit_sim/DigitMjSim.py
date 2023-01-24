@@ -28,13 +28,12 @@ class DigitMjSim(GenericSim):
     self.num_actuators = self.model.nu
     self.num_joints = len(self.joint_position_inds)
     
-    self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
-    
     # TODO: helei, We might push this into env
-    self.kp = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
-    self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
+    self.kp = np.array([200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
+                        200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0])
+    self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
+                        10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
     
-    # TODO: helei, need to actually write the conrod q correctly. Need IK for this.
     self.reset_qpos = np.array([0, 0, 1,  1, 0 ,0 ,0,
       3.33020155e-01, -2.66178730e-02, 1.92369587e-01, 
       9.93409734e-01, -1.04126145e-03, 1.82534311e-03, 1.14597921e-01,
@@ -55,6 +54,8 @@ class DigitMjSim(GenericSim):
       2.36874210e-03, 5.55559678e-02,
       1.05444698e-01, -8.94890429e-01, 8.85979401e-03, -3.44723293e-01
     ])
+    
+    self.offset = self.reset_qpos[self.motor_position_inds]
 
   def reset(self, qpos: np.ndarray=None):
     if qpos:
@@ -90,33 +91,34 @@ class DigitMjSim(GenericSim):
     self.data.ctrl[:] = torque
 
   def set_PD(self, 
-             p: np.ndarray, 
-             d: np.ndarray, 
+             setpoint: np.ndarray, 
+             velocity: np.ndarray, 
              kp: np.ndarray, 
              kd: np.ndarray):
-    assert p.ndim == 1, \
+    assert setpoint.ndim == 1, \
             f"set_PD P_targ was not a 1 dimensional array"
-    assert d.ndim == 1, \
+    assert velocity.ndim == 1, \
             f"set_PD D_targ was not a 1 dimensional array"
     assert kp.ndim == 1, \
             f"set_PD P_gain was not a 1 dimensional array"
     assert kd.ndim == 1, \
             f"set_PD D_gain was not a 1 dimensional array"
-    assert len(p) == self.model.nu, \
+    assert len(setpoint) == self.model.nu, \
             f"set_PD P_targ was not array of size {self.model.nu}"
-    assert len(d) == self.model.nu, \
+    assert len(velocity) == self.model.nu, \
             f"set_PD D_targ was not array of size {self.model.nu}"
     assert len(kp) == self.model.nu, \
             f"set_PD P_gain was not array of size {self.model.nu}"
     assert len(kd) == self.model.nu, \
             f"set_PD D_gain was not array of size {self.model.nu}"
-    torque = kp * (p - self.data.qpos[self.motor_position_inds]) + \
-              kd * (d - self.data.qvel[self.motor_velocity_inds])
+    torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
+             kd * (velocity - self.data.qvel[self.motor_velocity_inds])
     self.data.ctrl[:] = torque
     
   def hold(self):
     """Set stiffness/damping for base 6DOF so base is fixed
-    TODO: helei, this is an old funky stuff same for cassie, left hip-roll motor is somehow coupled with the base joint, so left-hip-roll is not doing things correctly.
+    NOTE: There is an old funky stuff when left hip-roll motor is somehow coupled with the base joint, so left-hip-roll is not doing things correctly when holding. Turns out xml seems need to be defined
+    with 3 slide and 1 ball instead of free joint. 
     """
     for i in range(3):
       self.model.jnt_stiffness[i] = 1e5
@@ -124,7 +126,7 @@ class DigitMjSim(GenericSim):
       self.model.qpos_spring[i] = self.data.qpos[i]
 
     for i in range(3, 6):
-      self.model.dof_damping[i] = 1e4
+      self.model.dof_damping[i] = 1e5
 
   def release(self):
     """Zero stiffness/damping for base 6DOF
@@ -159,7 +161,7 @@ class DigitMjSim(GenericSim):
   def get_motor_velocity(self):
       return self.data.qvel[self.motor_velocity_inds]
 
-  def get_base_translation(self):
+  def get_base_position(self):
       return self.data.qpos[self.base_position_inds]
 
   def get_base_linear_velocity(self):
@@ -170,6 +172,9 @@ class DigitMjSim(GenericSim):
 
   def get_base_angular_velocity(self):
       return self.data.qvel[self.base_angular_velocity_inds]
+
+  def get_torque(self):
+    return self.data.ctrl[:]
 
   def set_joint_position(self, position: np.ndarray):
       assert len(position) == self.num_joints, \
@@ -191,7 +196,7 @@ class DigitMjSim(GenericSim):
         f"set_motor_position got {len(velocity)} but should be {self.num_actuators}."
       self.data.qvel[self.motor_velocity_inds] = velocity
 
-  def set_base_translation(self, position: np.ndarray):
+  def set_base_position(self, position: np.ndarray):
       assert len(position) == 3, \
         f"set_base_translation got {len(position)} but should be 3."
       self.data.qpos[self.base_position_inds] = position

@@ -9,6 +9,29 @@ class GenericSim:
     def __init__(self) -> None:
         pass
 
+    def reset(self, qpos:list=None):
+        raise NotImplementedError
+        
+    def sim_forward(self, dt: float = None):
+        raise NotImplementedError
+
+    def set_PD(self, P_targ: np.ndarray, D_targ: np.ndarray, P_gain: np.ndarray, D_gain: np.ndarray):
+        raise NotImplementedError
+
+    def hold(self):
+        raise NotImplementedError
+
+    def release(self):
+        raise NotImplementedError
+
+    def viewer_init(self):
+        raise NotImplementedError
+
+    def viewer_draw(self):
+        raise NotImplementedError
+
+    """Getter/Setter to unify across simulators
+    """
     def get_joint_position(self):
         raise NotImplementedError
 
@@ -33,10 +56,10 @@ class GenericSim:
     def set_motor_velocity(self, velocity: np.ndarray):
         raise NotImplementedError
 
-    def get_base_translation(self):
+    def get_base_position(self):
         raise NotImplementedError
 
-    def set_base_translation(self, pose: np.ndarray):
+    def set_base_position(self, pose: np.ndarray):
         raise NotImplementedError
 
     def get_base_linear_velocity(self):
@@ -61,22 +84,4 @@ class GenericSim:
         raise NotImplementedError
 
     def set_torque(self, torque: np.ndarray):
-        raise NotImplementedError
-
-    def set_PD(self, P_targ: np.ndarray, D_targ: np.ndarray, P_gain: np.ndarray, D_gain: np.ndarray):
-        raise NotImplementedError()
-
-    def sim_forward(self, dt: float = None):
-        raise NotImplementedError
-
-    def hold(self):
-        raise NotImplementedError
-
-    def release(self):
-        raise NotImplementedError()
-
-    def viewer_init(self):
-        raise NotImplementedError
-
-    def viewer_draw(self):
         raise NotImplementedError
