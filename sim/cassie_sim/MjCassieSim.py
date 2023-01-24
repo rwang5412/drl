@@ -31,8 +31,8 @@ class MjCassieSim(GenericSim):
         self.num_actuators = 10
         self.num_joint = 4
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
-        self.P            = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
-        self.D            = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
+        self.kp            = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
+        self.kd            = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
         self.reset_qpos = np.array([0, 0, 1.01, 1, 0, 0, 0,
                     0.0045, 0, 0.4973, 0.9785, -0.0164, 0.01787, -0.2049,
                     -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968,
@@ -173,6 +173,11 @@ class MjCassieSim(GenericSim):
             num_steps = 1
         mj.mj_step(self.model, self.data, nstep=num_steps)
 
+    def reset(self):
+        mj.resetData(self.model, self.data)
+        self.data.qpos = self.reset_qpos
+        mj.mj_forward(self.model, self.data)
+
     def hold(self):
         # Set stiffness/damping for body translation joints
         # NOTE: Ok to assume first 6 joints are com joints?
@@ -213,7 +218,7 @@ class MjCassieSim(GenericSim):
         assert not self.viewer is None, \
                f"viewer has not been initalized yet, can not check paused status"
         if self.viewer.is_alive:
-            return self.viewer.is_paused
+            return self.viewer.paused
         else:
             print("Error: Viewer not alive, can not check paused status.")
             return False

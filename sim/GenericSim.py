@@ -69,6 +69,9 @@ class GenericSim:
     def sim_forward(self, dt: float = None):
         raise NotImplementedError
 
+    def reset(self):
+        raise NotImplementedError
+
     def hold(self):
         raise NotImplementedError
 

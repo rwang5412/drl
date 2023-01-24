@@ -33,13 +33,19 @@ class LibCassieSim(GenericSim):
         self.base_trans_vel_inds = [0, 1, 2]
         self.base_rot_vel_inds = [3, 4, 5]
 
-        self.P            = np.array([100,  100,  88,  96,  50, 100,  100,  88,  96,  50])
-        self.D            = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
-        self.offset       = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
+        self.kp            = np.array([100,  100,  88,  96,  50, 100,  100,  88,  96,  50])
+        self.kd            = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
+        self.offset        = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
         self.joint_limits_high = np.array([ 0.24, 0.25,  1.35, -0.82, -0.68, 0.2,   0.25,  1.35, -0.82, -0.68])
         self.joint_limits_low  = np.array([-0.2, -0.25, -0.8,  -2.0,  -2.0,  -0.24, -0.25, -0.8,  -2.0,  -2.0])
         self.u            = pd_in_t()
         self.robot_state = state_out_t()
+
+        self.reset_qpos = np.array([0, 0, 1.01, 1, 0, 0, 0,
+                    0.0045, 0, 0.4973, 0.9785, -0.0164, 0.01787, -0.2049,
+                    -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968,
+                    -0.0045, 0, 0.4973, 0.9786, 0.00386, -0.01524, -0.2051,
+                    -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968])
 
     def get_joint_pos(self):
         return np.array(self.sim.qpos())[self.joint_pos_inds]
@@ -210,6 +216,10 @@ class LibCassieSim(GenericSim):
             num_steps = 1
         for i in range(num_steps):
             self.robot_state = self.sim.step_pd(self.u)
+
+    def reset(self):
+        self.sim.set_const()
+        self.sim.set_qpos(self.reset_qpos)
 
     def hold(self):
         self.sim.hold()

@@ -19,12 +19,11 @@ def test_mj_sim():
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [LibCassieSim]#, MjCassieSim]
-    # sim_list = [MjCassieSim]
+    sim_list = [MjCassieSim, LibCassieSim]
     OKGREEN = '\033[92m'
     ENDC = '\033[0m'
-    num_pass = 0
     for sim in sim_list:
+        num_pass = 0
         print(f"Testing {sim.__name__}")
         num_pass += test_sim_init(sim)
         num_pass += test_sim_sim_forward(sim)
@@ -76,7 +75,7 @@ def test_sim_PD(sim):
     for _ in range(1000):
         test_sim.sim_forward()
     for _ in range(3000):
-        test_sim.set_PD(test_sim.offset, np.zeros(10), test_sim.P, test_sim.D)
+        test_sim.set_PD(test_sim.offset, np.zeros(10), test_sim.kp, test_sim.kd)
         test_sim.sim_forward()
     test_sim.release()
     if np.any((test_sim.get_motor_pos() - test_sim.offset) > 1e-1):
