@@ -8,10 +8,10 @@ from env import (
 )
 
 def test():
-    # test_cassieenv()
-    test_cassieenvclock()
-	# test_digitenv()
-    # test_digitenvclock()
+	test_cassieenv()
+	test_cassieenvclock()
+	test_digitenv()
+	test_digitenvclock()
 
 def test_cassieenv():
 	env = CassieEnv(simulator_type="mujoco",
