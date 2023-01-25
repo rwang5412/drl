@@ -37,8 +37,6 @@
   <asset>
     <texture type='skybox' builtin='gradient' width='128' height='128' rgb1='0.4 0.6 0.8' rgb2='0 0 0'/>
     <texture name='plane' type='2d' builtin='checker' rgb1='0.2 0.2 0.2' rgb2='0.3 0.3 0.3' width='512' height='512'/>
-    <!-- <texture type='skybox' builtin='gradient' width='128' height='128' rgb1='1 1 1' rgb2='1 1 1'/> -->
-    <!-- <texture name='plane' type='2d' builtin='checker' rgb1='1 1 1' rgb2='1 1 1' width='512' height='512'/> -->
     <material name='plane' reflectance='0.0' texture='plane' texrepeat='1 1' texuniform='true'/>
     <material name='cassie'    rgba='0.9 0.5 0.1 1'/>
     <material name='collision' rgba='0.1 0.5 0.9 0'/>
@@ -78,7 +76,6 @@
 
     <body name='cassie-pelvis' pos='0 0 1.01' childclass='cassie'>
       <camera name='track' pos='0 -3 1' zaxis='0 -1 0.5' mode='track'/>
-      <!--camera name='track' pos='-3 0 0' xyaxes='0 -1 0 0 0 1' mode='track'/-->
       <inertial pos='0.05066 0.000346 0.02841' mass='10.33' fullinertia='0.085821 0.049222 0.08626 1.276e-05 -0.00016022 -0.000414'/>
       <joint type='slide' axis='1 0 0' limited='false'/>
       <joint type='slide' axis='0 1 0' limited='false'/>
@@ -87,21 +84,6 @@
       <geom type='mesh' mesh='cassie-pelvis'/>
       <geom type='sphere' size='0.15' pos='0.02 0 0.02' class='collision'/>
       <site name='imu' size='0.01' pos='0.03155 0 -0.07996' rgba='0.5 0.5 0.5 0'/>
-
-      <!--<site name='range1' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 1' fromto='0.00000 0.00000 -0.11000 0.00000 0.00000 -0.10000 '/>
-      <site name='range2' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 1' fromto='0.00208 0.00000 -0.10978 0.00000 0.00000 -0.10000 '/>
-      <site name='range3' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 1' fromto='0.00407 0.00000 -0.10914 0.00000 0.00000 -0.10000 '/>
-      <site name='range4' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 1' fromto='0.00588 0.00000 -0.10809 0.00000 0.00000 -0.10000 '/>
-      <site name='range5' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 1' fromto='0.00743 0.00000 -0.10669 0.00000 0.00000 -0.10000 '/>
-      <site name='range6' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 1' fromto='0.00866 0.00000 -0.10500 0.00000 0.00000 -0.10000 '/>
-      -->
-      <site name='range1' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 0' fromto='0.00390 0.00000 -0.11962 0.00000 0.00000 -0.10000 '/>
-      <site name='range2' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 0' fromto='0.00558 0.00000 -0.11921 0.00000 0.00000 -0.10000 '/>
-      <site name='range3' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 0' fromto='0.00722 0.00000 -0.11865 0.00000 0.00000 -0.10000 '/>
-      <site name='range4' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 0' fromto='0.00880 0.00000 -0.11796 0.00000 0.00000 -0.10000 '/>
-      <site name='range5' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 0' fromto='0.01032 0.00000 -0.11713 0.00000 0.00000 -0.10000 '/>
-      <site name='range6' type='cylinder' size='0.005 0.1 0.005' rgba='0.5 0.5 0.5 0' fromto='0.01176 0.00000 -0.11618 0.00000 0.00000 -0.10000 '/>
-
 
       <body name='left-hip-roll' pos='0.021 0.135 0' xyaxes='0 0 -1 0 1 0'>
         <inertial pos='-0.01793 0.0001 -0.04428' mass='1.82' fullinertia='0.003431 0.003793 0.002135 -6.65e-07 -0.00084 3.99e-06'/>
