@@ -216,10 +216,16 @@ class LibCassieSim(GenericSim):
             num_steps = 1
         for i in range(num_steps):
             self.robot_state = self.sim.step_pd(self.u)
-
-    def reset(self):
+    
+    def reset(self, qpos: np.ndarray=None):
         self.sim.set_const()
-        self.sim.set_qpos(self.reset_qpos)
+        if qpos:
+            assert len(qpos) == self.model.nq, f"reset qpos len={len(qpos)}, but should be {self.model.nq}"
+            self.sim.set_qpos(qpos)
+        else:
+            self.sim.set_qpos(self.reset_qpos)
+        # NOTE: No mj_forward in libCassieSim, is that ok to not call mj_forward
+        # after changing the qpos?
 
     def hold(self):
         self.sim.hold()
