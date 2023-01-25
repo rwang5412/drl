@@ -1,9 +1,8 @@
-import RobotEnv
-
+from env import GenericEnv
 from sim import MjCassieSim, LibCassieSim
 
 # Handles all 2kHz stuff
-class CassieEnv(RobotEnv):
+class CassieEnv(GenericEnv):
     def __init__(self, simulator_type: str, clock: bool):
         """Template class for Cassie with common functions (templates).
 
@@ -11,11 +10,15 @@ class CassieEnv(RobotEnv):
             simulator_type (str): "mujoco" or "libcassie"
             clock (bool): "linear" or "von-Mises" or None
         """
-        super.__init__()
+        super().__init__()
         if simulator_type == "mujoco":
             self.sim = MjCassieSim()
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
+        else:
+            raise RuntimeError(f"Simulator type {simulator_type} not correct!")
+
+        self.clock = clock
 
     def reset(self):
         raise NotImplementedError

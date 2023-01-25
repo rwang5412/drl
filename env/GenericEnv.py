@@ -1,13 +1,13 @@
 
-class RobotEnv:
+class GenericEnv:
 
     """
     Define generic environment functions that are needed for RL. Should define (not implement) all of the functions that ppo.py sampling uses.
     """
     
     def __init__(self):
-        self.sim = None
-        pass
+        self.domain_randomization = None
+        self.policy_rate = None
     
     def reset(self):
         raise NotImplementedError
