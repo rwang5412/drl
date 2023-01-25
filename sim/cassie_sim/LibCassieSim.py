@@ -8,16 +8,16 @@ from ..GenericSim import GenericSim
 
 class LibCassieSim(GenericSim):
 
-    # @jeremy
     """
     Cassie simulation using Agility compiled C library libcassiemujoco.so. Uses Mujoco under the
     hood, simulation code is contained in `cassiemujoco` folder.
     """
 
     def __init__(self, *args, **kwargs) -> None:
+        super().__init__()
         self.state_est_size  = 35
         self.num_actuators   = 10
-        self.num_joint = 4
+        self.num_joints = 4
         # self.sim = CassieSim(modelfile=kwargs['modelfile'], terrain=kwargs['terrain'], perception=kwargs['perception'])
         # self.sim = CassieSim(terrain=kwargs['terrain'], perception=kwargs['perception'])
         self.sim = CassieSim()
@@ -75,7 +75,34 @@ class LibCassieSim(GenericSim):
         for i in range(num_steps):
             self.robot_state = self.sim.step_pd(self.u)
 
-    def set_PD(self, P_targ: np.ndarray, D_targ: np.ndarray, P_gain: np.ndarray, D_gain: np.ndarray):
+    def set_torque(self, torque: np.ndarray):
+        assert torque.shape == (self.num_actuators,), \
+               f"set_torque got array of shape {torque.shape} but " \
+               f"should be shape ({self.num_actuators},)."
+        # Only setting self.u, not actually calling step yet
+        # Assume that torque order follows qpos order, so left leg and then right leg
+        self.u = pd_in_t()
+        for i in range(5):
+            self.u.leftLeg.motorPd.pGain[i]  = 0
+            self.u.rightLeg.motorPd.pGain[i] = 0
+
+            self.u.leftLeg.motorPd.dGain[i]  = 0
+            self.u.rightLeg.motorPd.dGain[i] = 0
+
+            self.u.leftLeg.motorPd.torque[i]  = torque[i]  # Feedforward torque
+            self.u.rightLeg.motorPd.torque[i] = torque[i+5]
+
+            self.u.leftLeg.motorPd.pTarget[i]  = 0
+            self.u.rightLeg.motorPd.pTarget[i] = 0
+
+            self.u.leftLeg.motorPd.dTarget[i]  = 0
+            self.u.rightLeg.motorPd.dTarget[i] = 0
+
+    def set_PD(self, 
+               setpoint: np.ndarray, 
+               velocity: np.ndarray, 
+               kp: np.ndarray, 
+               kd: np.ndarray):
         args = locals() # This has to be the first line in the function
         for arg in args:
             if arg != "self":
@@ -83,20 +110,20 @@ class LibCassieSim(GenericSim):
                 f"set_PD {arg} was not a 1 dimensional array of size {self.num_actuators}"
         self.u = pd_in_t()
         for i in range(5):
-            self.u.leftLeg.motorPd.pGain[i]  = P_gain[i]
-            self.u.rightLeg.motorPd.pGain[i] = P_gain[i + 5]
+            self.u.leftLeg.motorPd.pGain[i]  = kp[i]
+            self.u.rightLeg.motorPd.pGain[i] = kp[i + 5]
 
-            self.u.leftLeg.motorPd.dGain[i]  = D_gain[i]
-            self.u.rightLeg.motorPd.dGain[i] = D_gain[i + 5]
+            self.u.leftLeg.motorPd.dGain[i]  = kd[i]
+            self.u.rightLeg.motorPd.dGain[i] = kd[i + 5]
 
             self.u.leftLeg.motorPd.torque[i]  = 0  # Feedforward torque
             self.u.rightLeg.motorPd.torque[i] = 0
 
-            self.u.leftLeg.motorPd.pTarget[i]  = P_targ[i]
-            self.u.rightLeg.motorPd.pTarget[i] = P_targ[i + 5]
+            self.u.leftLeg.motorPd.pTarget[i]  = setpoint[i]
+            self.u.rightLeg.motorPd.pTarget[i] = setpoint[i + 5]
 
-            self.u.leftLeg.motorPd.dTarget[i]  = D_targ[i]
-            self.u.rightLeg.motorPd.dTarget[i] = D_targ[i + 5]
+            self.u.leftLeg.motorPd.dTarget[i]  = velocity[i]
+            self.u.rightLeg.motorPd.dTarget[i] = velocity[i + 5]
 
     def hold(self):
         self.sim.hold()
@@ -151,97 +178,70 @@ class LibCassieSim(GenericSim):
         # PD values and return that. That isn't very useful though
         pass
 
-    def set_joint_position(self, pos: np.ndarray):
-        assert pos.ndim == 1, \
-               f"set_joint_pos did not receive a 1 dimensional array"
-        assert len(pos) == len(self.joint_position_inds), \
-               f"set_joint_pos did not receive array of size ({len(self.joint_position_inds)})"
+    def set_joint_position(self, position: np.ndarray):
+        assert position.shape == (self.num_joints,), \
+               f"set_joint_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_joints},)."
         curr_qpos = np.array(self.sim.qpos())
-        curr_qpos[self.joint_position_inds] = pos
+        curr_qpos[self.joint_position_inds] = position
         self.sim.set_qpos(curr_qpos)
 
-    def set_joint_velocity(self, vel: np.ndarray):
-        assert vel.ndim == 1, \
-               f"set_joint_vel did not receive a 1 dimensional array"
-        assert len(vel) == len(self.joint_velocity_inds), \
-               f"set_joint_vel did not receive array of size ({len(self.joint_velocity_inds)})"
+    def set_joint_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (self.num_joints,), \
+               f"set_joint_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_joints},)."
         curr_qvel = np.array(self.sim.qvel())
-        curr_qvel[self.joint_velocity_inds] = vel
+        curr_qvel[self.joint_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
-    def set_motor_position(self, pos: np.ndarray):
-        assert pos.ndim == 1, \
-               f"set_motor_pos did not receive a 1 dimensional array"
-        assert len(pos) == len(self.motor_position_inds), \
-               f"set_motor_pos did not receive array of size {len(self.motor_position_inds)}"
+    def set_motor_position(self, position: np.ndarray):
+        assert position.shape == (self.num_actuators,), \
+               f"set_motor_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_actuators},)."
         curr_qpos = np.array(self.sim.qpos())
-        curr_qpos[self.motor_position_inds] = pos
+        curr_qpos[self.motor_position_inds] = position
         self.sim.set_qpos(curr_qpos)
 
-    def set_motor_velocity(self, vel: np.ndarray):
-        assert vel.ndim == 1, \
-               f"set_motor_vel did not receive a 1 dimensional array"
-        assert len(vel) == len(self.motor_velocity_inds), \
-               f"set_motor_vel did not receive array of size {len(self.motor_velocity_inds)}"
+    def set_motor_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (self.num_actuators,), \
+               f"set_motor_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_actuators},)."
         curr_qvel = np.array(self.sim.qvel())
-        curr_qvel[self.motor_velocity_inds] = vel
+        curr_qvel[self.motor_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
-    def set_base_position(self, pos: np.ndarray):
-        assert pos.ndim == 1, \
-               f"set_com_pos did not receive a 1 dimensional array"
-        assert len(pos) == len(self.base_position_inds), \
-               f"set_com_pos did not receive array of size {len(self.base_position_inds)}"
+    def set_base_position(self, position: np.ndarray):
+        assert position.shape == (3,), \
+               f"set_base_position got array of shape {position.shape} but " \
+               f"should be shape (3,)."
         curr_qpos = np.array(self.sim.qpos())
-        curr_qpos[self.base_position_inds] = pos
+        curr_qpos[self.base_position_inds] = position
         self.sim.set_qpos(curr_qpos)
 
-    def set_base_linear_velocity(self, vel: np.ndarray):
-        assert vel.ndim == 1, \
-               f"set_com_trans_vel did not receive a 1 dimensional array"
-        assert len(vel) == len(self.base_linear_velocity_inds), \
-               f"set_com_trans_vel did not receive array of size {len(self.base_linear_velocity_inds)}"
+    def set_base_linear_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (3,), \
+               f"set_base_linear_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,)."
         curr_qvel = np.array(self.sim.qvel())
-        curr_qvel[self.base_linear_velocity_inds] = vel
+        curr_qvel[self.base_linear_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
     def set_base_orientation(self, quat: np.ndarray):
-        assert quat.ndim == 1, \
-               f"set_com_quat did not receive a 1 dimensional array"
-        assert len(quat) == len(self.base_orientation_inds), \
-               f"set_com_quat did not receive array of size {len(self.base_orientation_inds)}"
+        assert quat.shape == (4,), \
+               f"set_base_orientation got array of shape {quat.shape} but " \
+               f"should be shape (4,)."
         curr_qpos = np.array(self.sim.qpos())
         curr_qpos[self.base_orientation_inds] = quat
         self.sim.set_qpos(curr_qpos)
 
-    def set_base_angular_velocity(self, vel: np.ndarray):
-        assert vel.ndim == 1, \
-               f"set_com_rot_vel did not receive a 1 dimensional array"
-        assert len(vel) == len(self.base_angular_velocity_inds), \
-               f"set_com_rot_vel did not receive array of size {len(self.base_angular_velocity_inds)}"
+    def set_base_angular_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (3,), \
+               f"set_base_angular_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,)."
         curr_qvel = np.array(self.sim.qvel())
-        curr_qvel[self.base_angular_velocity_inds] = vel
+        curr_qvel[self.base_angular_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
-    def set_torque(self, torque: np.ndarray):
-        # Only setting self.u, not actually calling step yet
-        # Assume that torque order follows qpos order, so left leg and then right leg
-        self.u = pd_in_t()
-        for i in range(5):
-            self.u.leftLeg.motorPd.pGain[i]  = 0
-            self.u.rightLeg.motorPd.pGain[i] = 0
-
-            self.u.leftLeg.motorPd.dGain[i]  = 0
-            self.u.rightLeg.motorPd.dGain[i] = 0
-
-            self.u.leftLeg.motorPd.torque[i]  = torque[i]  # Feedforward torque
-            self.u.rightLeg.motorPd.torque[i] = torque[i+5]
-
-            self.u.leftLeg.motorPd.pTarget[i]  = 0
-            self.u.rightLeg.motorPd.pTarget[i] = 0
-
-            self.u.leftLeg.motorPd.dTarget[i]  = 0
-            self.u.rightLeg.motorPd.dTarget[i] = 0
 
     
 

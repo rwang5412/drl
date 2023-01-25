@@ -15,25 +15,17 @@ class GenericSim:
     def sim_forward(self, dt: float = None):
         raise NotImplementedError
 
-    def set_PD(self, P_targ: np.ndarray, D_targ: np.ndarray, P_gain: np.ndarray, D_gain: np.ndarray):
+    def set_PD(self, 
+               setpoint: np.ndarray, 
+               velocity: np.ndarray, 
+               kp: np.ndarray, 
+               kd: np.ndarray):
         raise NotImplementedError
 
     def hold(self):
         raise NotImplementedError
 
     def release(self):
-        raise NotImplementedError
-    
-    def get_motor_pos(self):
-        raise NotImplementedError
-
-    def set_motor_pos(self, pos: np.ndarray):
-        raise NotImplementedError
-
-    def get_motor_vel(self):
-        raise NotImplementedError
-
-    def set_motor_vel(self, vel: np.ndarray):
         raise NotImplementedError
 
     def viewer_init(self):
@@ -71,7 +63,7 @@ class GenericSim:
     def get_base_position(self):
         raise NotImplementedError
 
-    def set_base_position(self, pose: np.ndarray):
+    def set_base_position(self, position: np.ndarray):
         raise NotImplementedError
 
     def get_base_linear_velocity(self):
