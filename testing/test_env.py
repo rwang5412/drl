@@ -9,8 +9,8 @@ from env import (
 
 def test():
     # test_cassieenv()
-    # test_cassieenvclock()
-	test_digitenv()
+    test_cassieenvclock()
+	# test_digitenv()
     # test_digitenvclock()
 
 def test_cassieenv():
