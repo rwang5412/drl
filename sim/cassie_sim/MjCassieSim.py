@@ -110,6 +110,9 @@ class MjCassieSim(GenericSim):
     def get_motor_position(self):
         return self.data.qpos[self.motor_position_inds]
 
+    def get_motor_velocity(self):
+        return self.data.qvel[self.motor_velocity_inds]
+
     def get_base_position(self):
         return self.data.qpos[self.base_position_inds]
 
@@ -120,7 +123,7 @@ class MjCassieSim(GenericSim):
         return self.data.qpos[self.base_orientation_inds]
 
     def get_base_angular_velocity(self):
-        return self.data.qpos[self.base_angular_velocity_inds]
+        return self.data.qvel[self.base_angular_velocity_inds]
 
     def get_torque(self):
         return self.data.ctrl[:]
