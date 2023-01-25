@@ -2,8 +2,7 @@ import mujoco as mj
 import numpy as np
 import pathlib
 
-from ..GenericSim import GenericSim
-from ..MujocoViewer import MujocoViewer
+from sim import GenericSim, MujocoViewer
 
 WARNING = '\033[93m'
 ENDC = '\033[0m'

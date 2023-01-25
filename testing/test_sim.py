@@ -1,8 +1,7 @@
 import numpy as np
 import mujoco as mj
 
-from sim.cassie_sim import MjCassieSim
-from sim.digit_sim import DigitMjSim
+from sim import MjCassieSim, DigitMjSim
 from .common import (
     DIGIT_MOTOR_NAME,
     DIGIT_JOINT_NAME,
