@@ -208,8 +208,7 @@ class MjCassieSim(GenericSim):
         assert not self.viewer is None, \
                f"viewer has not been initalized yet, can not render"
         if self.viewer.is_alive:
-            self.viewer.render()
-            return True
+            return self.viewer.render()
         else:
             print("Error: Viewer not alive, can not render.")
             return False
