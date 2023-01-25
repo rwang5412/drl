@@ -21,7 +21,7 @@ class CassieEnv(GenericEnv):
         self.clock = clock
 
     def reset(self):
-        raise NotImplementedError
+        self.sim.reset()
 
     def step(self, action:list):
         """Step simulator by env's frequency. Still accesses signals at simulator rate (2kHz).
