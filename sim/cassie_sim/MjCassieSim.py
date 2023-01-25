@@ -10,7 +10,6 @@ ENDC = '\033[0m'
 
 class MjCassieSim(GenericSim):
 
-    # @jeremy
     """
     A python wrapper around Mujoco python pkg that works better with Cassie???
     """
@@ -62,22 +61,11 @@ class MjCassieSim(GenericSim):
         mj.mj_step(self.model, self.data, nstep=num_steps)
 
     def set_PD(self, setpoint: np.ndarray, velocity: np.ndarray, kp: np.ndarray, kd: np.ndarray):
-        assert setpoint.ndim == 1, \
-               f"set_PD setpoint was not a 1 dimensional array"
-        assert velocity.ndim == 1, \
-               f"set_PD velocity was not a 1 dimensional array"
-        assert kp.ndim == 1, \
-               f"set_PD kp was not a 1 dimensional array"
-        assert kd.ndim == 1, \
-               f"set_PD kd was not a 1 dimensional array"
-        assert len(setpoint) == self.model.nu, \
-               f"set_PD setpoint was not array of size {self.model.nu}"
-        assert len(velocity) == self.model.nu, \
-               f"set_PD velocity was not array of size {self.model.nu}"
-        assert len(kp) == self.model.nu, \
-               f"set_PD kp was not array of size {self.model.nu}"
-        assert len(kd) == self.model.nu, \
-               f"set_PD kd was not array of size {self.model.nu}"
+        args = locals() # This has to be the first line in the function
+        for arg in args:
+            if arg != "self":
+                assert args[arg].shape == (self.model.nu,), \
+                f"set_PD {arg} was not a 1 dimensional array of size {self.model.nu}"
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
                  kd * (velocity - self.data.qvel[self.motor_velocity_inds])
         self.data.ctrl[:] = torque

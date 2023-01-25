@@ -96,30 +96,20 @@ class DigitMjSim(GenericSim):
              velocity: np.ndarray, 
              kp: np.ndarray, 
              kd: np.ndarray):
-    assert setpoint.ndim == 1, \
-            f"set_PD P_targ was not a 1 dimensional array"
-    assert velocity.ndim == 1, \
-            f"set_PD D_targ was not a 1 dimensional array"
-    assert kp.ndim == 1, \
-            f"set_PD P_gain was not a 1 dimensional array"
-    assert kd.ndim == 1, \
-            f"set_PD D_gain was not a 1 dimensional array"
-    assert len(setpoint) == self.model.nu, \
-            f"set_PD P_targ was not array of size {self.model.nu}"
-    assert len(velocity) == self.model.nu, \
-            f"set_PD D_targ was not array of size {self.model.nu}"
-    assert len(kp) == self.model.nu, \
-            f"set_PD P_gain was not array of size {self.model.nu}"
-    assert len(kd) == self.model.nu, \
-            f"set_PD D_gain was not array of size {self.model.nu}"
+    args = locals() # This has to be the first line in the function
+    for arg in args:
+      if arg != "self":
+        assert args[arg].shape == (self.model.nu,), \
+          f"set_PD {arg} was not a 1 dimensional array of size {self.model.nu}"
     torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
              kd * (velocity - self.data.qvel[self.motor_velocity_inds])
     self.data.ctrl[:] = torque
     
   def hold(self):
     """Set stiffness/damping for base 6DOF so base is fixed
-    NOTE: There is an old funky stuff when left hip-roll motor is somehow coupled with the base joint, so left-hip-roll is not doing things correctly when holding. Turns out xml seems need to be defined
-    with 3 slide and 1 ball instead of free joint. 
+    NOTE: There is an old funky stuff when left hip-roll motor is somehow coupled with the base 
+    joint, so left-hip-roll is not doing things correctly when holding. 
+    Turns out xml seems need to be defined with 3 slide and 1 ball instead of free joint. 
     """
     for i in range(3):
       self.model.jnt_stiffness[i] = 1e5

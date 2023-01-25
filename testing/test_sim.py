@@ -14,30 +14,7 @@ OKGREEN = '\033[92m'
 FAIL = '\033[91m'
 ENDC = '\033[0m'
 
-def test_mj_sim():
-    """This is left here to simplify test when developing sim.
-    """
-    # mj_sim = MjCassieSim()
-    mj_sim = DigitMjSim()
-    mj_sim.reset()
-    mj_sim.set_base_position(np.array([0, 0, 1.5]))
-    mj_sim.hold()
-    mj_sim.viewer_init()
-    mj_sim.viewer.paused = True
-    while mj_sim.viewer.is_alive:
-        if not mj_sim.viewer.paused:
-            for _ in range(100):
-                mj_sim.set_PD(setpoint=np.array(mj_sim.reset_qpos[mj_sim.motor_position_inds]),
-                              velocity=np.zeros(mj_sim.model.nu),
-                              kp=50*np.ones(mj_sim.model.nu),
-                              kd=10*np.ones(mj_sim.model.nu)
-                             )
-                mj_sim.sim_forward()
-        mj_sim.viewer_render()
-
 def test_all_sim():
-    # test_mj_sim()
-    # exit()
     # TODO: Add other sims to this list after implemented
     sim_list = [MjCassieSim, DigitMjSim]
     num_pass = 0
