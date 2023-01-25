@@ -190,7 +190,6 @@ class MujocoViewer():
             glfw.swap_buffers(self.window)
         glfw.poll_events()
 
-
     def _key_callback(self, window, key, scancode, action, mods):
         if action == glfw.RELEASE:
             # Don't do anything if released the key
@@ -243,9 +242,10 @@ class MujocoViewer():
             for i in range(mj.mjNGROUP):
                 if key == i + 48:   # Int('0') = 48
                     if mods and glfw.MOD_SHIFT == True:
-                        self.opt.sitegroup[i] = 1 - self.opt.sitegroup[i]
+                        # NOTE: what is self.opt? this seems broken. 
+                        self.vopt.sitegroup[i] = 1 - self.vopt.sitegroup[i]
                     else:
-                        self.opt.geomgroup[i] = 1 - self.opt.geomgroup[i]
+                        self.vopt.geomgroup[i] = 1 - self.vopt.geomgroup[i]
         # Handle regular inidividual key presses
         if key == glfw.KEY_F1:              # help
             self._showhelp = not self._showhelp
@@ -445,4 +445,9 @@ class MujocoViewer():
                               self.scn,
                               self.cam)
 
-
+    def close(self):
+        self.ctx.free()
+        glfw.window_should_close(self.window)
+        glfw.destroy_window(self.window)
+        self.window = None
+        self.is_alive = False
