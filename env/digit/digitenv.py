@@ -15,11 +15,11 @@ class DigitEnv(GenericEnv):
                  terrain: bool,
                  policy_rate: int,
                  dynamics_randomization: bool):
-        """Template class for Cassie with common functions.
+        """Template class for Digit with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
         Args:
-            simulator_type (str): "mujoco" or "libcassie"
+            simulator_type (str): "mujoco" or "ar"
             clock (bool): "linear" or "von-Mises" or None
         """
         super().__init__(policy_rate=policy_rate,
