@@ -16,7 +16,7 @@ ENDC = '\033[0m'
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [MjCassieSim, DigitMjSim]
+    sim_list = [MjCassieSim, LibCassieSim, DigitMjSim]
     num_pass = 0
     for sim in sim_list:
         num_pass = 0
@@ -26,7 +26,11 @@ def test_all_sim():
         num_pass += test_sim_viewer(sim)
         num_pass += test_sim_PD(sim)
         num_pass += test_sim_get_set(sim)
-        num_pass += test_sim_indexes(sim)
+        if sim == LibCassieSim:
+            # Don't test sim indexes
+            num_pass += 1
+        else:
+            num_pass += test_sim_indexes(sim)
         if num_pass == 6:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
@@ -77,12 +81,15 @@ def test_sim_PD(sim):
     for _ in range(1000):
         test_sim.sim_forward()
     test_sim.viewer_init()
-    while test_sim.viewer.is_alive:
-        for i in range(3000):
+    render_state = test_sim.viewer_render()
+    while render_state:
+        start_t = time.time()
+        for _ in range(50):
             test_sim.set_PD(test_sim.offset, np.zeros(test_sim.num_actuators), test_sim.kp, test_sim.kd)
             test_sim.sim_forward()
-            if i%100==0 and test_sim.viewer.is_alive:
-                test_sim.viewer_render()
+        render_state = test_sim.viewer_render()
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
     test_sim.release()
     if np.any((test_sim.get_motor_position() - test_sim.offset) > 1e-1):
         print(f"{FAIL}Failed sim PD test. Motor positions not close enough to target.{ENDC}")

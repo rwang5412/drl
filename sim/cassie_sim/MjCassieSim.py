@@ -100,8 +100,6 @@ class MjCassieSim(GenericSim):
             return self.viewer.render()
         else:
             raise RuntimeError("Error: Viewer not alive, can not render.")
-            # print("Error: Viewer not alive, can not render.")
-            # return False
 
     def viewer_paused(self):
         assert not self.viewer is None, \
@@ -109,8 +107,6 @@ class MjCassieSim(GenericSim):
         if self.viewer.is_alive:
             return self.viewer.paused
         else:
-            # print("Error: Viewer not alive, can not check paused status.")
-            # return False
             raise RuntimeError("Error: Viewer not alive, can not check paused status.")
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
@@ -123,6 +119,9 @@ class MjCassieSim(GenericSim):
 
     def get_motor_position(self):
         return self.data.qpos[self.motor_position_inds]
+    
+    def get_motor_velocity(self):
+        return self.data.qvel[self.motor_velocity_inds]
 
     def get_base_position(self):
         return self.data.qpos[self.base_position_inds]
@@ -152,7 +151,7 @@ class MjCassieSim(GenericSim):
                f"set_joint_velocity did not receive a 1 dimensional array"
         assert len(vel) == len(self.joint_velocity_inds), \
                f"set_joint_velocity did not receive array of size ({len(self.joint_velocity_inds)})"
-        self.data.qpos[self.joint_velocity_inds] = vel
+        self.data.qvel[self.joint_velocity_inds] = vel
         mj.mj_forward(self.model, self.data)
 
     def set_motor_position(self, pos: np.ndarray):
@@ -161,6 +160,14 @@ class MjCassieSim(GenericSim):
         assert len(pos) == len(self.motor_position_inds), \
                f"set_motor_position did not receive array of size {len(self.motor_position_inds)}"
         self.data.qpos[self.motor_position_inds] = pos
+        mj.mj_forward(self.model, self.data)
+
+    def set_motor_velocity(self, vel: np.ndarray):
+        assert vel.ndim == 1, \
+               f"set_motor_velocity did not receive a 1 dimensional array"
+        assert len(vel) == len(self.motor_position_inds), \
+               f"set_motor_velocity did not receive array of size {len(self.motor_velocity_inds)}"
+        self.data.qvel[self.motor_velocity_inds] = vel
         mj.mj_forward(self.model, self.data)
 
     def set_base_position(self, pos: np.ndarray):
