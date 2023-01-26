@@ -47,7 +47,7 @@ class MjCassieSim(GenericSim):
         else:
             self.data.qpos = self.reset_qpos
         mj.mj_forward(self.model, self.data)
-        
+
     def sim_forward(self, dt: float = None):
         if dt:
             num_steps = int(dt / self.model.opt.timestep)
@@ -65,10 +65,10 @@ class MjCassieSim(GenericSim):
                f"should be shape ({self.num_actuators},)."
         self.data.ctrl[:] = torque
 
-    def set_PD(self, 
-               setpoint: np.ndarray, 
-               velocity: np.ndarray, 
-               kp: np.ndarray, 
+    def set_PD(self,
+               setpoint: np.ndarray,
+               velocity: np.ndarray,
+               kp: np.ndarray,
                kd: np.ndarray):
         args = locals() # This has to be the first line in the function
         for arg in args:
@@ -109,7 +109,8 @@ class MjCassieSim(GenericSim):
         if self.viewer.is_alive:
             return self.viewer.render()
         else:
-            raise RuntimeError("Error: Viewer not alive, can not render.")
+            raise RuntimeError("Error: Viewer not alive, can not render. Check that viewer has not \
+                  been destroyed.")
 
     def viewer_paused(self):
         assert not self.viewer is None, \
@@ -117,7 +118,8 @@ class MjCassieSim(GenericSim):
         if self.viewer.is_alive:
             return self.viewer.paused
         else:
-            raise RuntimeError("Error: Viewer not alive, can not check paused status.")
+            raise RuntimeError("Error: Viewer not alive, can not check paused status. Check that \
+                  viewer has not been destroyed.")
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
@@ -129,7 +131,7 @@ class MjCassieSim(GenericSim):
 
     def get_motor_position(self):
         return self.data.qpos[self.motor_position_inds]
-    
+
     def get_motor_velocity(self):
         return self.data.qvel[self.motor_velocity_inds]
 
@@ -147,6 +149,12 @@ class MjCassieSim(GenericSim):
 
     def get_torque(self):
         return self.data.ctrl[:]
+
+    def get_joint_qpos_adr(self, name: str):
+        return self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
+
+    def get_joint_dof_adr(self, name: str):
+        return self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \

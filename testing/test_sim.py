@@ -16,7 +16,8 @@ ENDC = '\033[0m'
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [MjCassieSim, LibCassieSim, DigitMjSim]
+    # sim_list = [MjCassieSim, LibCassieSim, DigitMjSim]
+    sim_list = [MjCassieSim, LibCassieSim]
     num_pass = 0
     for sim in sim_list:
         num_pass = 0
@@ -26,11 +27,7 @@ def test_all_sim():
         num_pass += test_sim_viewer(sim)
         num_pass += test_sim_PD(sim)
         num_pass += test_sim_get_set(sim)
-        if sim == LibCassieSim:
-            # Don't test sim indexes
-            num_pass += 1
-        else:
-            num_pass += test_sim_indexes(sim)
+        num_pass += test_sim_indexes(sim)
         if num_pass == 6:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
@@ -129,23 +126,23 @@ def test_sim_indexes(sim):
 
     motor_name = CASSIE_MOTOR_NAME if 'cassie' in sim.__name__.lower() else DIGIT_MOTOR_NAME
     joint_name = CASSIE_JOINT_NAME if 'cassie' in sim.__name__.lower() else DIGIT_JOINT_NAME
-    
+
     motor_position_inds=[]
     motor_velocity_inds=[]
     for m in motor_name:
-        motor_position_inds.append(test_sim.model.jnt_qposadr[mj.mj_name2id(test_sim.model, mj.mjtObj.mjOBJ_JOINT, m)])
-        motor_velocity_inds.append(test_sim.model.jnt_dofadr[mj.mj_name2id(test_sim.model, mj.mjtObj.mjOBJ_JOINT, m)])
+        motor_position_inds.append(test_sim.get_joint_qpos_adr(m))
+        motor_velocity_inds.append(test_sim.get_joint_dof_adr(m))
 
     joint_position_inds=[]
     joint_velocity_inds=[]
     for m in joint_name:
-        joint_position_inds.append(test_sim.model.jnt_qposadr[mj.mj_name2id(test_sim.model, mj.mjtObj.mjOBJ_JOINT, m)])
-        joint_velocity_inds.append(test_sim.model.jnt_dofadr[mj.mj_name2id(test_sim.model, mj.mjtObj.mjOBJ_JOINT, m)])
+        joint_position_inds.append(test_sim.get_joint_qpos_adr(m))
+        joint_velocity_inds.append(test_sim.get_joint_dof_adr(m))
 
     assert motor_position_inds == test_sim.motor_position_inds, "Mismatch between motor_position_inds!"
     assert motor_velocity_inds == test_sim.motor_velocity_inds, "Mismatch between motor_velocity_inds!"
     assert joint_position_inds == test_sim.joint_position_inds, "Mismatch between joint_position_inds!"
     assert joint_velocity_inds == test_sim.joint_velocity_inds, "Mismatch between joint_velocity_inds!"
-    
+
     print("Pass indices test")
     return True

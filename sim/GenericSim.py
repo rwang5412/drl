@@ -11,14 +11,14 @@ class GenericSim:
 
     def reset(self, qpos:list=None):
         raise NotImplementedError
-        
+
     def sim_forward(self, dt: float = None):
         raise NotImplementedError
 
-    def set_PD(self, 
-               setpoint: np.ndarray, 
-               velocity: np.ndarray, 
-               kp: np.ndarray, 
+    def set_PD(self,
+               setpoint: np.ndarray,
+               velocity: np.ndarray,
+               kp: np.ndarray,
                kd: np.ndarray):
         raise NotImplementedError
 
@@ -89,3 +89,9 @@ class GenericSim:
 
     def set_torque(self, torque: np.ndarray):
         raise NotImplementedError
+
+    def get_joint_qpos_adr(self, name: str):
+        raise NotImplementedError()
+
+    def get_joint_dof_adr(self, name: str):
+        raise NotImplementedError()

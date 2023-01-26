@@ -53,6 +53,8 @@ class CassieSim:
         self.nbody = cassie_sim_nbody(self.c)
         self.nq = cassie_sim_nq(self.c)
         self.ngeom = cassie_sim_ngeom(self.c)
+        self.nu = cassie_sim_nu(self.c)
+        self.njnt = cassie_sim_njnt(self.c)
 
     def randomize_terrain(self):
         hfield = self.hfields[np.random.randint(len(self.hfields))]
@@ -127,6 +129,18 @@ class CassieSim:
         xquatp = cassie_sim_xquat(self.c, body_name.encode())
         return xquatp[:4]
 
+    def ctrl(self):
+        ctrlp = cassie_sim_ctrl(self.c)
+        return ctrlp[:self.nu]
+
+    def jnt_qposadr(self):
+        qposadrp = cassie_sim_jnt_qposadr(self.c)
+        return qposadrp[:self.njnt]
+
+    def jnt_dofadr(self):
+        dofadrp = cassie_sim_jnt_dofadr(self.c)
+        return dofadrp[:self.njnt]
+
     def set_time(self, time):
         timep = cassie_sim_time(self.c)
         timep[0] = time
@@ -140,6 +154,11 @@ class CassieSim:
         qvelp = cassie_sim_qvel(self.c)
         for i in range(min(len(qvel), self.nv)):
             qvelp[i] = qvel[i]
+
+    def set_ctrl(self, ctrl):
+        ctrlp = cassie_sim_ctrl(self.c)
+        for i in range(self.nu):
+            ctrlp[i] = ctrl[i]
 
     def hold(self):
         cassie_sim_hold(self.c)
@@ -652,6 +671,9 @@ class CassieSim:
 
     def check_obstacle_collision(self):
         return cassie_sim_check_obstacle_collision(self.c)
+
+    def mj_name2id(self, obj_type, name):
+        return cassie_sim_mj_name2id(self.c, obj_type.encode(), name.encode())
 
     def __del__(self):
         cassie_sim_free(self.c)

@@ -22,6 +22,7 @@ class LibCassieSim(GenericSim):
         # self.sim = CassieSim(terrain=kwargs['terrain'], perception=kwargs['perception'])
         self.sim = CassieSim()
         self.viewer = None
+        self.sim_dt = 0.0005    # Assume libcassie sim is always 2kHz
 
         self.motor_position_inds = [7, 8, 9, 14, 20, 21, 22, 23, 28, 34]
         self.joint_position_inds = [15, 16, 29, 30]
@@ -56,20 +57,16 @@ class LibCassieSim(GenericSim):
             self.sim.set_qpos(qpos)
         else:
             self.sim.set_qpos(self.reset_qpos)
-        # NOTE: No mj_forward in libCassieSim, is that ok to not call mj_forward
-        # after changing the qpos?
 
     def sim_forward(self, dt: float = None):
-        # NOTE: Ok to assume libcassie always at 2kHz?
-        model_dt = 0.0005
         if dt:
-            num_steps = int(dt / model_dt)
+            num_steps = int(dt / self.sim_dt)
             WARNING = '\033[93m'
             ENDC = '\033[0m'
-            if num_steps * model_dt != dt:
+            if num_steps * self.sim_dt != dt:
                 print(f"{WARNING}Warning: {dt} does not fit evenly within the sim timestep of"
-                    f" {model_dt}, simulating forward"
-                    f" {num_steps * model_dt}s instead.{ENDC}")
+                    f" {self.sim_dt}, simulating forward"
+                    f" {num_steps * self.sim_dt}s instead.{ENDC}")
         else:
             num_steps = 1
         for i in range(num_steps):
@@ -98,10 +95,10 @@ class LibCassieSim(GenericSim):
             self.u.leftLeg.motorPd.dTarget[i]  = 0
             self.u.rightLeg.motorPd.dTarget[i] = 0
 
-    def set_PD(self, 
-               setpoint: np.ndarray, 
-               velocity: np.ndarray, 
-               kp: np.ndarray, 
+    def set_PD(self,
+               setpoint: np.ndarray,
+               velocity: np.ndarray,
+               kp: np.ndarray,
                kd: np.ndarray):
         args = locals() # This has to be the first line in the function
         for arg in args:
@@ -173,10 +170,19 @@ class LibCassieSim(GenericSim):
         return np.array(self.sim.qvel())[self.base_angular_velocity_inds]
 
     def get_torque(self):
-        # TODO: Probably have to expose mjData.ctrl in libcassiemujoco
-        # Other option is to just calculate torque based upon current self.u
-        # PD values and return that. That isn't very useful though
-        pass
+        # NOTE: This returns mjData.ctrl which may not actually reflect the current command if
+        # sim_forward has not been called yet. For example, if run `set_torque(trq)` and then call
+        # `get_torque()` right after, it will not return the same `trq` array. This is because
+        # `set_torque` uses the pd_in_t struct, which doesn't actually write to mjData.ctrl until
+        # sim_forward, i.e sim.step_pd, is called.
+        return np.array(self.sim.ctrl())
+
+    def get_joint_qpos_adr(self, name: str):
+        jnt_ind = self.sim.mj_name2id("joint", name)
+        return self.sim.jnt_qposadr()[self.sim.mj_name2id("joint", name)]
+
+    def get_joint_dof_adr(self, name: str):
+        return self.sim.jnt_dofadr()[self.sim.mj_name2id("joint", name)]
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
@@ -241,8 +247,3 @@ class LibCassieSim(GenericSim):
         curr_qvel = np.array(self.sim.qvel())
         curr_qvel[self.base_angular_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
-
-
-    
-
-    
