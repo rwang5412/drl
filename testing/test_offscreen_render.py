@@ -1,62 +1,69 @@
-import time
-import numpy as np
-import matplotlib.pyplot as plt
-import mediapy
-
-# Need to update env variable before import mujoco
-import os
-gl_option = 'egl'
-os.environ['MUJOCO_GL']=gl_option
-import mujoco
-
-# Check if the env variable is correct
-if "MUJOCO_GL" in os.environ:
-    print(os.getenv('MUJOCO_GL'))
-    print(os.getenv('PYOPENGL_PLATFORM'))
-
-xml = """
-<mujoco>
-  <worldbody>
-    <light name="top" pos="0 0 1"/>
-    <body name="box_and_sphere" euler="0 0 -30">
-      <joint name="swing" type="hinge" axis="1 -1 0" pos="-.2 -.2 -.2"/>
-      <geom name="red_box" type="box" size=".2 .2 .2" rgba="1 0 0 1"/>
-      <geom name="green_sphere" pos=".2 .2 .2" size=".1" rgba="0 1 0 1"/>
-    </body>
-  </worldbody>
-</mujoco>
+"""Test file for offscreen rendering from Mujoco.Renderer class with Cassie/Digit model.
 """
 
-size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480]
-avg_list = []
-for s in size:
-    model = mujoco.MjModel.from_xml_path("cassie.xml")
-    renderer = mujoco.Renderer(model, height=s, width=s)
-    data = mujoco.MjData(model)
+def test_offscreen_rendering():
+	# Need to update env variable before import mujoco
+	import os
+	gl_option = 'egl'
+	os.environ['MUJOCO_GL']=gl_option
 
-    print("Verify the Gl context object, ", renderer._gl_context)
-    renderer.enable_depth_rendering()
+	import time
+	import numpy as np
+	import matplotlib.pyplot as plt
+	import mediapy
+	import mujoco
+	from sim import MjCassieSim, DigitMjSim
 
-    time_list = []
-    frames = []
-    camera_name = "egocentric"
-    for i in range(1000):
-        mujoco.mj_step(model, data)
-        start = time.monotonic()
-        renderer.update_scene(data, camera=camera_name)
-        img = renderer.render().copy()
-        time_list.append(time.monotonic() - start)
-        img -= img.min()
-        img /= 2 * img[img <= 1].mean()
-        img = 255 * np.clip(img, 0, 1)
-        frames.append(img.astype(np.uint8))
-    mean_time = np.mean(np.array(time_list))
-    print("mean time to update scene and render ", mean_time)
-    avg_list.append(mean_time)
-# mediapy.write_video("test.mp4", frames)
-# plt.imshow(img.astype(np.uint8), cmap='gray')
-# plt.colorbar(label='Distance to Camera')
-# plt.show()
-# print("complete")
-plt.plot(size, avg_list)
-plt.show()
+	# Check if the env variable is correct
+	if "MUJOCO_GL" in os.environ:
+		assert os.getenv('MUJOCO_GL') == gl_option, f"GL option is {os.getenv('MUJOCO_GL')} but want to load {gl_option}."
+		print(os.getenv('PYOPENGL_PLATFORM'))
+
+	size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480]
+	# size = [400]
+	avg_list = []
+	for s in size:
+		sim = MjCassieSim()
+		renderer = mujoco.Renderer(sim.model, height=s, width=s)
+		print("Verify the Gl context object, ", renderer._gl_context)
+		sim.reset()
+		# sim.viewer_init()
+		# render_state = sim.viewer_render()
+		renderer.enable_depth_rendering()
+
+		time_list = []
+		frames = []
+		camera_name = "egocentric"
+		# while render_state:
+		# 	if not sim.viewer_paused():
+		for _ in range(50):
+			for _ in range(50):
+				sim.sim_forward()
+			start = time.monotonic()
+			renderer.update_scene(sim.data, camera=camera_name)
+			img = renderer.render().copy()
+			img -= img.min()
+			img /= 2 * img[img <= 1].mean()
+			img = 255 * np.clip(img, 0, 1)
+			time_list.append(time.monotonic() - start)
+			frames.append(img.astype(np.uint8))
+			# render_state = sim.viewer_render()
+		mean_time = np.mean(np.array(time_list))
+		print("mean time to update scene and render ", mean_time)
+		avg_list.append(mean_time)
+		# while render_state:
+		# 	start_t = time.time()
+		# 	if not sim.viewer_paused():
+		# 		for _ in range(50):
+		# 			sim.sim_forward()
+		# 	render_state = sim.viewer_render()
+		# 	# Assume 2kHz sim for now
+		# 	delaytime = max(0, 50/2000 - (time.time() - start_t))
+		# 	time.sleep(delaytime)
+	mediapy.write_video("test.mp4", frames)
+	# plt.imshow(img.astype(np.uint8), cmap='gray')
+	# plt.colorbar(label='Distance to Camera')
+	# plt.show()
+	plt.plot(size, avg_list)
+	plt.show()
+	print("Passed offscreen rendering test!")
