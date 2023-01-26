@@ -24,9 +24,9 @@ def test_offscreen_rendering():
 	avg_list = []
 	for s in size:
 		sim = MjCassieSim()
-		renderer = mujoco.Renderer(sim.model, height=s, width=s)
-		print("Verify the Gl context object, ", renderer._gl_context)
 		sim.reset()
+		renderer = mujoco.Renderer(sim.model, height=s, width=s)
+		# print("Verify the Gl context object, ", renderer._gl_context)
 		# sim.viewer_init()
 		# render_state = sim.viewer_render()
 		renderer.enable_depth_rendering()
@@ -42,14 +42,17 @@ def test_offscreen_rendering():
 			start = time.monotonic()
 			renderer.update_scene(sim.data, camera=camera_name)
 			img = renderer.render().copy()
-			img -= img.min()
-			img /= 2 * img[img <= 1].mean()
-			img = 255 * np.clip(img, 0, 1)
+			if renderer._depth_rendering:
+				img -= img.min()
+				img /= 2 * img[img <= 1].mean()
+				img = 255 * np.clip(img, 0, 1)
 			time_list.append(time.monotonic() - start)
 			frames.append(img.astype(np.uint8))
+			if sim.get_base_position()[2] < 0.5:
+				break
 			# render_state = sim.viewer_render()
 		mean_time = np.mean(np.array(time_list))
-		print("mean time to update scene and render ", mean_time)
+		# print("mean time to update scene and render ", mean_time)
 		avg_list.append(mean_time)
 		# while render_state:
 		# 	start_t = time.time()
@@ -60,10 +63,10 @@ def test_offscreen_rendering():
 		# 	# Assume 2kHz sim for now
 		# 	delaytime = max(0, 50/2000 - (time.time() - start_t))
 		# 	time.sleep(delaytime)
-	mediapy.write_video("test.mp4", frames)
-	# plt.imshow(img.astype(np.uint8), cmap='gray')
-	# plt.colorbar(label='Distance to Camera')
-	# plt.show()
+	mediapy.write_video("test.mp4", frames, fps=6)
+	plt.imshow(img.astype(np.uint8), cmap='gray')
+	plt.colorbar(label='Distance to Camera')
+	plt.show()
 	plt.plot(size, avg_list)
 	plt.show()
 	print("Passed offscreen rendering test!")

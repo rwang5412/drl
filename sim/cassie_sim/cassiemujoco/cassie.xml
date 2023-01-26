@@ -8,7 +8,7 @@
 
   <visual>
     <quality shadowsize='4096'/>
-    <map znear='0.05'/>
+    <map znear='0.01' zfar='5'/>
   </visual>
 
   <default>
@@ -231,21 +231,21 @@
     </body>
 
     <!-- Add any other moving bodies after the Cassie definition -->
-    <geom name='box1'  pos='2 0 1'  size='1 2 5' type='box' condim='3' conaffinity='15'/>
-    <geom name='box2'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box3'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box4'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box5'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box6'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box7'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box8'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box9'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box10' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box11' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box12' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box13' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box14' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box15' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box1'  pos='1.5 1 0.1'  size='1 0.3 0.2' type='box' condim='3' conaffinity='15' class='obstacle'/>	
+    <geom name='box2'  pos='1.5 -1 0.1'  size='1 0.3 0.2' type='box' condim='3' conaffinity='15' class='obstacle'/>	
+    <geom name='box3'  pos='1.8 0 0.2'  size='1 0.3 0.4' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box4'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box5'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box6'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box7'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box8'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box9'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box10' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box11' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box12' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box13' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box14' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
+    <geom name='box15' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15' class='obstacle'/>
   </worldbody>              
 
   <equality>
