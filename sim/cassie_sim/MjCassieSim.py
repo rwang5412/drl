@@ -15,7 +15,7 @@ class MjCassieSim(GenericSim):
 
     def __init__(self):
         super().__init__()
-        model_path = pathlib.Path(__file__).parent.resolve() / "cassie.xml"
+        model_path = pathlib.Path(__file__).parent.resolve() / "cassiemujoco/cassie.xml"
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
         self.viewer = None
@@ -47,7 +47,7 @@ class MjCassieSim(GenericSim):
         else:
             self.data.qpos = self.reset_qpos
         mj.mj_forward(self.model, self.data)
-        
+
     def sim_forward(self, dt: float = None):
         if dt:
             num_steps = int(dt / self.model.opt.timestep)
@@ -59,7 +59,17 @@ class MjCassieSim(GenericSim):
             num_steps = 1
         mj.mj_step(self.model, self.data, nstep=num_steps)
 
-    def set_PD(self, setpoint: np.ndarray, velocity: np.ndarray, kp: np.ndarray, kd: np.ndarray):
+    def set_torque(self, torque: np.ndarray):
+        assert torque.shape == (self.num_actuators,), \
+               f"set_torque got array of shape {torque.shape} but " \
+               f"should be shape ({self.num_actuators},)."
+        self.data.ctrl[:] = torque
+
+    def set_PD(self,
+               setpoint: np.ndarray,
+               velocity: np.ndarray,
+               kp: np.ndarray,
+               kd: np.ndarray):
         args = locals() # This has to be the first line in the function
         for arg in args:
             if arg != "self":
@@ -94,10 +104,22 @@ class MjCassieSim(GenericSim):
         self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos)
 
     def viewer_render(self):
+        assert not self.viewer is None, \
+               f"viewer has not been initalized yet, can not render"
         if self.viewer.is_alive:
-            self.viewer.render()
+            return self.viewer.render()
         else:
-            raise RuntimeError("Error: Viewer not alive, can not render.")
+            raise RuntimeError("Error: Viewer not alive, can not render. Check that viewer has not \
+                  been destroyed.")
+
+    def viewer_paused(self):
+        assert not self.viewer is None, \
+               f"viewer has not been initalized yet, can not check paused status"
+        if self.viewer.is_alive:
+            return self.viewer.paused
+        else:
+            raise RuntimeError("Error: Viewer not alive, can not check paused status. Check that \
+                  viewer has not been destroyed.")
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
@@ -128,65 +150,65 @@ class MjCassieSim(GenericSim):
     def get_torque(self):
         return self.data.ctrl[:]
 
-    def set_joint_position(self, pos: np.ndarray):
-        assert pos.ndim == 1, \
-               f"set_joint_position did not receive a 1 dimensional array"
-        assert len(pos) == len(self.joint_position_inds), \
-               f"set_joint_position did not receive array of size ({len(self.joint_position_inds)})"
-        self.data.qpos[self.joint_position_inds] = pos
+    def get_joint_qpos_adr(self, name: str):
+        return self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
+
+    def get_joint_dof_adr(self, name: str):
+        return self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
+
+    def set_joint_position(self, position: np.ndarray):
+        assert position.shape == (self.num_joints,), \
+               f"set_joint_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_joints},)."
+        self.data.qpos[self.joint_position_inds] = position
         mj.mj_forward(self.model, self.data)
 
-    def set_joint_velocity(self, vel: np.ndarray):
-        assert vel.ndim == 1, \
-               f"set_joint_velocity did not receive a 1 dimensional array"
-        assert len(vel) == len(self.joint_velocity_inds), \
-               f"set_joint_velocity did not receive array of size ({len(self.joint_velocity_inds)})"
-        self.data.qpos[self.joint_velocity_inds] = vel
+    def set_joint_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (self.num_joints,), \
+               f"set_joint_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_joints},)."
+        self.data.qvel[self.joint_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
-    def set_motor_position(self, pos: np.ndarray):
-        assert pos.ndim == 1, \
-               f"set_motor_position did not receive a 1 dimensional array"
-        assert len(pos) == len(self.motor_position_inds), \
-               f"set_motor_position did not receive array of size {len(self.motor_position_inds)}"
-        self.data.qpos[self.motor_position_inds] = pos
+    def set_motor_position(self, position: np.ndarray):
+        assert position.shape == (self.num_actuators,), \
+               f"set_motor_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_actuators},)."
+        self.data.qpos[self.motor_position_inds] = position
         mj.mj_forward(self.model, self.data)
 
-    def set_base_position(self, pos: np.ndarray):
-        assert pos.ndim == 1, \
-               f"set_base_position did not receive a 1 dimensional array"
-        assert len(pos) == len(self.base_position_inds), \
-               f"set_base_position did not receive array of size {len(self.base_position_inds)}"
-        self.data.qpos[self.base_position_inds] = pos
+    def set_motor_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (self.num_actuators,), \
+               f"set_motor_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_actuators},)."
+        self.data.qvel[self.motor_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
-    def set_base_linear_velocity(self, vel: np.ndarray):
-        assert vel.ndim == 1, \
-               f"set_base_linear_velocity did not receive a 1 dimensional array"
-        assert len(vel) == len(self.base_linear_velocity_inds), \
-               f"set_base_linear_velocity did not receive array of size {len(self.base_linear_velocity_inds)}"
-        self.data.qvel[self.base_linear_velocity_inds] = vel
+    def set_base_position(self, position: np.ndarray):
+        assert position.shape == (3,), \
+               f"set_base_position got array of shape {position.shape} but " \
+               f"should be shape (3,)."
+        self.data.qpos[self.base_position_inds] = position
+        mj.mj_forward(self.model, self.data)
+
+    def set_base_linear_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (3,), \
+               f"set_base_linear_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,)."
+        self.data.qvel[self.base_linear_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
     def set_base_orientation(self, quat: np.ndarray):
-        assert quat.ndim == 1, \
-               f"set_base_orientation did not receive a 1 dimensional array"
-        assert len(quat) == len(self.base_orientation_inds), \
-               f"set_base_orientation did not receive array of size {len(self.base_orientation_inds)}"
+        assert quat.shape == (4,), \
+               f"set_base_orientation got array of shape {quat.shape} but " \
+               f"should be shape (4,)."
         self.data.qpos[self.base_orientation_inds] = quat
         mj.mj_forward(self.model, self.data)
 
-    def set_base_angular_velocity(self, vel: np.ndarray):
-        assert vel.ndim == 1, \
-               f"set_base_angular_velocity did not receive a 1 dimensional array"
-        assert len(vel) == len(self.base_angular_velocity_inds), \
-               f"set_base_angular_velocity did not receive array of size {len(self.base_angular_velocity_inds)}"
-        self.data.qvel[self.base_angular_velocity_inds] = vel
+    def set_base_angular_velocity(self, velocity: np.ndarray):
+        assert velocity.shape == (3,), \
+               f"set_base_angular_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,)."
+        self.data.qvel[self.base_angular_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
-    def set_torque(self, torque: np.ndarray):
-        assert torque.ndim == 1, \
-               f"set_torque did not receive a 1 dimensional array"
-        assert len(torque) == self.model.nu, \
-               f"set_torque did not receive array of size {self.model.nu}"
-        self.data.ctrl[:] = torque
