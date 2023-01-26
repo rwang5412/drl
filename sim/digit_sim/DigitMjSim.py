@@ -29,22 +29,22 @@ class DigitMjSim(GenericSim):
 
         self.num_actuators = self.model.nu
         self.num_joints = len(self.joint_position_inds)
-        
+
         # TODO: helei, We might push this into env
         self.kp = np.array([200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
                             200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0])
         self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
                             10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
-        
+
         self.reset_qpos = np.array([0, 0, 1,  1, 0 ,0 ,0,
-        3.33020155e-01, -2.66178730e-02, 1.92369587e-01, 
+        3.33020155e-01, -2.66178730e-02, 1.92369587e-01,
         9.93409734e-01, -1.04126145e-03, 1.82534311e-03, 1.14597921e-01,
-        2.28971047e-01, 1.48527831e-03, -2.31455693e-01, 4.55857916e-04, 
-        -1.29734322e-02,  
-        9.89327705e-01, 1.45524756e-01, 1.73630859e-03, 7.08678995e-03, 
+        2.28971047e-01, 1.48527831e-03, -2.31455693e-01, 4.55857916e-04,
+        -1.29734322e-02,
+        9.89327705e-01, 1.45524756e-01, 1.73630859e-03, 7.08678995e-03,
         -2.03852305e-02,
         9.88035432e-01, 1.53876629e-01, 6.59769560e-05, 1.03905844e-02,
-        -3.52778547e-03, -5.54992074e-02, 
+        -3.52778547e-03, -5.54992074e-02,
         -1.05542715e-01, 8.94852532e-01, -8.63756398e-03, 3.44780280e-01,
         -3.33020070e-01, 2.66195360e-02, -1.92382190e-01,
         9.93409659e-01, 1.04481446e-03, 1.82489637e-03, -1.14598546e-01,
@@ -56,7 +56,7 @@ class DigitMjSim(GenericSim):
         2.36874210e-03, 5.55559678e-02,
         1.05444698e-01, -8.94890429e-01, 8.85979401e-03, -3.44723293e-01
         ])
-        
+
         self.offset = self.reset_qpos[self.motor_position_inds]
 
     def reset(self, qpos: np.ndarray=None):
@@ -66,14 +66,14 @@ class DigitMjSim(GenericSim):
         else:
             self.data.qpos = self.reset_qpos
         mj.mj_forward(self.model, self.data)
-  
+
     def sim_forward(self, dt: float=None):
         if dt:
             num_steps = int(dt / self.model.opt.timestep)
             if num_steps * self.model.opt.timestep != dt:
                 raise RuntimeError(f"{WARNING}Warning: {dt} does not fit evenly within the sim timestep of"
                     f" {self.model.opt.timestep}, simulating forward"
-                    f" {num_steps * self.model.opt.timestep}s instead.{ENDC}") 
+                    f" {num_steps * self.model.opt.timestep}s instead.{ENDC}")
         else:
             num_steps = 1
         mj.mj_step(self.model, self.data, nstep=num_steps)
@@ -87,13 +87,13 @@ class DigitMjSim(GenericSim):
         assert torque.shape == (self.model.nu,), \
                f"set_torque got array of shape {torque.shape} but " \
                f"should be shape ({self.model.nu},)."
-        
+
         self.data.ctrl[:] = torque
 
-    def set_PD(self, 
-               setpoint: np.ndarray, 
-               velocity: np.ndarray, 
-               kp: np.ndarray, 
+    def set_PD(self,
+               setpoint: np.ndarray,
+               velocity: np.ndarray,
+               kp: np.ndarray,
                kd: np.ndarray):
         args = locals() # This has to be the first line in the function
         for arg in args:
@@ -103,12 +103,12 @@ class DigitMjSim(GenericSim):
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
                  kd * (velocity - self.data.qvel[self.motor_velocity_inds])
         self.data.ctrl[:] = torque
-    
+
     def hold(self):
         """Set stiffness/damping for base 6DOF so base is fixed
-        NOTE: There is an old funky stuff when left hip-roll motor is somehow coupled with the base 
-        joint, so left-hip-roll is not doing things correctly when holding. 
-        Turns out xml seems need to be defined with 3 slide and 1 ball instead of free joint. 
+        NOTE: There is an old funky stuff when left hip-roll motor is somehow coupled with the base
+        joint, so left-hip-roll is not doing things correctly when holding.
+        Turns out xml seems need to be defined with 3 slide and 1 ball instead of free joint.
         """
         for i in range(3):
             self.model.jnt_stiffness[i] = 1e5
@@ -133,7 +133,7 @@ class DigitMjSim(GenericSim):
 
     def viewer_render(self):
         if self.viewer.is_alive:
-            self.viewer.render()
+            return self.viewer.render()
         else:
             raise RuntimeError("Error: Viewer not alive, can not render.")
 
@@ -176,6 +176,12 @@ class DigitMjSim(GenericSim):
     def get_torque(self):
         return self.data.ctrl[:]
 
+    def get_joint_qpos_adr(self, name: str):
+        return self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
+
+    def get_joint_dof_adr(self, name: str):
+        return self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
+
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
                f"set_joint_position got array of shape {position.shape} but " \
@@ -204,7 +210,7 @@ class DigitMjSim(GenericSim):
         assert position.shape == (3,), \
                f"set_base_translation got array of shape {position.shape} but " \
                f"should be shape (3,)."
-        
+
         self.data.qpos[self.base_position_inds] = position
 
     def set_base_linear_velocity(self, velocity: np.ndarray):

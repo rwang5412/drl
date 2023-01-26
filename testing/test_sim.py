@@ -16,8 +16,7 @@ ENDC = '\033[0m'
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    # sim_list = [MjCassieSim, LibCassieSim, DigitMjSim]
-    sim_list = [MjCassieSim, LibCassieSim]
+    sim_list = [MjCassieSim, LibCassieSim, DigitMjSim]
     num_pass = 0
     for sim in sim_list:
         num_pass = 0
