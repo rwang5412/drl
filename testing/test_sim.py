@@ -115,7 +115,7 @@ def test_sim_indexes(sim):
 
     motor_name = CASSIE_MOTOR_NAME if 'cassie' in sim.__name__.lower() else DIGIT_MOTOR_NAME
     joint_name = CASSIE_JOINT_NAME if 'cassie' in sim.__name__.lower() else DIGIT_JOINT_NAME
-    
+
     motor_position_inds=[]
     motor_velocity_inds=[]
     for m in motor_name:
@@ -132,6 +132,6 @@ def test_sim_indexes(sim):
     assert motor_velocity_inds == test_sim.motor_velocity_inds, "Mismatch between motor_velocity_inds!"
     assert joint_position_inds == test_sim.joint_position_inds, "Mismatch between joint_position_inds!"
     assert joint_velocity_inds == test_sim.joint_velocity_inds, "Mismatch between joint_velocity_inds!"
-    
+
     print("Pass indices test")
     return True

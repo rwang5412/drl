@@ -1,5 +1,6 @@
-import mujoco as mj
 import glfw
+import imageio
+import mujoco as mj
 import numpy as np
 from threading import Lock
 
@@ -113,7 +114,8 @@ class MujocoViewer():
         self._lastbutton = glfw.MOUSE_BUTTON_1
         self._lastclicktm = 0.0
         self._showhelp = False
-        self._showoption = False
+        self._showvishelp = False
+        self._showrndhelp = False
         self._showGRF = False
         self._GRFcount = 0
         self._showfullscreen = False
@@ -154,6 +156,9 @@ class MujocoViewer():
             mj.mjv_applyPerturbPose(self.model, self.data, self.pert, 0)    # move mocap bodies only
             mj.mjv_applyPerturbForce(self.model, self.data, self.pert)
         with self._gui_lock:
+            # Set up for rendering
+            glfw.make_context_current(self.window)
+            self.viewport.width, self.viewport.height = glfw.get_framebuffer_size(self.window)
             mj.mjv_updateScene(
                 self.model,
                 self.data,
@@ -169,6 +174,36 @@ class MujocoViewer():
                                self.viewport,
                                HELP_TITLE,
                                HELP_CONTENT,
+                               self.ctx)
+            if self._showvishelp:
+                # Make vis help strings
+                key_title = ""
+                key_content = ""
+                for i in range(mj.mjtVisFlag.mjNVISFLAG):
+                    key_title += mj.mjVISSTRING[i][0].replace("&", "") + "\n"
+                    key_content += mj.mjVISSTRING[i][2] + "\n"
+                key_title = key_title[:-1]
+                key_content = key_content[:-1]
+                mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value,
+                               mj.mjtGridPos.mjGRID_TOPLEFT,
+                               self.viewport,
+                               key_title,
+                               key_content,
+                               self.ctx)
+            if self._showrndhelp:
+                # Make vis help strings
+                key_title = ""
+                key_content = ""
+                for i in range(mj.mjtRndFlag.mjNRNDFLAG):
+                    key_title += mj.mjRNDSTRING[i][0].replace("&", "") + "\n"
+                    key_content += mj.mjRNDSTRING[i][2] + "\n"
+                key_title = key_title[:-1]
+                key_content = key_content[:-1]
+                mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value,
+                               mj.mjtGridPos.mjGRID_TOPLEFT,
+                               self.viewport,
+                               key_title,
+                               key_content,
                                self.ctx)
             if self._showinfo:
                 if self.paused:
@@ -203,19 +238,22 @@ class MujocoViewer():
                 self.cam.distance = 3
                 self.cam.azimuth = 90
                 self.cam.elevation = -20
+                return
             # Handle control key mod
             if mods == glfw.MOD_CONTROL:
                 if key == glfw.KEY_A:
                     self.cam.lookat = self.model.stat.center
                     self.cam.distance = 1.5 * self.model.stat.extent
                     self.cam.type = mj.mjtCamera.mjCAMERA_FREE
+                    return
                 elif key == glfw.KEY_P: # Print out qpos
                     qpos_str = "qpos: "
                     for i in range(self.model.nq):
-                        qpos_str += f"{self.d.qpos[i]:.4f}"
+                        qpos_str += f"{self.data.qpos[i]:.4f}"
                         if i != self.model.nq - 1:
                             qpos_str += ", "
                     print(qpos_str)
+                    return
                 elif key == glfw.KEY_T: # Save screenshot
                     img = np.zeros(
                         (glfw.get_framebuffer_size(
@@ -223,41 +261,57 @@ class MujocoViewer():
                             self.window)[0], 3), dtype=np.uint8)
                     mj.mjr_readPixels(img, None, self.viewport, self.ctx)
                     imageio.imwrite(self._image_path % self._image_idx, np.flipud(img))
+                    print(f"Saved screenshot to {self._image_path % self._image_idx}")
                     self._image_idx += 1
+                    return
                 elif key == glfw.KEY_Q:
                     glfw.set_window_should_close(self.window, True)
+                    return
             # Toggle visualization flags
             for i in range(mj.mjtVisFlag.mjNVISFLAG):
-                if key == mj.mjVISSTRING[i][2][0]:
-                    self.opt.flags[i] = 1 - self.opt.flags[i]
+                if glfw.get_key_name(key, scancode) == mj.mjVISSTRING[i][2][0].lower():
+                    self.vopt.flags[i] = 1 - self.vopt.flags[i]
                     # return
                     # Don't return here due to overlapping key in VISSTRING and RNDSTRING. "," key
                     # is in both, so if "," is pressed toggle both flags and return in RNDSTRING check
             # Toggle rendering flags
             for i in range(mj.mjtRndFlag.mjNRNDFLAG):
-                if key == mj.mjRNDSTRING[i][2]:
+                if glfw.get_key_name(key, scancode) == mj.mjRNDSTRING[i][2].lower():
                     self.scn.flags[i] = 1 - self.scn.flags[i]
                     return
             # Toggle geom/site group
             for i in range(mj.mjNGROUP):
                 if key == i + 48:   # Int('0') = 48
                     if mods and glfw.MOD_SHIFT == True:
-                        # NOTE: what is self.opt? this seems broken. 
                         self.vopt.sitegroup[i] = 1 - self.vopt.sitegroup[i]
                     else:
                         self.vopt.geomgroup[i] = 1 - self.vopt.geomgroup[i]
         # Handle regular inidividual key presses
         if key == glfw.KEY_F1:              # help
             self._showhelp = not self._showhelp
-        elif key == glfw.KEY_F2:            # option
-            self._showoption = not self._showoption
-        elif key == glfw.KEY_F3:            # info
+            # Turn off other overlays if active
+            if self._showhelp:
+                self._showvishelp = False
+                self._showrndhelp = False
+        elif key == glfw.KEY_F2:            # visualizer flag help
+            self._showvishelp = not self._showvishelp
+            # Turn off other overlays if active
+            if self._showvishelp:
+                self._showhelp = False
+                self._showrndhelp = False
+        elif key == glfw.KEY_F3:            # render flag help
+            self._showrndhelp = not self._showrndhelp
+            # Turn off other overlays if active
+            if self._showrndhelp:
+                self._showvishelp = False
+                self._showhelp = False
+        elif key == glfw.KEY_F4:            # info
             self._showinfo = not self._showinfo
-        elif key == glfw.KEY_F4:            # GRF
+        elif key == glfw.KEY_F5:            # GRF
             self._showGRF = not self._showGRF
-        elif key == glfw.KEY_F5:            # sensor figure
+        elif key == glfw.KEY_F6:            # sensor figure
             self._showsensor = not self._showsensor
-        elif key == glfw.KEY_F6:            # toggle fullscreen
+        elif key == glfw.KEY_F7:            # toggle fullscreen
             self._showfullscreen = not self._showfullscreen
         elif key == glfw.KEY_ENTER:         # toggle slow motion
             self._slowmotion = not self._slowmotion
@@ -277,12 +331,12 @@ class MujocoViewer():
             self.cam.type = mj.mjtCamera.mjCAMERA_FREE
         elif key == glfw.KEY_EQUAL:         # bigger font
             if self.fontscale < 200:
-                fontscale += 50
-                self.ctx = mj.MjrContext(self.model, fontscale)
+                self.fontscale += 50
+                self.ctx = mj.MjrContext(self.model, self.fontscale)
         elif key == glfw.KEY_MINUS:         # smaller font
-            if self.fonstacle > 100:
-                fontscale -= 50
-                self.ctx = mj.MjrContext(self.model, fontscale)
+            if self.fontscale > 100:
+                self.fontscale -= 50
+                self.ctx = mj.MjrContext(self.model, self.fontscale)
         elif key == glfw.KEY_LEFT_BRACKET:  # previous fixed camera or free
             if self.model.ncam > 0 and self.cam.type == mj.mjtCamera.mjCAMERA_FIXED:
                 if self.cam.fixedcamid > 0:
@@ -304,10 +358,10 @@ class MujocoViewer():
             return
 
         # compute mouse displacement
-        dx = int(self._scale * xpos) - self._last_mouse_x
-        dy = int(self._scale * ypos) - self._last_mouse_y
-        self._last_mouse_x = int(self._scale * xpos)
-        self._last_mouse_y = int(self._scale * ypos)
+        dx = xpos - self._last_mouse_x
+        dy = ypos - self._last_mouse_y
+        self._last_mouse_x = xpos
+        self._last_mouse_y = ypos
         width, height = glfw.get_framebuffer_size(window)
 
         mod_shift = (
@@ -359,8 +413,8 @@ class MujocoViewer():
 
         # update mouse position
         x, y = glfw.get_cursor_pos(window)
-        self._last_mouse_x = int(self._scale * x)
-        self._last_mouse_y = int(self._scale * y)
+        self._last_mouse_x = x
+        self._last_mouse_y = y
 
         # set perturbation
         newperturb = 0
@@ -422,8 +476,7 @@ class MujocoViewer():
                     # compute localpos
                     vec = selpnt.flatten() - self.data.xpos[selbody]
                     mat = self.data.xmat[selbody].reshape(3, 3)
-                    self.pert.localpos = self.data.xmat[selbody].reshape(
-                        3, 3).dot(vec)
+                    self.pert.localpos = mat.transpose().dot(vec)
                 else:
                     self.pert.select = 0
                     self.pert.skinselect = -1
