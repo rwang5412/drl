@@ -23,6 +23,7 @@ class LibCassieSim(GenericSim):
         self.sim = CassieSim()
         self.viewer = None
         self.sim_dt = 0.0005    # Assume libcassie sim is always 2kHz
+        self.simulator_rate = int(1 / self.sim_dt)
 
         self.motor_position_inds = [7, 8, 9, 14, 20, 21, 22, 23, 28, 34]
         self.joint_position_inds = [15, 16, 29, 30]

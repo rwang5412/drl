@@ -29,6 +29,7 @@ class MjCassieSim(GenericSim):
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
 
+        self.simulator_rate = int(1 / self.model.opt.timestep)
         self.num_actuators = 10
         self.num_joints = 4
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
