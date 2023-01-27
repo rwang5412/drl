@@ -24,8 +24,6 @@ if __name__ == "__main__":
     if args.render:
         from testing.test_offscreen_render import test_offscreen_rendering
         test_offscreen_rendering()
-    else:
-        raise RuntimeError("Specify test type, --algo | --env | --sim | --ar | --render")
     if args.ar:        
         from testing.test_ar_sim import (
             test_ar_connect,
