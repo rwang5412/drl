@@ -87,7 +87,7 @@ def test_sim_glfw_multiple_viewer(sim):
         camera_id='forward-chest-realsense-d435/depth/image-rect', width=500, height=500)
     rs1 = vis1.render()
     rs2 = vis2.render()
-    while rs1 or rs2:
+    while rs1 and rs2:
         start_t = time.time()
         if not vis1.paused or not vis2.paused:
             for _ in range(50):

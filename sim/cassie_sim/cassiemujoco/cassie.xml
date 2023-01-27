@@ -6,10 +6,10 @@
   <!-- Timestep is set to 0.0005 because our controller runs at 2 kHz -->
   <!-- Larger values still have stable dynamics -->
 
-  <visual>
+  <!-- <visual>
     <quality shadowsize='4096'/>
     <map znear='0.01' zfar='5'/>
-  </visual>
+  </visual> -->
 
   <default>
     <joint limited='true'/>
