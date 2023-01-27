@@ -128,8 +128,9 @@ class DigitMjSim(GenericSim):
         for i in range(3, 6):
             self.model.dof_damping[i] = 0
 
-    def viewer_init(self):
-        self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos)
+    def viewer_init(self, width=None, height=None, camera_id=-1):
+        self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos, width=width, \
+            height=height, camera_id=camera_id)
 
     def viewer_render(self):
         if self.viewer.is_alive:

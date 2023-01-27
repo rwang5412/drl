@@ -55,6 +55,7 @@ class MujocoViewer():
                  model,
                  data,
                  reset_qpos,
+                 camera_id=-1,
                  width=None,
                  height=None):
 
@@ -101,12 +102,24 @@ class MujocoViewer():
         self.ctx = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_150.value)
         self.fontscale = 150
         # Set up mujoco visualization objects
-        self.cam.type = mj.mjtCamera.mjCAMERA_TRACKING
-        self.cam.trackbodyid = 0
-        self.cam.fixedcamid = -1
-        self.cam.distance = 3
-        self.cam.azimuth = 90
-        self.cam.elevation = -20
+        if camera_id != -1 and isinstance(camera_id, str):
+            # If camera specified, attach camera to fixed view
+            camera_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_CAMERA, camera_id)
+            self.cam.type = mj.mjtCamera.mjCAMERA_FIXED
+        elif camera_id < -1:
+            raise ValueError('camera_id cannot be smaller than -1.')
+        elif camera_id >= self.model.ncam:
+            raise ValueError(
+                f'model has {self._model.ncam} fixed cameras. '
+                f'camera_id={camera_id} is invalid.'
+            )
+        else: # Default to tracking camera
+            self.cam.type = mj.mjtCamera.mjCAMERA_TRACKING
+            self.cam.trackbodyid = 0
+            self.cam.distance = 3
+            self.cam.azimuth = 90
+            self.cam.elevation = -20
+        self.cam.fixedcamid = camera_id
         self.vopt.flags[11] = 1    # Render applied forces
 
         # Set interaction ctrl vars
