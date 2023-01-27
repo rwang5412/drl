@@ -314,6 +314,10 @@ class MujocoViewer():
             self._showsensor = not self._showsensor
         elif key == glfw.KEY_F7:            # toggle fullscreen
             self._showfullscreen = not self._showfullscreen
+            if self._showfullscreen:
+                glfw.maximize_window(self.window)
+            else:
+                glfw.restore_window(self.window)
         elif key == glfw.KEY_ENTER:         # toggle slow motion
             self._slowmotion = not self._slowmotion
         elif key == glfw.KEY_SPACE:         # pause
