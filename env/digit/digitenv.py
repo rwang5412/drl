@@ -40,6 +40,7 @@ class DigitEnv(GenericEnv):
                                "Select from 'mujoco' or 'ar'.")
 
         # Generic env specifics
+        self.orient_add = 0
 
         # Low-level control specifics
         self.kp = np.array([200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
@@ -96,11 +97,21 @@ class DigitEnv(GenericEnv):
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
             self.foot_GRF = None
 
-    def get_state(self):
-        raise NotImplementedError
+    def get_robot_state(self):
+        """Get standard robot prioceptive states
 
-    def compute_reward(self):
-        raise NotImplementedError
+        Returns:
+            robot_state (np.ndarray): robot state
+        """
+        robot_state = np.concatenate([
+            self.rotate_to_heading(self.sim.get_base_orientation()),
+            self.sim.get_base_angular_velocity(),
+            self.sim.get_motor_position(),
+            self.sim.get_motor_velocity(),
+            self.sim.get_joint_position(),
+            self.sim.get_joint_velocity()
+        ])
+        return robot_state
 
     def rotate_to_heading(self, orientation: list):
         """Offset robot heading in world frame by self.orient_add amount
@@ -119,6 +130,4 @@ class DigitEnv(GenericEnv):
 
         elif len(orientation) == 4:
             new_orient = quaternion_product(iquaternion, orientation)
-            if new_orient[0] < 0:
-                new_orient = -new_orient
             return new_orient

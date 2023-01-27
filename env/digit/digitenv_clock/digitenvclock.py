@@ -68,15 +68,7 @@ class DigitEnvClock(DigitEnv):
         pass
 
     def get_state(self):
-        robot_state = np.concatenate([
-            self.rotate_to_heading(self.sim.get_base_orientation()),
-            self.sim.get_base_angular_velocity(),
-            self.sim.get_motor_position(),
-            self.sim.get_motor_velocity(),
-            self.sim.get_joint_position(),
-            self.sim.get_joint_velocity()
-        ])
-        return robot_state
+        return self.get_robot_state()
 
     def get_action_mirror_indices(self):
         raise NotImplementedError

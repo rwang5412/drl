@@ -40,6 +40,7 @@ class CassieEnv(GenericEnv):
                                "Select from 'mujoco' or 'libcassie'.")
 
         # Generic env specifics
+        self.orient_add = 0
 
         # Low-level control specifics
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
@@ -72,13 +73,23 @@ class CassieEnv(GenericEnv):
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
             self.foot_GRF = None
 
-    def get_state(self):
-        raise NotImplementedError
+    def get_robot_state(self):
+        """Get standard robot prioceptive states
 
-    def compute_reward(self):
-        raise NotImplementedError
+        Returns:
+            robot_state (np.ndarray): robot state
+        """
+        robot_state = np.concatenate([
+            self.rotate_to_heading(self.sim.get_base_orientation()),
+            self.sim.get_base_angular_velocity(),
+            self.sim.get_motor_position(),
+            self.sim.get_motor_velocity(),
+            self.sim.get_joint_position(),
+            self.sim.get_joint_velocity()
+        ])
+        return robot_state
 
-    def rotate_to_heading(self, orientation: list):
+    def rotate_to_heading(self, orientation: np.ndarray):
         """Offset robot heading in world frame by self.orient_add amount
 
         Args:
@@ -95,6 +106,4 @@ class CassieEnv(GenericEnv):
 
         elif len(orientation) == 4:
             new_orient = quaternion_product(iquaternion, orientation)
-            if new_orient[0] < 0:
-                new_orient = -new_orient
             return new_orient

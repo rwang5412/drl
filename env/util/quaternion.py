@@ -12,6 +12,8 @@ def quaternion_product(q1, q2):
     result[1] = q1[0]*q2[1]+q2[0]*q1[1]+q1[2]*q2[3]-q1[3]*q2[2]
     result[2] = q1[0]*q2[2]-q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
     result[3] = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
+    if result[0] < 0:
+        result = -result
     return result
 
 def rotate_by_quaternion(vector, quaternion):
