@@ -56,11 +56,12 @@ def test_offscreen_rendering():
 			start_t = time.time()
 			if not sim.viewer_paused():
 				for _ in range(50):
+					start = time.time()
 					sim.sim_forward()
+					time_list.append(time.time() - start)
 			render_state = sim.viewer_render()
-			# Assume 2kHz sim for now
-			delaytime = max(0, 50/2000 - (time.time() - start_t))
-			time.sleep(delaytime)
+			mean_time = np.mean(np.array(time_list))
+			print("sim rate ", 1/mean_time)
 	# mediapy.write_video("test.mp4", frames, fps=6)
 	# plt.imshow(img.astype(np.uint8), cmap='gray')
 	# plt.colorbar(label='Distance to Camera')
