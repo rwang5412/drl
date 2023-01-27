@@ -23,7 +23,7 @@ ENDC = '\033[0m'
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
     # sim_list = [MjCassieSim, LibCassieSim, DigitMjSim]
-    sim_list = [MjCassieSim]
+    sim_list = [MjCassieSim, DigitMjSim]
     num_pass = 0
     for sim in sim_list:
         test_sim_glfw_multiple_viewer(sim)
