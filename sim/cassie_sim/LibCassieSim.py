@@ -185,6 +185,9 @@ class LibCassieSim(GenericSim):
     def get_joint_dof_adr(self, name: str):
         return self.sim.jnt_dofadr()[self.sim.mj_name2id("joint", name)]
 
+    def get_simulation_time(self):
+        return self.sim.time()
+
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
                f"set_joint_position got array of shape {position.shape} but " \

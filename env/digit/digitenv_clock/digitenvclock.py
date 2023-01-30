@@ -51,7 +51,7 @@ class DigitEnvClock(DigitEnv):
             self.policy_rate = self.default_policy_rate
 
         # Step simulation by n steps. This call will update self.tracker_fn.
-        simulator_repeat_steps = int(2000 / self.policy_rate)
+        simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
         self.step_simulation(action, simulator_repeat_steps)
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
@@ -62,7 +62,7 @@ class DigitEnvClock(DigitEnv):
         return self.get_state(), r, self.compute_done(), {}
 
     def compute_reward(self, action: np.ndarray):
-        pass
+        return 1
 
     def compute_done(self):
         pass
