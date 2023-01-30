@@ -89,14 +89,24 @@ def test_sim_glfw_multiple_viewer(sim):
         camera_id='forward-chest-realsense-d435/depth/image-rect', width=400, height=400)
     rs1 = vis1.render()
     rs2 = vis2.render()
-    while rs1 and rs2:
+    while rs1 or rs2:
         start_t = time.time()
-        if not vis1.paused or not vis2.paused:
-            for _ in range(50):
-                test_sim.sim_forward()
-        rs1 = vis1.render()
-        rs2 = vis2.render()
-        # Assume 2kHz sim for now
+        if rs1 and rs2:
+            if not vis1.paused and not vis2.paused:
+                for _ in range(50):
+                    test_sim.sim_forward()
+            rs1 = vis1.render()
+            rs2 = vis2.render()
+        elif rs1:
+            if not vis1.paused:
+                for _ in range(50):
+                    test_sim.sim_forward()
+            rs1 = vis1.render()
+        elif rs2:
+            if not vis1.paused:
+                for _ in range(50):
+                    test_sim.sim_forward()
+            rs2 = vis2.render()
         delaytime = max(0, 50/2000 - (time.time() - start_t))
         time.sleep(delaytime)
     print("Passed sim viewer")
