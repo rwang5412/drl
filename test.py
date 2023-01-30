@@ -12,7 +12,7 @@ from testing.test_ar_sim import (
     test_ar_sim_llapi_walking_handover,
     test_ar_sim_llapi_teststand
 )
-from testing.test_clock import test_linear_clock
+from testing.test_clock import test_all_clocks
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -37,5 +37,5 @@ if __name__ == "__main__":
         asyncio.run(test_ar_sim_llapi_teststand())
         asyncio.run(test_ar_sim_llapi_walking_handover())
     if args.clock:
-        test_linear_clock()
+        test_all_clocks()
 
