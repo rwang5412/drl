@@ -29,6 +29,7 @@ class MjCassieSim(GenericSim):
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
 
+        self.simulator_rate = int(1 / self.model.opt.timestep)
         self.num_actuators = 10
         self.num_joints = 4
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
@@ -146,7 +147,7 @@ class MjCassieSim(GenericSim):
         return self.data.qpos[self.base_orientation_inds]
 
     def get_base_angular_velocity(self):
-        return self.data.qpos[self.base_angular_velocity_inds]
+        return self.data.qvel[self.base_angular_velocity_inds]
 
     def get_torque(self):
         return self.data.ctrl[:]
@@ -156,6 +157,9 @@ class MjCassieSim(GenericSim):
 
     def get_joint_dof_adr(self, name: str):
         return self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
+
+    def get_simulation_time(self):
+        return self.data.time
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \

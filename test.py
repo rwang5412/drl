@@ -3,7 +3,9 @@ import asyncio
 import os
 import pickle
 import sys
+
 import testing.test_sim as ts
+import testing.test_env as test_env
 
 from testing.test_ar_sim import (
     test_ar_connect,
@@ -25,7 +27,7 @@ if __name__ == "__main__":
     if args.algo:
         pass
     if args.env:
-        pass
+        test_env.test_all_env()
     if args.sim:
         ts.test_all_sim()
     if args.ar:
