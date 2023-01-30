@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-from env.PeriodicTracker import PeriodicTracker
+from env.util.periodicclock import PeriodicClock
 
 def plot_clock(t, lr_swing_vals, title: str):
     # Input should be 2d array of shape [swing values, 2], left will come first ([:, 0]) and right
