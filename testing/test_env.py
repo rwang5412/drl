@@ -9,7 +9,7 @@ from env import (
 
 def test_all_env():
     base_env_sim_pair = [[CassieEnv, "mujoco"], [DigitEnv, "mujoco"],
-                           [CassieEnv, "libcassie"]]
+                         [CassieEnv, "libcassie"]]
     child_env_list = [[CassieEnvClock, "mujoco"], [DigitEnvClock, "mujoco"],
                       [CassieEnvClock, "libcassie"]]
 
@@ -46,11 +46,12 @@ def test_base_env_step(test_env, test_sim):
 def test_child_env_step(test_env, test_sim):
     """Test if child env is stepping based on specified policy rate.
     """
-    env = test_env(simulator_type=test_sim,
+    env = test_env(cycle_time = 1.0,
+                   simulator_type=test_sim,
                    policy_rate=50,
                    dynamics_randomization=False,
                    terrain=False,
-                   clock=None,
+                   clock_type="von_mises",
                    reward_name=None)
     env.reset()
     env.sim.viewer_init()

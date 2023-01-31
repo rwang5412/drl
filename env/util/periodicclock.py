@@ -11,28 +11,35 @@ class PeriodicClock:
     Class for keeping track of clock values.
     """
 
-    def __init__(self, cycle_time: float, swing_ratios: np.ndarray, period_shifts: np.ndarray):
+    def __init__(self, cycle_time: float, phase_add: float, swing_ratios: List[float], period_shifts: List[float]):
         # Should be class variables or be pushed into the env itself?
-        assert swing_ratios.shape == (2,), \
+        assert len(swing_ratios) == 2, \
                f"set_joint_position got array of shape {swing_ratios.shape} but " \
                f"should be shape (2,)."
-        assert period_shifts.shape == (2,), \
+        assert len(period_shifts) == 2, \
                f"set_joint_position got array of shape {period_shifts.shape} but " \
                f"should be shape (2,)."
         self._cycle_time = cycle_time
+        self._phase_add = phase_add
         # Assume that swing ratios and period shifts are in order of [left, right]
         self._swing_ratios = swing_ratios
         self._period_shifts = period_shifts
         self._von_mises_buf = None
+        self._phase = 0
 
-    def input_clock(self, phase):
+    def increment(self):
+        self._phase += self._phase_add
+        if self._phase > self._cycle_time:
+            self._phase -= self._cycle_time
+
+    def input_clock(self):
         # NOTE: This is doing straight sin/cos clock. I don't know if we want to use the input
         # clocks where it changes with period shift too.
-        clock = [np.sin(2 * np.pi * (phase / self._phase_len)),
-                 np.cos(2 * np.pi * (phase / self._phase_len))]
+        clock = [np.sin(2 * np.pi * (self._phase / self._cycle_time)),
+                 np.cos(2 * np.pi * (self._phase / self._cycle_time))]
         return clock
 
-    def linear_clock(self, phase, percent_transition: float = 0.2):
+    def linear_clock(self, percent_transition: float = 0.2):
         y_clock = []
         x_clock = []
         phases = []
@@ -44,25 +51,27 @@ class PeriodicClock:
             y_clock.append([0, 0, 1, 1, 0])
             x_clock.append([0, stance_time, stance_time + trans_time / 2,
                     stance_time + trans_time / 2 + swing_time, self._cycle_time])
-            if phase + self._period_shifts[i] > self._cycle_time:
-                phases.append(phase + self._period_shifts[i] - self._cycle_time)
+            if self._phase + self._period_shifts[i] > self._cycle_time:
+                phases.append(self._phase + self._period_shifts[i] - self._cycle_time)
             else:
-                phases.append(phase + self._period_shifts[i])
+                phases.append(self._phase + self._period_shifts[i])
         return np.interp(phases[0], x_clock[0], y_clock[0]), np.interp(phases[1], x_clock[1], y_clock[1])
 
 
-    def von_mises(self, phase, std: float = 0.1):
+    def von_mises(self, std: float = 0.1):
         # Von Mises clock function, but with hard coded coeff values of [0, 1]. This is chosen to
         # line up with the linear clock convention of left stance starting at t = 0. Because of this
         # coefficient choice, we actually need to "flip" the swing/stance ratio. If coeff was [1, 0]
         # then swing ratio would be as defined, i.e. if self._swing_ratio[0] = 0.4 then left foot
         # would have 40% swing, but left SWING would start at t = 0. Since we use coeff of [0, 1]
         # instead, swing ratio because stance ratio and vice versa.
+        assert std != 0, \
+            f"von_mises received std of zero. std must be non-zero."
         kappa = 1 / (std ** 2)
 
         out = []
         for i in range(2):
-            x = (phase / self._cycle_time + self._period_shifts[i]) * 2 * np.pi
+            x = (self._phase / self._cycle_time + self._period_shifts[i]) * 2 * np.pi
             # Use `1 - self._swing_ratios[i]` here to flip swing and stance ratios.
             mid = (1 - self._swing_ratios[i]) * 2 * np.pi
             end = 2 * np.pi
@@ -70,11 +79,10 @@ class PeriodicClock:
             p2 = vonmises.cdf(x, kappa=kappa, loc=mid, scale=1)
             p3 = vonmises.cdf(x, kappa=kappa, loc=end, scale=1)
             out.append(p2 - p3)
-            # out.append(p1 - p2)
 
         return out[0], out[1]
 
-    def von_mises_full(self, phase, coeff: List[float] = [0.0, 1.0], std: float  = 0.2):
+    def von_mises_full(self, coeff: List[float] = [0.0, 1.0], std: float  = 0.2):
         # This is an alternate version of the von mises clock function. This will do the full
         # computation and allow for different coefficient values which will change the shape of the
         # clock. I think for most cases the coeffs we woudl use are [0, 1], which simplifies the
@@ -83,7 +91,7 @@ class PeriodicClock:
 
         out = []
         for i in range(2):
-            x = (phase / self._cycle_time + self._period_shifts[i]) * 2 * np.pi
+            x = (self._phase / self._cycle_time + self._period_shifts[i]) * 2 * np.pi
             time = 0
             start = 0
             mid = self._swing_ratios[i] * 2 * np.pi
@@ -101,11 +109,78 @@ class PeriodicClock:
         # beforehand. Note that this function has to be called again if _swing_ratios or
         # _period_shifts change, the values have to be recomputed
         xs = np.linspace(0, self._cycle_time, num_points)
-        self._von_mises_buf = np.array(list(map(self.von_mises, xs)))
+        self._von_mises_buf = np.zeros((num_points, 2))
+        orig_phase = self._phase
+        for i in range(len(xs)):
+            self._phase = xs[i]
+            self._von_mises_buf[i, :] = self.von_mises()
+        self._phase = orig_phase
 
-    def get_von_mises_values(self, phase):
+    def get_von_mises_values(self):
         assert self._von_mises_buf is not None, \
             f"Von Mises clock buffer is None, can not get value. Call `precompute_von_mises` first."
         xs = np.linspace(0, self._cycle_time, self._von_mises_buf.shape[0])
-        return np.interp(phase, xs, self._von_mises_buf[:, 0]), np.interp(phase, xs, self._von_mises_buf[:, 1])
+        return np.interp(self._phase, xs, self._von_mises_buf[:, 0]), np.interp(self._phase, xs, self._von_mises_buf[:, 1])
+
+    # Getters/Setters for class variables
+    def get_phase(self):
+        return self._phase
+
+    def set_phase(self, phase: float):
+        self._phase = phase
+
+    def get_cycle_time(self):
+        return self._cycle_time
+
+    def set_cycle_time(self, cycle_time: float):
+        self._cycle_time = cycle_time
+        # If Von Mises buffer already exists, recompute it to update values
+        if self._von_mises_buf is not None:
+            self.precompute_von_mises()
+
+    def get_phase_add(self):
+        return self._phase_add
+
+    def set_phase_add(self, phase_add: float):
+        self._phase_add = phase_add
+        # If Von Mises buffer already exists, recompute it to update values
+        if self._von_mises_buf is not None:
+            self.precompute_von_mises()
+
+    def get_swing_ratios(self):
+        return self._swing_ratios
+
+    def set_swing_ratios(self, swing_ratios: List[float]):
+        """
+        Sets the swing ratios. Note that the input should be a list of length 2, the first element
+        being the left swing ratio and the second element being the right swing ratio. Only swing
+        ratio is needed since stance ratio is just 1 - swing_ratio
+
+        Arguments:
+        swing_ratios (List[float]): List of swing ratios to set to, in format [left, right]
+        """
+        assert len(swing_ratios) == 2, \
+            f"set_swing_ratios got list of length {len(swing_ratios)}, but should be length 2."
+        self._swing_ratios = swing_ratios
+        # If Von Mises buffer already exists, recompute it to update values
+        if self._von_mises_buf is not None:
+            self.precompute_von_mises()
+
+    def get_period_shifts(self):
+        return self._period_shifts
+
+    def set_period_shifts(self, period_shifts: List[float]):
+        """
+        Sets the period shifts. Note that the input should be a list of length 2, the first element
+        being the left period shift and the second element being the right period shift.
+
+        Arguments:
+        period_shifts (List[float]): List of period shifts to set to, in format [left, right]
+        """
+        assert len(period_shifts) == 2, \
+            f"set_swing_ratios got list of length {len(period_shifts)}, but should be length 2."
+        self._period_shifts = period_shifts
+        # If Von Mises buffer already exists, recompute it to update values
+        if self._von_mises_buf is not None:
+            self.precompute_von_mises()
 
