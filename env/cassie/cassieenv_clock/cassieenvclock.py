@@ -30,15 +30,7 @@ class CassieEnvClock(CassieEnv):
         self.action_space = None
 
         # Clock variables
-        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        # self.cycle_time = cycle_time
-        # phase_add = 1 / self.default_policy_rate
-        # swing_ratios = [0.4, 0.4]
-        # period_shifts = [0.0, 0.5]
-        # self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         self.clock_type = clock_type
-        # if self.clock_type == "von_mises":
-        #     self.clock.precompute_von_mises()
 
         # Command variables
         self.traj_idx = 0
@@ -51,13 +43,13 @@ class CassieEnvClock(CassieEnv):
         self._period_shift_bounds = [0.0, 0.5]
         self._cycle_time_bounds = [0.75, 1.5]
 
-        self.reset()
-
         # Load reward module
         # self.reward = importlib.import_module(name='env.rewards.'+reward_name)
         # self.w = setup_reward_components(self, incentive=self.incentive)
         # self.compute_reward = self.reward.compute_reward
         # self.compute_done = self.reward.compute_done
+
+        self.reset()
 
     def reset(self):
         """Reset simulator and env variables.
@@ -67,6 +59,7 @@ class CassieEnvClock(CassieEnv):
         """
         self.reset_simulation()
         # Randomize commands
+        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         self.speed = np.random.uniform(*self._speed_bounds)
         swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
         period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
