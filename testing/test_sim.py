@@ -27,13 +27,13 @@ def test_all_sim():
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        # num_pass += test_sim_init(sim)
-        # num_pass += test_sim_sim_forward(sim)
-        # num_pass += test_sim_viewer(sim)
+        num_pass += test_sim_init(sim)
+        num_pass += test_sim_sim_forward(sim)
+        num_pass += test_sim_viewer(sim)
         num_pass += test_sim_glfw_multiple_viewer(sim)
-        # num_pass += test_sim_PD(sim)
-        # num_pass += test_sim_get_set(sim)
-        # num_pass += test_sim_indexes(sim)
+        num_pass += test_sim_PD(sim)
+        num_pass += test_sim_get_set(sim)
+        num_pass += test_sim_indexes(sim)
         if num_pass == 7:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
