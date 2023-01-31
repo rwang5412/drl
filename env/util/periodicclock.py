@@ -14,11 +14,11 @@ class PeriodicClock:
     def __init__(self, cycle_time: float, phase_add: float, swing_ratios: List[float], period_shifts: List[float]):
         # Should be class variables or be pushed into the env itself?
         assert len(swing_ratios) == 2, \
-               f"set_joint_position got array of shape {swing_ratios.shape} but " \
-               f"should be shape (2,)."
+               f"PeriodicClock got swing_ratios input of length {len(swing_ratios)}, but should " \
+               f"be of length 2."
         assert len(period_shifts) == 2, \
-               f"set_joint_position got array of shape {period_shifts.shape} but " \
-               f"should be shape (2,)."
+               f"PeriodicClock got period_shifts input of length {len(period_shifts)}, but should " \
+               f"be of length 2."
         self._cycle_time = cycle_time
         self._phase_add = phase_add
         # Assume that swing ratios and period shifts are in order of [left, right]
@@ -75,7 +75,6 @@ class PeriodicClock:
             # Use `1 - self._swing_ratios[i]` here to flip swing and stance ratios.
             mid = (1 - self._swing_ratios[i]) * 2 * np.pi
             end = 2 * np.pi
-            p1 = vonmises.cdf(x, kappa=kappa, loc=0, scale=self._cycle_time)
             p2 = vonmises.cdf(x, kappa=kappa, loc=mid, scale=1)
             p3 = vonmises.cdf(x, kappa=kappa, loc=end, scale=1)
             out.append(p2 - p3)
@@ -92,13 +91,12 @@ class PeriodicClock:
         out = []
         for i in range(2):
             x = (self._phase / self._cycle_time + self._period_shifts[i]) * 2 * np.pi
-            time = 0
             start = 0
             mid = self._swing_ratios[i] * 2 * np.pi
             end = 2 * np.pi
-            p1 = vonmises.cdf(x, kappa=kappa, loc=start, scale=self._cycle_time)
-            p2 = vonmises.cdf(x, kappa=kappa, loc=mid, scale=self._cycle_time)
-            p3 = vonmises.cdf(x, kappa=kappa, loc=end, scale=self._cycle_time)
+            p1 = vonmises.cdf(x, kappa=kappa, loc=start, scale=1)
+            p2 = vonmises.cdf(x, kappa=kappa, loc=mid, scale=1)
+            p3 = vonmises.cdf(x, kappa=kappa, loc=end, scale=1)
             out.append(coeff[0] * (p1 - p2) + coeff[1] * (p2 - p3))
 
         return out[0], out[1]

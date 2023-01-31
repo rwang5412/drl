@@ -45,11 +45,11 @@ def test_all_clocks():
     test_cassieclockenv()
 
 def test_linear_walk_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.4, 0.4])
-    period_shifts = np.array([0, 0.5])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.4, 0.4]
+    period_shifts = [0, 0.5]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -57,11 +57,11 @@ def test_linear_walk_clock():
     plot_clock(xs, ys, "Walking Clock")
 
 def test_linear_run_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.8, 0.8])
-    period_shifts = np.array([0, 0.5])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.8, 0.8]
+    period_shifts = [0, 0.5]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -69,11 +69,11 @@ def test_linear_run_clock():
     plot_clock(xs, ys, "Running Clock")
 
 def test_linear_hop_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.5, 0.5])
-    period_shifts = np.array([0, 0])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.5, 0.5]
+    period_shifts = [0, 0]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -81,11 +81,11 @@ def test_linear_hop_clock():
     plot_clock(xs, ys, "Hopping Clock")
 
 def test_linear_gallop_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.6, 0.6])
-    period_shifts = np.array([0, 0.25])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.6, 0.6]
+    period_shifts = [0, 0.25]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -93,11 +93,11 @@ def test_linear_gallop_clock():
     plot_clock(xs, ys, "Uneven Gallop Clock")
 
 def test_vonmises_walk_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.4, 0.4])
-    period_shifts = np.array([0.0, 0.5])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1.0
+    swing_ratios = [0.4, 0.4]
+    period_shifts = [0.0, 0.5]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -105,11 +105,11 @@ def test_vonmises_walk_clock():
     plot_clock(xs, ys, "Von Mises Walk Clock")
 
 def test_vonmises_run_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.8, 0.8])
-    period_shifts = np.array([0.0, 0.5])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.8, 0.8]
+    period_shifts = [0.0, 0.5]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -117,11 +117,11 @@ def test_vonmises_run_clock():
     plot_clock(xs, ys, "Von Mises Run Clock")
 
 def test_vonmises_hop_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.5, 0.5])
-    period_shifts = np.array([0.0, 0.0])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.5, 0.5]
+    period_shifts = [0.0, 0.0]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -129,11 +129,11 @@ def test_vonmises_hop_clock():
     plot_clock(xs, ys, "Von Mises Hop Clock")
 
 def test_vonmises_gallop_clock():
-    phaselen = 1
-    swing_ratios = np.array([0.6, 0.6])
-    period_shifts = np.array([0.0, 0.25])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.6, 0.6]
+    period_shifts = [0.0, 0.25]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     for i in range(len(xs)):
         tracker.set_phase(xs[i])
@@ -141,11 +141,11 @@ def test_vonmises_gallop_clock():
     plot_clock(xs, ys, "Von Mises Gallop Clock")
 
 def test_vonmises_precompute():
-    phaselen = 1
-    swing_ratios = np.array([0.4, 0.4])
-    period_shifts = np.array([0.0, 0.5])
-    tracker = PeriodicClock(phaselen, 1 / 50, swing_ratios, period_shifts)
-    xs = np.linspace(0, phaselen, 1000)
+    cycle_time = 1
+    swing_ratios = [0.4, 0.4]
+    period_shifts = [0.0, 0.5]
+    tracker = PeriodicClock(cycle_time, 1 / 50, swing_ratios, period_shifts)
+    xs = np.linspace(0, cycle_time, 1000)
     ys = np.zeros((1000, 2))
     start_t = time.time()
     for i in range(len(xs)):
@@ -171,9 +171,9 @@ def test_cassieclockenv():
                          terrain = False,
                          policy_rate = policy_rate,
                          dynamics_randomization = False)
-    for i in range(int(cycle_time * policy_rate)):
+    for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
-    assert env.clock.get_phase() < 0.001, \
+    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
         f"Failed CassieClockEnv linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
     clock_type = "von_mises"
@@ -184,9 +184,9 @@ def test_cassieclockenv():
                          terrain = False,
                          policy_rate = policy_rate,
                          dynamics_randomization = False)
-    for i in range(int(cycle_time * policy_rate)):
+    for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
-    assert env.clock.get_phase() < 0.001, \
+    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
         f"Failed CassieClockEnv von mises test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
 
@@ -201,10 +201,10 @@ def test_digitclockenv():
                          terrain = False,
                          policy_rate = policy_rate,
                          dynamics_randomization = False)
-    for i in range(int(cycle_time * policy_rate)):
+    for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
-    assert env.clock.get_phase() < 0.001, \
-        f"Failed CassieClockEnv linear test, after one cycle phase should be 0, but phase is " \
+    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
+        f"Failed DigitEnvClock linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
     clock_type = "von_mises"
     env = DigitEnvClock(cycle_time = cycle_time,
@@ -214,8 +214,8 @@ def test_digitclockenv():
                          terrain = False,
                          policy_rate = policy_rate,
                          dynamics_randomization = False)
-    for i in range(int(cycle_time * policy_rate)):
+    for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
-    assert env.clock.get_phase() < 0.001, \
-        f"Failed CassieClockEnv von mises test, after one cycle phase should be 0, but phase is " \
+    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
+        f"Failed DigitEnvClock von mises test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"

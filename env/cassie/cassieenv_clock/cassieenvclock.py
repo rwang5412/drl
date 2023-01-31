@@ -31,14 +31,14 @@ class CassieEnvClock(CassieEnv):
 
         # Clock variables
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        self.cycle_time = cycle_time
-        phase_add = 1 / self.default_policy_rate
-        swing_ratios = [0.4, 0.4]
-        period_shifts = [0.0, 0.5]
-        self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
+        # self.cycle_time = cycle_time
+        # phase_add = 1 / self.default_policy_rate
+        # swing_ratios = [0.4, 0.4]
+        # period_shifts = [0.0, 0.5]
+        # self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         self.clock_type = clock_type
-        if self.clock_type == "von_mises":
-            self.clock.precompute_von_mises()
+        # if self.clock_type == "von_mises":
+        #     self.clock.precompute_von_mises()
 
         # Command variables
         self.traj_idx = 0
@@ -50,6 +50,8 @@ class CassieEnvClock(CassieEnv):
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
         self._cycle_time_bounds = [0.75, 1.5]
+
+        self.reset()
 
         # Load reward module
         # self.reward = importlib.import_module(name='env.rewards.'+reward_name)
@@ -103,7 +105,6 @@ class CassieEnvClock(CassieEnv):
         pass
 
     def get_state(self):
-        command_state = [self.speed, self.clock.get_swing_ratios(), self.clock]
         out = np.concatenate((self.get_robot_state(), [self.speed], self.clock.get_swing_ratios(),
                               self.clock.get_period_shifts(), self.clock.input_clock()))
         return out
