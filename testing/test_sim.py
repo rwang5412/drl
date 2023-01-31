@@ -2,7 +2,13 @@ import mujoco as mj
 import numpy as np
 import time
 
-from sim import MjCassieSim, LibCassieSim, DigitMjSim, MujocoViewer
+from sim import (
+    MjCassieSim,
+    LibCassieSim,
+    DigitMjSim,
+    MujocoViewer,
+)
+
 from .common import (
     DIGIT_MOTOR_NAME,
     DIGIT_JOINT_NAME,
@@ -19,54 +25,20 @@ def test_all_sim():
     sim_list = [MjCassieSim]#, LibCassieSim, DigitMjSim]
     num_pass = 0
     for sim in sim_list:
-        test_dual_glfw_viewer(sim)
-        # num_pass = 0
-        # print(f"Testing {sim.__name__}")
-        # num_pass += test_sim_init(sim)
-        # num_pass += test_sim_sim_forward(sim)
-        # num_pass += test_sim_viewer(sim)
-        # num_pass += test_sim_PD(sim)
-        # num_pass += test_sim_get_set(sim)
-        # num_pass += test_sim_indexes(sim)
-        # if num_pass == 6:
-        #     print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
-        # else:
-        #     print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 6 tests.{ENDC}")
-        # num_pass = 0
-
-def test_dual_glfw_viewer(sim):
-    print("Testing sim viewer, quit window to continue")
-    test_sim = sim()
-    test_sim.reset()
-    vis1 = MujocoViewer(test_sim.model, test_sim.data, test_sim.reset_qpos)
-    vis2 = MujocoViewer(test_sim.model, test_sim.data, test_sim.reset_qpos)
-    rs1 = vis1.render()
-    rs2 = vis2.render()
-    while rs1 or rs2:
-        start_t = time.time()
-        vis1.paused = False
-        vis2.paused = False
-        if not vis1.paused or not vis2.paused:
-            for _ in range(50):
-                test_sim.sim_forward()
-        rs1 = vis1.render()
-        rs2 = vis2.render()
-        # Assume 2kHz sim for now
-        delaytime = max(0, 50/2000 - (time.time() - start_t))
-        time.sleep(delaytime)
-    # test_sim.viewer_init()
-    # render_state = test_sim.viewer_render()
-    # while render_state:
-    #     start_t = time.time()
-    #     if not test_sim.viewer_paused():
-    #         for _ in range(50):
-    #             test_sim.sim_forward()
-    #     render_state = test_sim.viewer_render()
-    #     # Assume 2kHz sim for now
-    #     delaytime = max(0, 50/2000 - (time.time() - start_t))
-    #     time.sleep(delaytime)
-    print("Passed sim viewer")
-    return True
+        num_pass = 0
+        print(f"Testing {sim.__name__}")
+        num_pass += test_sim_init(sim)
+        num_pass += test_sim_sim_forward(sim)
+        num_pass += test_sim_viewer(sim)
+        num_pass += test_sim_glfw_multiple_viewer(sim)
+        num_pass += test_sim_PD(sim)
+        num_pass += test_sim_get_set(sim)
+        num_pass += test_sim_indexes(sim)
+        if num_pass == 7:
+            print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
+        else:
+            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 7 tests.{ENDC}")
+        num_pass = 0
 
 def test_sim_init(sim):
     print("Making sim")
@@ -98,6 +70,43 @@ def test_sim_viewer(sim):
                 test_sim.sim_forward()
         render_state = test_sim.viewer_render()
         # Assume 2kHz sim for now
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
+    print("Passed sim viewer")
+    return True
+
+def test_sim_glfw_multiple_viewer(sim):
+    if "lib" in sim.__name__.lower():
+        print("Bypass libcassie for dual window render.")
+        return True
+    print("Testing sim viewer, quit window to continue")
+    test_sim = sim()
+    test_sim.reset()
+    test_sim.viewer_init(width=800, height=800)
+    vis1 = test_sim.viewer
+    # Create a second viewer that reads sim
+    vis2 = MujocoViewer(test_sim.model, test_sim.data, test_sim.reset_qpos, \
+        camera_id='forward-chest-realsense-d435/depth/image-rect', width=400, height=400)
+    rs1 = vis1.render()
+    rs2 = vis2.render()
+    while rs1 or rs2:
+        start_t = time.time()
+        if rs1 and rs2:
+            if not vis1.paused and not vis2.paused:
+                for _ in range(50):
+                    test_sim.sim_forward()
+            rs1 = vis1.render()
+            rs2 = vis2.render()
+        elif rs1:
+            if not vis1.paused:
+                for _ in range(50):
+                    test_sim.sim_forward()
+            rs1 = vis1.render()
+        elif rs2:
+            if not vis1.paused:
+                for _ in range(50):
+                    test_sim.sim_forward()
+            rs2 = vis2.render()
         delaytime = max(0, 50/2000 - (time.time() - start_t))
         time.sleep(delaytime)
     print("Passed sim viewer")

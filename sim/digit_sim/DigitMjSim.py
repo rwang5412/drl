@@ -27,6 +27,7 @@ class DigitMjSim(GenericSim):
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
 
+        self.simulator_rate = int(1 / self.model.opt.timestep)
         self.num_actuators = self.model.nu
         self.num_joints = len(self.joint_position_inds)
 
@@ -128,8 +129,9 @@ class DigitMjSim(GenericSim):
         for i in range(3, 6):
             self.model.dof_damping[i] = 0
 
-    def viewer_init(self):
-        self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos)
+    def viewer_init(self, width=None, height=None, camera_id=-1):
+        self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos, width=width, \
+            height=height, camera_id=camera_id)
 
     def viewer_render(self):
         if self.viewer.is_alive:
@@ -181,6 +183,9 @@ class DigitMjSim(GenericSim):
 
     def get_joint_dof_adr(self, name: str):
         return self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
+
+    def get_simulation_time(self):
+        return self.data.time
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \

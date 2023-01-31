@@ -17,7 +17,7 @@ if __name__ == "__main__":
     if args.algo:
         pass
     if args.env:
-        pass
+        test_env.test_all_env()
     if args.sim:
         import testing.test_sim as ts
         ts.test_all_sim()
