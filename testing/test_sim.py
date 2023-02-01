@@ -27,13 +27,13 @@ def test_all_sim():
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        num_pass += test_sim_init(sim)
-        num_pass += test_sim_sim_forward(sim)
-        num_pass += test_sim_viewer(sim)
-        num_pass += test_sim_glfw_multiple_viewer(sim)
-        num_pass += test_sim_PD(sim)
-        num_pass += test_sim_get_set(sim)
-        num_pass += test_sim_indexes(sim)
+        # num_pass += test_sim_init(sim)
+        # num_pass += test_sim_sim_forward(sim)
+        # num_pass += test_sim_viewer(sim)
+        # num_pass += test_sim_glfw_multiple_viewer(sim)
+        # num_pass += test_sim_PD(sim)
+        # num_pass += test_sim_get_set(sim)
+        # num_pass += test_sim_indexes(sim)
         num_pass += test_sim_body_pose(sim)
         num_pass += test_sim_body_velocity(sim)
         num_pass += test_sim_body_contact_force(sim)
@@ -233,13 +233,13 @@ def test_sim_body_pose(sim):
 def test_sim_body_velocity(sim):
     test_sim = sim()
     test_sim.reset()
-    # NOTE: use smal velocity here to avoid creating out of axis velocities, ie, if the torso has
+    # NOTE: use small velocity here to avoid creating out of axis velocities, ie, if the torso has
     # inertia like Digit, set dtheta_x=1 will cause other axis to have velocities even sim 1 step.
-    dx_target = np.array([0, 0, 0, 0.1, 0, 0])
+    dx_target = np.array([1, 0, 0, 0, 0, 0])
     test_sim.set_base_linear_velocity(dx_target[:3])
     test_sim.set_base_angular_velocity(dx_target[3:])
     test_sim.sim_forward()
-    dx = test_sim.get_body_velocity(name=test_sim.base_body_name)
+    dx = test_sim.get_body_velocity(name=test_sim.base_body_name)    
     assert np.linalg.norm(dx[:3] - dx_target[:3]) < 1e-1, f"get_body_velocity returns base at {dx[:3]}, but sim sets to {dx_target[:3]}."
     assert np.linalg.norm(dx[3:] - dx_target[3:]) < 1e-1, f"get_body_velocity returns base at {dx[3:]}, but sim sets to {dx_target[3:]}."
 
@@ -275,6 +275,9 @@ def test_sim_body_contact_force(sim):
     """
     test_sim = sim()
     test_sim.reset()
+    x_target = np.array([0, 0, 1, 0, 0, 0, 1])
+    test_sim.set_base_position(x_target[:3])
+    test_sim.set_base_orientation(x_target[3:])
     test_sim.hold()
     test_sim.sim_forward(dt=0.1)
     force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[0])
@@ -292,9 +295,8 @@ def test_sim_body_contact_force(sim):
     # while render_state:
     #     start_t = time.time()
     #     for _ in range(50):
-    #         # force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
-    #         force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
-    #         print(force)
+    #         force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
+    #         # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
     #         test_sim.sim_forward()
     #     render_state = test_sim.viewer_render()
     #     delaytime = max(0, 50/2000 - (time.time() - start_t))

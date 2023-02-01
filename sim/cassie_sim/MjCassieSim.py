@@ -172,10 +172,9 @@ class MjCassieSim(GenericSim):
         Returns:
             ndarray: pose [3xlinear, 4xquaternion]
         """
-        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
         pose = np.zeros(7)
-        pose[:3] = self.data.xpos[body_id]
-        pose[3:] = self.data.xquat[body_id]
+        pose[:3] = self.data.body(name).xpos
+        pose[3:] = self.data.body(name).xquat
         return pose
 
     def get_body_velocity(self, name: str, local_frame=False):
@@ -194,10 +193,12 @@ class MjCassieSim(GenericSim):
         tmp = velocity[3:6].copy()
         velocity[3:6] = velocity[0:3]
         velocity[0:3] = tmp
+        # print("mj_objectVelocity", velocity)
+        # print("cvel ", self.data.cvel[body_id])
         return velocity
 
     def get_body_contact_force(self, name: str):
-        """Get contact forces for named body in contact frame
+        """Get sum of contact forces at the named body in global frame
 
         Args:
             name (str): body name
@@ -209,13 +210,29 @@ class MjCassieSim(GenericSim):
         # Sum over all contact wrenches over possible geoms within the body
         total_wrench = np.zeros(6)
         contact_points = 0
-        for contact_id in range(self.data.ncon):
-            if body_id == self.model.geom_bodyid[self.data.contact[contact_id].geom1] or \
-               body_id == self.model.geom_bodyid[self.data.contact[contact_id].geom2]:
-                   contact_wrench_point = np.zeros(6)
-                   mj.mj_contactForce(self.model, self.data, contact_id, contact_wrench_point)
-                   total_wrench += contact_wrench_point
-                   contact_points += 1
+        for contact_id, contact_struct in enumerate(self.data.contact):
+            if body_id == self.model.geom_bodyid[contact_struct.geom1] or \
+               body_id == self.model.geom_bodyid[contact_struct.geom2]:
+                contact_points += 1
+                contact_wrench_local = np.zeros(6)
+                mj.mj_contactForce(self.model, self.data, contact_id, contact_wrench_local)
+                contact_wrench_global = np.zeros(6)
+                mj.mju_transformSpatial(contact_wrench_global, contact_wrench_local, True,
+                                        self.data.xpos[body_id],
+                                        self.data.contact[contact_id].pos,
+                                        self.data.contact[contact_id].frame)
+                #    print(contact_wrench_point, '\n',
+                #          self.data.xpos[body_id], '\n',
+                #          self.data.contact[contact_id].pos, '\n',
+                #          self.data.contact[contact_id].frame, '\n',
+                #          contact_wrench_global)
+                if body_id == self.model.geom_bodyid[contact_struct.geom1]:
+                    # This body is exerting forces onto geom2, substract from the sum.
+                    total_wrench -= contact_wrench_global
+                elif body_id == self.model.geom_bodyid[contact_struct.geom2]:
+                    # This body is taking forces from geom1, add into the sum.
+                    total_wrench += contact_wrench_global
+        # print(total_wrench)
         return total_wrench
 
     def set_joint_position(self, position: np.ndarray):
