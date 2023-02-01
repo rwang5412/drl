@@ -34,6 +34,8 @@ class LibCassieSim(GenericSim):
         self.base_orientation_inds = [3, 4, 5, 6]
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
+        self.base_body_name = "cassie-pelvis"
+        self.feet_body_name = ["left-foot", "right-foot"]
 
         self.num_actuators = 10
         self.num_joints = 4
@@ -187,6 +189,61 @@ class LibCassieSim(GenericSim):
 
     def get_simulation_time(self):
         return self.sim.time()
+
+    def get_body_pose(self, name: str):
+        """Get body pose by name
+
+        Args:
+            name (str): body name
+
+        Returns:
+            ndarray: pose [3xlinear, 4xquaternion]
+        """
+        pose = np.zeros(7)
+        pose[:3] = self.sim.xpos(name)
+        pose[3:] = self.sim.xquat(name)
+        return pose
+
+    def get_body_velocity(self, name: str, local_frame=False):
+        """Get body velocity by name
+
+        Args:
+            name (str): body name
+            local_frame (bool, optional): Defaults to False.
+
+        Returns:
+            ndarray: velocity [3xlinear, 3xangular]
+        """
+        velocity = np.zeros(6)
+        # TODO, helei wrap this fcn in c side
+        mj.mj_objectVelocity(self.model, self.data, mj.mjtObj.mjOBJ_BODY, body_id, velocity, local_frame)
+        tmp = velocity[3:6].copy()
+        velocity[3:6] = velocity[0:3]
+        velocity[0:3] = tmp
+        return velocity
+
+    def get_body_contact_force(self, name: str):
+        """Get contact forces for named body in contact frame
+
+        Args:
+            name (str): body name
+
+        Returns:
+            ndarray: sum of all wrenches acting on the body
+        """
+        # TODO, helei Wrap the following loop into c side
+        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+        # Sum over all contact wrenches over possible geoms within the body
+        total_wrench = np.zeros(6)
+        contact_points = 0
+        for contact_id in range(self.data.ncon):
+            if body_id == self.model.geom_bodyid[self.data.contact[contact_id].geom1] or \
+               body_id == self.model.geom_bodyid[self.data.contact[contact_id].geom2]:
+                   contact_wrench_point = np.zeros(6)
+                   mj.mj_contactForce(self.model, self.data, contact_id, contact_wrench_point)
+                   total_wrench += contact_wrench_point
+                   contact_points += 1
+        return total_wrench
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
