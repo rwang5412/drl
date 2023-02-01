@@ -40,6 +40,25 @@ class PeriodicClock:
         return clock
 
     def linear_clock(self, percent_transition: float = 0.2):
+        """
+        Implements piecewise linear clock function used for cyclic foot reward components. Uses the
+        current swing ratio and period shift values to calculate the left and right foot swing clock
+        values (0 meaning foot should be in stance, 1 meaning foot should be in swing, with smooth
+        transitions between them). The input percent_transition determines what portion of swing
+        time should be used to transition to and from swing.
+
+        So for example, if cycle time is 1s, and swing ratio is 0.4, then the foot should be in
+        swing for 0.4s. But in reality, this linear clock will return 0 from 0s to 0.6s, then
+        linearly increase from 0 to 1 from 0.6s to 0.68s, then return 1 from 0.68s to 0.92s, the
+        linearly decrease from 1 to 0 from 0.92s to 1s.
+
+        Note that swing clock values are returned in the order (left, right). The corresponding
+        stance values can be obtained from just 1 - swing_value.
+
+        Arguments:
+        percent_transition (float): What percentage of swing time to use to linearly transition
+                                    between stance and swing. By default is 0.2 (20%).
+        """
         y_clock = []
         x_clock = []
         phases = []
