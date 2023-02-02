@@ -51,8 +51,8 @@ def test_child_env_step(test_env, test_sim):
                    policy_rate=50,
                    dynamics_randomization=False,
                    terrain=False,
-                   clock_type="von_mises",
-                   reward_name=None)
+                   clock_type="linear",
+                   reward_name="locomotion_linear_clock_reward")
     env.reset()
     env.sim.viewer_init()
     sim_duration = []

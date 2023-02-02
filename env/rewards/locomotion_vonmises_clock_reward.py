@@ -1,0 +1,138 @@
+import numpy as np
+from env.util.quaternion import *
+
+def kernel(x):
+  return np.exp(-x)
+
+def compute_reward(self, action):
+    assert hasattr(self, "clock"), \
+        f"Environment {self.__class__.__name__} does not have a clock object"
+    assert self.clock is not None, \
+        f"Clock has not been initialized, is still None"
+    assert self.clock_type == "von_mises", \
+        f"locomotion_vonmises_clock_reward should be used with von mises clock type, but clock type" \
+        f"is {self.clock_type}."
+
+    # Weighting dictionary to make it easier to see all reward components and change their
+    # individual weightings
+    q = {}
+    w = {}
+
+    w['left_force']     = 0.125
+    w['right_force']    = 0.125
+    w['left_speed']     = 0.125
+    w['right_speed']    = 0.125
+    w['x_vel']          = 0.125
+    w['y_vel']          = 0.075
+    w['orientation']    = 0.125
+    w['hop_symmetry']   = 0.100
+    w['stable_pelvis']  = 0.025
+    w['ctrl_penalty']   = 0.025
+    w['trq_penalty']    = 0.025
+
+    # Just in case we made a mistake in the weighting above, make sure that weightings
+    # are normalized so sum will equal to 1
+    total = sum(w.values())
+    for name in w:
+        w[name] = w[name] / total
+
+    ### Cyclic foot force/velocity reward ###
+    # Get foot cost clock weightings, linear replacement for the von mises function. There are two separate clocks
+    # with different transition timings for the force/velocity cost and the position (foot height) cost.
+    # Force/velocity cost transitions between stance and swing quicker to try and make sure get full swing phase in there,
+    # especially important for higher speeds where we try to enforce longer swing time for aerial phase.
+    # However, don't need foot height to reach clearance level as quickly, so can use smoother transition (higher percent_trans)
+    l_force, r_force = self.clock.von_mises()
+    l_stance = 1 - l_force
+    r_stance = 1 - r_force
+    # Ok to assume that left foot name comes first?
+    # Probably fine to assume that there are only 2 feet
+    feet_force = np.zeros(2)
+    feet_vel = np.zeros(2)
+    feet_pose = np.zeros((2, 7))
+    for i in range(2):
+        feet_force[i] = np.linalg.norm(self.sim.get_body_contact_force(self.sim.feet_body_name[i]))
+        feet_vel[i] = np.linalg.norm(self.sim.get_body_velocity(self.sim.feet_body_name[i])[0:3])
+        feet_pose[i, :] = self.sim.get_body_pose(self.sim.feet_body_name[i])
+
+    q["left_force"] = l_force * np.abs(feet_force[0]) / 100
+    q["right_force"] = r_force * np.abs(feet_force[1]) / 100
+    q["left_speed"] = l_stance * feet_vel[0]
+    q["right_speed"] = r_stance * feet_vel[1]
+
+    ### Speed rewards ###
+    pelvis_vel = self.sim.get_body_velocity(self.sim.base_body_name)
+    x_vel = np.abs(pelvis_vel[0] - self.speed)
+    y_vel = np.abs(pelvis_vel[1] - self.y_speed)
+    # We have deadzones around the speed reward since it is impossible (and we actually don't want) for pelvis velocity
+    # to be constant the whole time.
+    if x_vel < 0.05:
+        x_vel = 0
+    if y_vel < 0.05:
+        y_vel = 0
+    q["x_vel"] = 2 * x_vel
+    q["y_vel"] = 2 * y_vel
+
+    ### Orientation rewards (pelvis and feet) ###
+    pelvis_pose = self.sim.get_body_pose(self.sim.base_body_name)
+    target_quat = np.array([1, 0, 0, 0])
+    command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
+    target_quat = quaternion_product(target_quat, command_quat)
+    orientation_error = 1 - np.inner(pelvis_pose[3:], target_quat) ** 2
+    # Deadzone around quaternion as well
+    if orientation_error < 5e-3:
+        orientation_error = 0
+    else:
+        orientation_error *= 30
+
+    # Foor orientation target in global frame. Heuristic hard coded value to be flat all the time.
+    # If we change the turn command (self.orient_add) then need to rotate the foot orient target
+    # as well. NOTE: Should figure out Mujoco body rotations so don't have to do this.
+    # NOTE: For Cassie this target is the same for both feet, for Digit I think some things might be
+    # flipped between left and right.
+    foot_orient_target = np.array([-0.24790886454547323, -0.24679713195445646, -0.6609396704367185, 0.663921021343526])
+    if self.orient_add != 0:
+        iquaternion = inverse_quaternion(command_quat)
+        foot_orient_target = quaternion_product(iquaternion, foot_orient_target)
+    foot_orientation_error = 20 * (1 - np.inner(foot_orient_target, feet_pose[0, 3:]) ** 2) + \
+                             20 * (1 - np.inner(foot_orient_target, feet_pose[1, 3:]) ** 2)
+    q["orientation"] = orientation_error + foot_orientation_error
+
+    ### Hop symmetry reward (keep feet equidistant) ###
+    period_shifts = self.clock.get_period_shifts()
+    # lpos, rpos = self.get_info('robot_foot_positions', local=True)
+    rel_foot_pos = np.subtract(feet_pose[:, 0:3], pelvis_pose[0:3])
+    # lpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
+    # rpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
+    xdif = 10 * np.sqrt(np.power(rel_foot_pos[0, [0, 2]] - rel_foot_pos[1, [0, 2]], 2).sum())
+    pdif = np.exp(-5 * np.abs(np.sin(np.pi * (period_shifts[0] - period_shifts[1]))))
+    q['hop_symmetry'] = pdif * xdif
+
+    ### Sim2real stability rewards ###
+    pelvis_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
+    q["stable_pelvis"] = 0.1 * np.abs(pelvis_vel[3:]).sum() + np.abs(pelvis_acc[0:2]).sum()
+    if self.last_action is not None:
+        q["ctrl_penalty"] = 5 * sum(np.abs(self.last_action - action)) / len(action)
+    else:
+        q["ctrl_penalty"] = 0
+    torque = self.sim.get_torque()
+    q["trq_penalty"] = 0.05 * sum(np.abs(torque)) / len(torque)
+
+    ### Add up all reward components ###
+    self.reward = 0
+    for name in w:
+        self.reward += w[name] * kernel(q[name])
+
+    return self.reward
+
+# Termination condition: If orientation too far off terminate
+def compute_done(self):
+    pelvis_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
+    target_quat = np.array([1, 0, 0, 0])
+    command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
+    target_quat = quaternion_product(target_quat, command_quat)
+    orientation_error = 3 * (1 - np.inner(pelvis_quat, target_quat) ** 2)
+    if np.exp(-orientation_error) < 0.8:
+        return True
+    else:
+        return False

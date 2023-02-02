@@ -26,6 +26,8 @@ class DigitMjSim(GenericSim):
         self.base_orientation_inds = [3, 4, 5, 6]
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
+        self.base_body_name = "torso/base"
+        self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"]
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
         self.num_actuators = self.model.nu
@@ -186,6 +188,18 @@ class DigitMjSim(GenericSim):
 
     def get_simulation_time(self):
         return self.data.time
+
+    def get_body_pose(self, name):
+        return np.zeros(7)
+
+    def get_body_velocity(self, name):
+        return np.zeros(6)
+
+    def get_body_acceleration(self, name):
+        return np.zeros(6)
+
+    def get_body_contact_force(self, name):
+        return np.zeros(3)
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \

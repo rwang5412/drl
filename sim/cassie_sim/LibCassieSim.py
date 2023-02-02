@@ -34,6 +34,8 @@ class LibCassieSim(GenericSim):
         self.base_orientation_inds = [3, 4, 5, 6]
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
+        self.base_body_name = "cassie-pelvis"
+        self.feet_body_name = ["left-foot", "right-foot"]
 
         self.num_actuators = 10
         self.num_joints = 4
@@ -187,6 +189,18 @@ class LibCassieSim(GenericSim):
 
     def get_simulation_time(self):
         return self.sim.time()
+
+    def get_body_pose(self, name):
+        return np.zeros(7)
+
+    def get_body_velocity(self, name):
+        return np.zeros(6)
+
+    def get_body_acceleration(self, name):
+        return np.zeros(6)
+
+    def get_body_contact_force(self, name):
+        return np.zeros(3)
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
