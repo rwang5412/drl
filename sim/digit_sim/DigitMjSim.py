@@ -8,9 +8,11 @@ WARNING = '\033[93m'
 ENDC = '\033[0m'
 
 class DigitMjSim(GenericSim):
-    """Wrapper for Digit Mujoco.
+
     """
-    def __init__(self) -> None:
+    Wrapper for Digit Mujoco.
+    """
+    def __init__(self):
         super().__init__()
         model_path = pathlib.Path(__file__).parent.resolve() / "digit-v3-new.xml"
         self.model = mj.MjModel.from_xml_path(str(model_path))
@@ -28,6 +30,7 @@ class DigitMjSim(GenericSim):
         self.base_angular_velocity_inds = [3, 4, 5]
         self.base_body_name = "torso/base"
         self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"]
+        self.hand_body_name = ["left-arm/elbow", "right-arm/elbow"]
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
         self.num_actuators = self.model.nu
@@ -70,7 +73,7 @@ class DigitMjSim(GenericSim):
             self.data.qpos = self.reset_qpos
         mj.mj_forward(self.model, self.data)
 
-    def sim_forward(self, dt: float=None):
+    def sim_forward(self, dt: float = None):
         if dt:
             num_steps = int(dt / self.model.opt.timestep)
             if num_steps * self.model.opt.timestep != dt:
@@ -82,15 +85,9 @@ class DigitMjSim(GenericSim):
         mj.mj_step(self.model, self.data, nstep=num_steps)
 
     def set_torque(self, torque: np.ndarray):
-        """Set torque to simulator.
-
-        Args:
-            torque (np.ndarray, optional): Torque values for actuated joints. Defaults to None.
-        """
-        assert torque.shape == (self.model.nu,), \
+        assert torque.shape == (self.num_actuators,), \
                f"set_torque got array of shape {torque.shape} but " \
-               f"should be shape ({self.model.nu},)."
-
+               f"should be shape ({self.num_actuators},)."
         self.data.ctrl[:] = torque
 
     def set_PD(self,
@@ -102,7 +99,7 @@ class DigitMjSim(GenericSim):
         for arg in args:
             if arg != "self":
                 assert args[arg].shape == (self.model.nu,), \
-                       f"set_PD {arg} was not a 1 dimensional array of size {self.model.nu}"
+                f"set_PD {arg} was not a 1 dimensional array of size {self.model.nu}"
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
                  kd * (velocity - self.data.qvel[self.motor_velocity_inds])
         self.data.ctrl[:] = torque
@@ -136,10 +133,13 @@ class DigitMjSim(GenericSim):
             height=height, camera_id=camera_id)
 
     def viewer_render(self):
+        assert not self.viewer is None, \
+               f"viewer has not been initalized yet, can not render"
         if self.viewer.is_alive:
             return self.viewer.render()
         else:
-            raise RuntimeError("Error: Viewer not alive, can not render.")
+            raise RuntimeError("Error: Viewer not alive, can not check paused status. Check that \
+                  viewer has not been destroyed.")
 
     def viewer_paused(self):
         assert not self.viewer is None, \
@@ -147,9 +147,8 @@ class DigitMjSim(GenericSim):
         if self.viewer.is_alive:
             return self.viewer.paused
         else:
-            # print("Error: Viewer not alive, can not check paused status.")
-            # return False
-            raise RuntimeError("Error: Viewer not alive, can not check paused status.")
+            raise RuntimeError("Error: Viewer not alive, can not check paused status. Check that \
+                  viewer has not been destroyed.")
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
@@ -172,7 +171,7 @@ class DigitMjSim(GenericSim):
         return self.data.qvel[self.base_linear_velocity_inds]
 
     def get_base_orientation(self):
-        return self.data.qvel[self.base_orientation_inds]
+        return self.data.qpos[self.base_orientation_inds]
 
     def get_base_angular_velocity(self):
         return self.data.qvel[self.base_angular_velocity_inds]
@@ -189,7 +188,7 @@ class DigitMjSim(GenericSim):
     def get_simulation_time(self):
         return self.data.time
 
-    def get_body_pose(self, name: str):
+    def get_body_pose(self, name: str, relative_to_body_name=None):
         """Get body pose by name
 
         Args:
@@ -198,10 +197,25 @@ class DigitMjSim(GenericSim):
         Returns:
             ndarray: pose [3xlinear, 4xquaternion]
         """
-        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
         pose = np.zeros(7)
-        pose[:3] = self.data.xpos[body_id]
-        pose[3:] = self.data.xquat[body_id]
+        pose[:3] = self.data.body(name).xpos
+        pose[3:] = self.data.body(name).xquat
+        if relative_to_body_name:
+            # NOTE: this assumes body to body. but body frame can be not what we want, like
+            # left-foot or left-leg/foot-roll body does not mean actual middle of foot.
+            # TODO: add the support when one name is for site
+            pose_base_body = np.zeros(7)
+            pose_base_body[:3] = self.data.body(relative_to_body_name).xpos
+            pose_base_body[3:] = self.data.body(relative_to_body_name).xquat
+            pose_body = np.zeros(7)
+            pose_body[:3] = self.data.body(name).xpos
+            pose_body[3:] = self.data.body(name).xquat
+            conjugate_pose = np.zeros(7)
+            mj.mju_negPose(conjugate_pose[0:3], conjugate_pose[3:7],
+                           pose_base_body[0:3], pose_base_body[3:7])
+            mj.mju_mulPose(pose[0:3], pose[3:7],
+                           conjugate_pose[0:3], conjugate_pose[3:7],
+                           pose_body[0:3], pose_body[3:7])
         return pose
 
     def get_body_velocity(self, name: str, local_frame=False):
@@ -217,6 +231,24 @@ class DigitMjSim(GenericSim):
         body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
         velocity = np.zeros(6)
         mj.mj_objectVelocity(self.model, self.data, mj.mjtObj.mjOBJ_BODY, body_id, velocity, local_frame)
+        tmp = velocity[3:6].copy()
+        velocity[3:6] = velocity[0:3]
+        velocity[0:3] = tmp
+        return velocity
+
+    def get_body_acceleration(self, name: str, local_frame=False):
+        """Get body acceleration by name
+
+        Args:
+            name (str): body name
+            local_frame (bool, optional): Defaults to False.
+
+        Returns:
+            ndarray: velocity [3xlinear, 3xangular]
+        """
+        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+        velocity = np.zeros(6)
+        mj.mj_objectAcceleration(self.model, self.data, mj.mjtObj.mjOBJ_BODY, body_id, velocity, local_frame)
         tmp = velocity[3:6].copy()
         velocity[3:6] = velocity[0:3]
         velocity[0:3] = tmp
@@ -246,65 +278,67 @@ class DigitMjSim(GenericSim):
                                         self.data.xpos[body_id],
                                         self.data.contact[contact_id].pos,
                                         self.data.contact[contact_id].frame)
-                #    print(contact_wrench_point, '\n',
-                #          self.data.xpos[body_id], '\n',
-                #          self.data.contact[contact_id].pos, '\n',
-                #          self.data.contact[contact_id].frame, '\n',
-                #          contact_wrench_global)
                 if body_id == self.model.geom_bodyid[contact_struct.geom1]:
                     # This body is exerting forces onto geom2, substract from the sum.
                     total_wrench -= contact_wrench_global
                 elif body_id == self.model.geom_bodyid[contact_struct.geom2]:
                     # This body is taking forces from geom1, add into the sum.
                     total_wrench += contact_wrench_global
-        # print(total_wrench)
-        return total_wrench
+        # Since condim=3, let's keep XYZ for now
+        return total_wrench[:3]
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
                f"set_joint_position got array of shape {position.shape} but " \
                f"should be shape ({self.num_joints},)."
         self.data.qpos[self.joint_position_inds] = position
+        mj.mj_forward(self.model, self.data)
 
     def set_joint_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (self.num_joints,), \
                f"set_joint_velocity got array of shape {velocity.shape} but " \
                f"should be shape ({self.num_joints},)."
         self.data.qvel[self.joint_velocity_inds] = velocity
+        mj.mj_forward(self.model, self.data)
 
     def set_motor_position(self, position: np.ndarray):
         assert position.shape == (self.num_actuators,), \
                f"set_motor_position got array of shape {position.shape} but " \
                f"should be shape ({self.num_actuators},)."
-        self.data.qpos[self.joint_velocity_inds] = position
+        self.data.qpos[self.motor_position_inds] = position
+        mj.mj_forward(self.model, self.data)
 
     def set_motor_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (self.num_actuators,), \
                f"set_motor_velocity got array of shape {velocity.shape} but " \
                f"should be shape ({self.num_actuators},)."
         self.data.qvel[self.motor_velocity_inds] = velocity
+        mj.mj_forward(self.model, self.data)
 
     def set_base_position(self, position: np.ndarray):
         assert position.shape == (3,), \
-               f"set_base_translation got array of shape {position.shape} but " \
+               f"set_base_position got array of shape {position.shape} but " \
                f"should be shape (3,)."
-
         self.data.qpos[self.base_position_inds] = position
+        mj.mj_forward(self.model, self.data)
 
     def set_base_linear_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (3,), \
                f"set_base_linear_velocity got array of shape {velocity.shape} but " \
                f"should be shape (3,)."
         self.data.qvel[self.base_linear_velocity_inds] = velocity
+        mj.mj_forward(self.model, self.data)
 
     def set_base_orientation(self, quat: np.ndarray):
         assert quat.shape == (4,), \
                f"set_base_orientation got array of shape {quat.shape} but " \
                f"should be shape (4,)."
         self.data.qpos[self.base_orientation_inds] = quat
+        mj.mj_forward(self.model, self.data)
 
     def set_base_angular_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (3,), \
                f"set_base_angular_velocity got array of shape {velocity.shape} but " \
                f"should be shape (3,)."
         self.data.qvel[self.base_angular_velocity_inds] = velocity
+        mj.mj_forward(self.model, self.data)

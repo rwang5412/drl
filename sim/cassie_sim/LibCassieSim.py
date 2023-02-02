@@ -190,7 +190,7 @@ class LibCassieSim(GenericSim):
     def get_simulation_time(self):
         return self.sim.time()
 
-    def get_body_pose(self, name: str):
+    def get_body_pose(self, name: str, relative_to_base=False):
         """Get body pose by name
 
         Args:
@@ -202,6 +202,10 @@ class LibCassieSim(GenericSim):
         pose = np.zeros(7)
         pose[:3] = self.sim.xpos(name)
         pose[3:] = self.sim.xquat(name)
+        if relative_to_base:
+            pose[:3] = pose[3:] - self.sim.xpos(self.base_body_name)
+            # TODO: helei, once we have site defined
+            pose[3:] = self.sim.xquat(name)
         return pose
 
     def get_body_velocity(self, name: str, local_frame=False):
@@ -215,15 +219,31 @@ class LibCassieSim(GenericSim):
             ndarray: velocity [3xlinear, 3xangular]
         """
         velocity = np.zeros(6)
-        # TODO, helei wrap this fcn in c side
-        mj.mj_objectVelocity(self.model, self.data, mj.mjtObj.mjOBJ_BODY, body_id, velocity, local_frame)
+        self.sim.body_vel(velocity, name)
         tmp = velocity[3:6].copy()
         velocity[3:6] = velocity[0:3]
         velocity[0:3] = tmp
         return velocity
 
+    def get_body_acceleration(self, name: str, local_frame=False):
+        """Get body acceleration by name
+
+        Args:
+            name (str): body name
+            local_frame (bool, optional): Defaults to False.
+
+        Returns:
+            ndarray: velocity [3xlinear, 3xangular]
+        """
+        accel = np.zeros(6)
+        self.sim.get_body_acceleration(accel, name)
+        tmp = accel[3:6].copy()
+        accel[3:6] = accel[0:3]
+        accel[0:3] = tmp
+        return accel
+
     def get_body_contact_force(self, name: str):
-        """Get contact forces for named body in contact frame
+        """Get sum of contact forces at the named body in global frame
 
         Args:
             name (str): body name
@@ -231,19 +251,9 @@ class LibCassieSim(GenericSim):
         Returns:
             ndarray: sum of all wrenches acting on the body
         """
-        # TODO, helei Wrap the following loop into c side
-        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
-        # Sum over all contact wrenches over possible geoms within the body
         total_wrench = np.zeros(6)
-        contact_points = 0
-        for contact_id in range(self.data.ncon):
-            if body_id == self.model.geom_bodyid[self.data.contact[contact_id].geom1] or \
-               body_id == self.model.geom_bodyid[self.data.contact[contact_id].geom2]:
-                   contact_wrench_point = np.zeros(6)
-                   mj.mj_contactForce(self.model, self.data, contact_id, contact_wrench_point)
-                   total_wrench += contact_wrench_point
-                   contact_points += 1
-        return total_wrench
+        self.sim.get_body_contact_force(total_wrench, name)
+        return total_wrench[:3]
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \

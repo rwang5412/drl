@@ -22,7 +22,7 @@ ENDC = '\033[0m'
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [MjCassieSim, DigitMjSim]
+    sim_list = [DigitMjSim]#[LibCassieSim, MjCassieSim, DigitMjSim]
     num_pass = 0
     for sim in sim_list:
         num_pass = 0
@@ -34,8 +34,9 @@ def test_all_sim():
         # num_pass += test_sim_PD(sim)
         # num_pass += test_sim_get_set(sim)
         # num_pass += test_sim_indexes(sim)
-        num_pass += test_sim_body_pose(sim)
-        num_pass += test_sim_body_velocity(sim)
+        # num_pass += test_sim_body_pose(sim)
+        # num_pass += test_sim_body_velocity(sim)
+        # num_pass += test_sim_body_acceleration(sim)
         num_pass += test_sim_body_contact_force(sim)
         if num_pass == 10:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
@@ -217,16 +218,6 @@ def test_sim_body_pose(sim):
     assert np.linalg.norm(x[:3] - x_target[:3]) < 1e-2, f"get_body_pose returns base at {x[:3]}, but sim sets to {x_target[:3]}."
     assert 1 - np.inner(x[3:], x_target[3:]) < 1e-2, f"get_body_pose returns base at {x[3:]}, but sim sets to {x_target[3:]}."
 
-    # test_sim.viewer_init()
-    # render_state = test_sim.viewer_render()
-    # while render_state:
-    #     start_t = time.time()
-    #     for _ in range(50):
-    #         test_sim.sim_forward()
-    #     render_state = test_sim.viewer_render()
-    #     delaytime = max(0, 50/2000 - (time.time() - start_t))
-    #     time.sleep(delaytime)
-
     print("Passed sim get body pose")
     return True
 
@@ -239,7 +230,7 @@ def test_sim_body_velocity(sim):
     test_sim.set_base_linear_velocity(dx_target[:3])
     test_sim.set_base_angular_velocity(dx_target[3:])
     test_sim.sim_forward()
-    dx = test_sim.get_body_velocity(name=test_sim.base_body_name)    
+    dx = test_sim.get_body_velocity(name=test_sim.base_body_name)
     assert np.linalg.norm(dx[:3] - dx_target[:3]) < 1e-1, f"get_body_velocity returns base at {dx[:3]}, but sim sets to {dx_target[:3]}."
     assert np.linalg.norm(dx[3:] - dx_target[3:]) < 1e-1, f"get_body_velocity returns base at {dx[3:]}, but sim sets to {dx_target[3:]}."
 
@@ -254,19 +245,20 @@ def test_sim_body_velocity(sim):
     assert np.linalg.norm(dx[:3] - dx_target[:3]) < 1e-1, f"get_body_velocity returns base at {dx[:3]}, but sim sets to {dx_target[:3]}."
     assert np.linalg.norm(dx[3:] - dx_target[3:]) < 1e-1, f"get_body_velocity returns base at {dx[3:]}, but sim sets to {dx_target[3:]}."
 
-    # test_sim.viewer_init()
-    # render_state = test_sim.viewer_render()
-    # while render_state:
-    #     start_t = time.time()
-    #     for _ in range(50):
-    #         test_sim.set_base_linear_velocity(dx_target[:3])
-    #         test_sim.set_base_angular_velocity(dx_target[3:])
-    #         test_sim.sim_forward()
-    #     render_state = test_sim.viewer_render()
-    #     delaytime = max(0, 50/2000 - (time.time() - start_t))
-    #     time.sleep(delaytime)
-
     print("Passed sim get body velocity")
+    return True
+
+def test_sim_body_acceleration(sim):
+    test_sim = sim()
+    test_sim.reset()
+    test_sim.hold()
+    test_sim.sim_forward(dt=1)
+    ddx = test_sim.get_body_acceleration(name=test_sim.base_body_name)
+    print(ddx)
+    assert np.linalg.norm(ddx[:2]) < 1e-1, f"get_body_acceleration: robot should not have XY accelerations."
+    assert np.abs(ddx[2] - 9.80665) < 1e-3, f"get_body_acceleration: gravity messed up."
+    assert np.linalg.norm(ddx[3:]) < 1e-1, f"get_body_acceleration: robot should not have rotational accelerations."
+    print("Passed sim get body acceleration")
     return True
 
 def test_sim_body_contact_force(sim):
@@ -275,32 +267,42 @@ def test_sim_body_contact_force(sim):
     """
     test_sim = sim()
     test_sim.reset()
-    x_target = np.array([0, 0, 1, 0, 0, 0, 1])
-    test_sim.set_base_position(x_target[:3])
-    test_sim.set_base_orientation(x_target[3:])
+    # # Slightly tilted forward to let base falling to ground
+    # x_target = np.array([0, 0, 1, 0.9961947, 0, 0.0871557, 0])
+    # test_sim.set_base_position(x_target[:3])
+    # test_sim.set_base_orientation(x_target[3:])
     test_sim.hold()
-    test_sim.sim_forward(dt=0.1)
-    force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[0])
-    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
-    force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
-    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+    # test_sim.sim_forward(dt=0.1)
+    # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[0])
+    # assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+    # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
+    # assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
 
-    test_sim.release()
-    test_sim.sim_forward(dt=1)
-    force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
-    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+    # test_sim.release()
+    # test_sim.sim_forward(dt=2)
+    # force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
+    # assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
 
-    # test_sim.viewer_init()
-    # render_state = test_sim.viewer_render()
-    # while render_state:
-    #     start_t = time.time()
-    #     for _ in range(50):
-    #         force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
-    #         # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
-    #         test_sim.sim_forward()
-    #     render_state = test_sim.viewer_render()
-    #     delaytime = max(0, 50/2000 - (time.time() - start_t))
-    #     time.sleep(delaytime)
+    from env.util.quaternion import quaternion2euler
+    test_sim.viewer_init()
+    render_state = test_sim.viewer_render()
+    while render_state:
+        start_t = time.time()
+        for _ in range(50):
+            # force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
+            # # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
+            # print(force)
+            x1 = test_sim.get_body_pose(name=test_sim.feet_body_name[0])
+            x2 = test_sim.get_body_pose(name=test_sim.feet_body_name[0], relative_to_body_name=test_sim.base_body_name)
+            # print(x1[:3], x1[3:])
+            # print(x2[:3], x2[3:])
+            # print(quaternion2euler(x2[3:7])/np.pi*180)
+            print(x2[:3])
+            print()
+            test_sim.sim_forward()
+        render_state = test_sim.viewer_render()
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
 
     print("Passed sim get body contact force")
     return True

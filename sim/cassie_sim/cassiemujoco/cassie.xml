@@ -2,7 +2,7 @@
 <mujoco model='cassie'>
   <compiler inertiafromgeom='auto' angle='degree' eulerseq='zyx' meshdir='cassie-stl-meshes'/>
   <size nuser_actuator='1' nuser_sensor='1' nuser_geom='1' nconmax='300'/>
-  <option timestep='0.0005' iterations='50' solver='PGS' gravity='0 0 -9.81'/>
+  <option timestep='0.0005' iterations='50' solver='PGS' gravity='0 0 -9.80665'/>
   <!-- Timestep is set to 0.0005 because our controller runs at 2 kHz -->
   <!-- Larger values still have stable dynamics -->
 
@@ -148,6 +148,7 @@
                     <geom type='mesh' mesh='left-foot'/>
                     <geom type='capsule' size='0.02' fromto='-0.052821 0.092622 0 0.069746 -0.010224 0' class='collision-left'/>
                     <site name="left-foot-pt" type="sphere" pos="0.01965 0.05375 0" size="0.005" rgba="0.7 0.2 0.1 0"/>
+                    <site name="left-foot-mid" type="sphere" pos="0.01762 0.05219 0" euler="0 -140 -90" size="0.005" rgba="0.7 0.2 0.1 0"/>
                     <site name="left-toe" type="sphere" pos="-0.052821 0.092622 0" size="0.005" rgba="0.7 0.2 0.1 0"/>
                     <site name="left-heel" type="sphere" pos="0.069746 -0.010224 0" size="0.005" rgba="0.7 0.2 0.1 0"/>
                   </body>
@@ -219,6 +220,7 @@
                     <geom type='mesh' mesh='right-foot'/>
                     <geom type='capsule' size='0.02' fromto='-0.052821 0.092622 0 0.069746 -0.010224 0' class='collision-right'/>
                     <site name="right-foot-pt" type="sphere" pos="0.01965 0.05375 0" size="0.005" rgba="0.1 0.7 0.2 0"/>
+                    <site name="right-foot-mid" type="sphere" pos="0.01762 0.05219 0" euler="0 -140 -90" size="0.005" rgba="0.7 0.2 0.1 0"/>
                     <site name="right-toe" type="sphere" pos="-0.052821 0.092622 0.0" size="0.005" rgba="0.1 0.7 0.2 0"/>
                     <site name="right-heel" type="sphere" pos="0.069746 -0.010224 0" size="0.005" rgba="0.1 0.7 0.2 0"/>
                   </body>
