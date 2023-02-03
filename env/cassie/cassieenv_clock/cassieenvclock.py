@@ -1,6 +1,10 @@
+import json
 import numpy as np
+import os
+from pathlib import Path
 import traceback
 
+from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
 from env import CassieEnv
 from importlib import import_module
@@ -49,7 +53,18 @@ class CassieEnvClock(CassieEnv):
         # Load reward module
         self.reward_name = reward_name
         try:
-            reward_module = import_module("env.rewards." + self.reward_name)
+            reward_module = import_module(f"env.rewards.{self.reward_name}.{self.reward_name}")
+            reward_path = Path(__file__).parents[2] / "rewards" / self.reward_name / "reward_weight.json"
+            self.reward_weight = json.load(open(reward_path))
+            # Double check that reward weights add up to 1
+            weight_sum = Decimal('0')
+            for name, weight_dict in self.reward_weight.items():
+                weighting = weight_dict["weighting"]
+                weight_sum += Decimal(f"{weighting}")
+            if weight_sum != 1:
+                print("WARNING: Reward weightings do not sum up to 1, renormalizing.")
+                for name, weight_dict in self.reward_weight.items():
+                    weight_dict["weighting"] /= weight_sum
             self._compute_reward = reward_module.compute_reward
             self._compute_done = reward_module.compute_done
         except ModuleNotFoundError:

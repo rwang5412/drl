@@ -13,28 +13,7 @@ def compute_reward(self, action):
         f"locomotion_vonmises_clock_reward should be used with von mises clock type, but clock type" \
         f"is {self.clock_type}."
 
-    # Weighting dictionary to make it easier to see all reward components and change their
-    # individual weightings
     q = {}
-    w = {}
-
-    w['left_force']     = 0.125
-    w['right_force']    = 0.125
-    w['left_speed']     = 0.125
-    w['right_speed']    = 0.125
-    w['x_vel']          = 0.125
-    w['y_vel']          = 0.075
-    w['orientation']    = 0.125
-    w['hop_symmetry']   = 0.100
-    w['stable_base']  = 0.025
-    w['ctrl_penalty']   = 0.025
-    w['trq_penalty']    = 0.025
-
-    # Just in case we made a mistake in the weighting above, make sure that weightings
-    # are normalized so sum will equal to 1
-    total = sum(w.values())
-    for name in w:
-        w[name] = w[name] / total
 
     ### Cyclic foot force/velocity reward ###
     # Get foot cost clock weightings, linear replacement for the von mises function. There are two separate clocks
@@ -55,8 +34,8 @@ def compute_reward(self, action):
         feet_vel[i] = np.linalg.norm(self.sim.get_body_velocity(self.sim.feet_body_name[i])[0:3])
         feet_pose[i, :] = self.sim.get_body_pose(self.sim.feet_body_name[i])
 
-    q["left_force"] = l_force * np.abs(feet_force[0]) / 100
-    q["right_force"] = r_force * np.abs(feet_force[1]) / 100
+    q["left_force"] = l_force * np.abs(feet_force[0])
+    q["right_force"] = r_force * np.abs(feet_force[1])
     q["left_speed"] = l_stance * feet_vel[0]
     q["right_speed"] = r_stance * feet_vel[1]
 
@@ -70,8 +49,8 @@ def compute_reward(self, action):
         x_vel = 0
     if y_vel < 0.05:
         y_vel = 0
-    q["x_vel"] = 2 * x_vel
-    q["y_vel"] = 2 * y_vel
+    q["x_vel"] = x_vel
+    q["y_vel"] = y_vel
 
     ### Orientation rewards (base and feet) ###
     base_pose = self.sim.get_body_pose(self.sim.base_body_name)
@@ -82,8 +61,6 @@ def compute_reward(self, action):
     # Deadzone around quaternion as well
     if orientation_error < 5e-3:
         orientation_error = 0
-    else:
-        orientation_error *= 30
 
     # Foor orientation target in global frame. Heuristic hard coded value to be flat all the time.
     # If we change the turn command (self.orient_add) then need to rotate the foot orient target
@@ -96,7 +73,7 @@ def compute_reward(self, action):
         foot_orient_target = quaternion_product(iquaternion, foot_orient_target)
     foot_orientation_error = quaternion_similarity(foot_orient_target, feet_pose[0, 3:]) + \
                              quaternion_similarity(foot_orient_target, feet_pose[1, 3:])
-    q["orientation"] = orientation_error + 20 * foot_orientation_error
+    q["orientation"] = orientation_error + foot_orientation_error
 
     ### Hop symmetry reward (keep feet equidistant) ###
     period_shifts = self.clock.get_period_shifts()
@@ -104,24 +81,25 @@ def compute_reward(self, action):
     rel_foot_pos = np.subtract(feet_pose[:, 0:3], base_pose[0:3])
     # lpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
     # rpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
-    xdif = 10 * np.sqrt(np.power(rel_foot_pos[0, [0, 2]] - rel_foot_pos[1, [0, 2]], 2).sum())
+    xdif = np.sqrt(np.power(rel_foot_pos[0, [0, 2]] - rel_foot_pos[1, [0, 2]], 2).sum())
     pdif = np.exp(-5 * np.abs(np.sin(np.pi * (period_shifts[0] - period_shifts[1]))))
     q['hop_symmetry'] = pdif * xdif
 
     ### Sim2real stability rewards ###
     base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
-    q["stable_base"] = 0.1 * np.abs(base_vel[3:]).sum() + np.abs(base_acc[0:2]).sum()
+    q["stable_base"] = np.abs(base_vel[3:]).sum() + np.abs(base_acc[0:2]).sum()
     if self.last_action is not None:
-        q["ctrl_penalty"] = 5 * sum(np.abs(self.last_action - action)) / len(action)
+        q["ctrl_penalty"] = sum(np.abs(self.last_action - action)) / len(action)
     else:
         q["ctrl_penalty"] = 0
     torque = self.sim.get_torque()
-    q["trq_penalty"] = 0.05 * sum(np.abs(torque)) / len(torque)
+    q["trq_penalty"] = sum(np.abs(torque)) / len(torque)
 
     ### Add up all reward components ###
     self.reward = 0
-    for name in w:
-        self.reward += w[name] * kernel(q[name])
+    for name in q:
+        self.reward += self.reward_weight[name]["weighting"] * \
+                       kernel(self.reward_weight[name]["scaling"] * q[name])
 
     return self.reward
 
