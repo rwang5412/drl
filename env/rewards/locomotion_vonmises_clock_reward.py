@@ -26,7 +26,7 @@ def compute_reward(self, action):
     w['y_vel']          = 0.075
     w['orientation']    = 0.125
     w['hop_symmetry']   = 0.100
-    w['stable_pelvis']  = 0.025
+    w['stable_base']  = 0.025
     w['ctrl_penalty']   = 0.025
     w['trq_penalty']    = 0.025
 
@@ -61,11 +61,11 @@ def compute_reward(self, action):
     q["right_speed"] = r_stance * feet_vel[1]
 
     ### Speed rewards ###
-    pelvis_vel = self.sim.get_body_velocity(self.sim.base_body_name)
-    x_vel = np.abs(pelvis_vel[0] - self.speed)
-    y_vel = np.abs(pelvis_vel[1] - self.y_speed)
-    # We have deadzones around the speed reward since it is impossible (and we actually don't want) for pelvis velocity
-    # to be constant the whole time.
+    base_vel = self.sim.get_body_velocity(self.sim.base_body_name)
+    x_vel = np.abs(base_vel[0] - self.x_velocity)
+    y_vel = np.abs(base_vel[1] - self.y_velocity)
+    # We have deadzones around the speed reward since it is impossible (and we actually don't want)
+    # for base velocity to be constant the whole time.
     if x_vel < 0.05:
         x_vel = 0
     if y_vel < 0.05:
@@ -73,12 +73,12 @@ def compute_reward(self, action):
     q["x_vel"] = 2 * x_vel
     q["y_vel"] = 2 * y_vel
 
-    ### Orientation rewards (pelvis and feet) ###
-    pelvis_pose = self.sim.get_body_pose(self.sim.base_body_name)
+    ### Orientation rewards (base and feet) ###
+    base_pose = self.sim.get_body_pose(self.sim.base_body_name)
     target_quat = np.array([1, 0, 0, 0])
     command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
     target_quat = quaternion_product(target_quat, command_quat)
-    orientation_error = 1 - np.inner(pelvis_pose[3:], target_quat) ** 2
+    orientation_error = quaternion_similarity(base_pose[3:], target_quat)
     # Deadzone around quaternion as well
     if orientation_error < 5e-3:
         orientation_error = 0
@@ -94,14 +94,14 @@ def compute_reward(self, action):
     if self.orient_add != 0:
         iquaternion = inverse_quaternion(command_quat)
         foot_orient_target = quaternion_product(iquaternion, foot_orient_target)
-    foot_orientation_error = 20 * (1 - np.inner(foot_orient_target, feet_pose[0, 3:]) ** 2) + \
-                             20 * (1 - np.inner(foot_orient_target, feet_pose[1, 3:]) ** 2)
-    q["orientation"] = orientation_error + foot_orientation_error
+    foot_orientation_error = quaternion_similarity(foot_orient_target, feet_pose[0, 3:]) + \
+                             quaternion_similarity(foot_orient_target, feet_pose[1, 3:])
+    q["orientation"] = orientation_error + 20 * foot_orientation_error
 
     ### Hop symmetry reward (keep feet equidistant) ###
     period_shifts = self.clock.get_period_shifts()
     # lpos, rpos = self.get_info('robot_foot_positions', local=True)
-    rel_foot_pos = np.subtract(feet_pose[:, 0:3], pelvis_pose[0:3])
+    rel_foot_pos = np.subtract(feet_pose[:, 0:3], base_pose[0:3])
     # lpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
     # rpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
     xdif = 10 * np.sqrt(np.power(rel_foot_pos[0, [0, 2]] - rel_foot_pos[1, [0, 2]], 2).sum())
@@ -109,8 +109,8 @@ def compute_reward(self, action):
     q['hop_symmetry'] = pdif * xdif
 
     ### Sim2real stability rewards ###
-    pelvis_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
-    q["stable_pelvis"] = 0.1 * np.abs(pelvis_vel[3:]).sum() + np.abs(pelvis_acc[0:2]).sum()
+    base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
+    q["stable_base"] = 0.1 * np.abs(base_vel[3:]).sum() + np.abs(base_acc[0:2]).sum()
     if self.last_action is not None:
         q["ctrl_penalty"] = 5 * sum(np.abs(self.last_action - action)) / len(action)
     else:
@@ -127,11 +127,11 @@ def compute_reward(self, action):
 
 # Termination condition: If orientation too far off terminate
 def compute_done(self):
-    pelvis_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
+    base_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
     target_quat = np.array([1, 0, 0, 0])
     command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
     target_quat = quaternion_product(target_quat, command_quat)
-    orientation_error = 3 * (1 - np.inner(pelvis_quat, target_quat) ** 2)
+    orientation_error = 3 * quaternion_similarity(base_quat, target_quat)
     if np.exp(-orientation_error) < 0.8:
         return True
     else:

@@ -16,6 +16,24 @@ def quaternion_product(q1, q2):
         result = -result
     return result
 
+def quaternion_similarity(q1: np.ndarray, q2: np.ndarray):
+    """
+    Returns a measure of how similar or close two quaternions are to one another. Should be used to
+    compare 2 quaternions. Note that this is NOT a quaternion difference; the difference is
+    inv(q1) * q2 and is NOT commutative. This uses the fact that if q1 and q2 are equal, the q1 * q2
+    is equal to 1 (or -1 if they only differ in sign) and IS commutative. This function will provide
+    a "similarity difference", in that 0 means the two quaternions are exactly equal.
+
+    Arguments:
+    q1 (numpy ndarray): first quaternion to compare
+    q2 (numpy ndarray): second quaternion to compare to
+    """
+    assert q1.shape == (4,), \
+        f"quaternion_similarity received quaternion 1 of shape {q1.shape}, but should be of shape (4,)"
+    assert q2.shape == (4,), \
+        f"quaternion_similarity received quaternion 2 of shape {q2.shape}, but should be of shape (4,)"
+    return 1 - np.inner(q1, q1) ** 2
+
 def rotate_by_quaternion(vector, quaternion):
     q1 = np.copy(quaternion)
     q2 = np.zeros(4)

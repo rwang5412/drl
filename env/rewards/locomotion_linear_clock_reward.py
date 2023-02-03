@@ -19,7 +19,7 @@ def compute_reward(self, action):
     w = {}
     w['x_vel']                  = 0.1
     w['y_vel']                  = 0.1
-    w['pelvis_orientation']     = 0.1
+    w['base_orientation']       = 0.1
     w['l_foot_cost_forcevel']   = 0.1
     w['r_foot_cost_forcevel']   = 0.1
     w['l_foot_cost_pos']        = 0.1
@@ -28,8 +28,8 @@ def compute_reward(self, action):
     w['r_foot_orientation']     = 0.05
     w['hiproll_cost']           = 0.05
     w['hipyaw_vel']             = 0.05
-    w['pel_transacc']           = 0.025
-    w['pel_rotvel']             = 0.025
+    w['base_transacc']          = 0.025
+    w['base_rotvel']            = 0.025
     w['ctrl_penalty']           = 0.025
     w['trq_penalty']            = 0.025
 
@@ -77,21 +77,21 @@ def compute_reward(self, action):
     q["r_foot_cost_pos"] = r_swing * r_height_cost
 
     ### CoM rewards (desired speed, orientation) ###
-    pelvis_vel = self.sim.get_body_velocity(self.sim.base_body_name)
-    x_vel = np.abs(pelvis_vel[0] - self.speed)
-    y_vel = np.abs(pelvis_vel[1] - self.y_speed)
-    # We have deadzones around the speed reward since it is impossible (and we actually don't want) for pelvis velocity
-    # to be constant the whole time.
+    base_vel = self.sim.get_body_velocity(self.sim.base_body_name)
+    x_vel = np.abs(base_vel[0] - self.x_velocity)
+    y_vel = np.abs(base_vel[1] - self.y_velocity)
+    # We have deadzones around the speed reward since it is impossible (and we actually don't want)
+    # for base velocity to be constant the whole time.
     if x_vel < 0.05:
         x_vel = 0
     if y_vel < 0.05:
         y_vel = 0
 
-    pelvis_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
+    base_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
     target_quat = np.array([1, 0, 0, 0])
     command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
     target_quat = quaternion_product(target_quat, command_quat)
-    orientation_error = 1 - np.inner(pelvis_quat, target_quat) ** 2
+    orientation_error = quaternion_similarity(base_quat, target_quat)
     # Deadzone around quaternion as well
     if orientation_error < 5e-3:
         orientation_error = 0
@@ -99,7 +99,7 @@ def compute_reward(self, action):
         orientation_error *= 30
     q["x_vel"] = 2 * x_vel
     q["y_vel"] = 2 * y_vel
-    q["pelvis_orientation"] = orientation_error
+    q["base_orientation"] = orientation_error
 
     ### Foot orientation rewards ###
     # Foor orientation target in global frame. Heuristic hard coded value to be flat all the time.
@@ -111,13 +111,13 @@ def compute_reward(self, action):
     if self.orient_add != 0:
         iquaternion = inverse_quaternion(command_quat)
         foot_orient_target = quaternion_product(iquaternion, foot_orient_target)
-    q["l_foot_orientation"] = 20 * (1 - np.inner(foot_orient_target, feet_pose[0, 3:]) ** 2)
-    q["r_foot_orientation"] = 20 * (1 - np.inner(foot_orient_target, feet_pose[1, 3:]) ** 2)
+    q["l_foot_orientation"] = 20 * quaternion_similarity(foot_orient_target, feet_pose[0, 3:])
+    q["r_foot_orientation"] = 20 * quaternion_similarity(foot_orient_target, feet_pose[1, 3:])
 
-    ### Stable pelvis reward terms.  Don't want pelvis to rotate or accelerate too much ###
-    pelvis_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
-    q["pel_rotvel"] = 2 * np.linalg.norm(pelvis_vel[3:])
-    q["pel_transacc"] = np.linalg.norm(pelvis_acc[0:2]) # Don't care about z acceleration
+    ### Stable base reward terms.  Don't want base to rotate or accelerate too much ###
+    base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
+    q["base_rotvel"] = 2 * np.linalg.norm(base_vel[3:])
+    q["base_transacc"] = np.linalg.norm(base_acc[0:2]) # Don't care about z acceleration
 
     ### Sim2real stability rewards ###
     motor_vel = self.sim.get_motor_velocity()
@@ -139,8 +139,8 @@ def compute_reward(self, action):
 
 # Termination condition: If reward is too low or height is too low (cassie fell down) terminate
 def compute_done(self):
-    pelvis_height = self.sim.get_body_pose(self.sim.base_body_name)[2]
-    if pelvis_height < 0.4 or self.reward < 0.4:
+    base_height = self.sim.get_body_pose(self.sim.base_body_name)[2]
+    if base_height < 0.4 or self.reward < 0.4:
         return True
     else:
         return False

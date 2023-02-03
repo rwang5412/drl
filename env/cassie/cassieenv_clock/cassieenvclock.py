@@ -34,12 +34,12 @@ class CassieEnvClock(CassieEnv):
         # Command variables
         self.traj_idx = 0
         self.orient_add = 0
-        self.speed = 0
-        self.y_speed = 0
+        self.x_velocity = 0
+        self.y_velocity = 0
 
         # Command randomization ranges
-        self._speed_bounds = [0.0, 3.0]
-        self._y_speed_bounds = [-0.3, 0.3]
+        self._x_velocity_bounds = [0.0, 3.0]
+        self._y_velocity_bounds = [-0.3, 0.3]
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
         self._cycle_time_bounds = [0.75, 1.5]
@@ -70,11 +70,11 @@ class CassieEnvClock(CassieEnv):
         self.reset_simulation()
         # Randomize commands
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        self.speed = np.random.uniform(*self._speed_bounds)
-        if self.speed > 2.0:
-            self.y_speed = 0
+        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
+        if self.x_velocity > 2.0:
+            self.y_velocity = 0
         else:
-            self.y_speed = np.random.uniform(*self._y_speed_bounds)
+            self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
         swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
         period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
         self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
@@ -112,7 +112,7 @@ class CassieEnvClock(CassieEnv):
         return self._compute_done(self)
 
     def get_state(self):
-        out = np.concatenate((self.get_robot_state(), [self.speed, self.y_speed],
+        out = np.concatenate((self.get_robot_state(), [self.x_velocity, self.y_velocity],
                               self.clock.get_swing_ratios(), self.clock.get_period_shifts(),
                               self.clock.input_clock()))
         return out
