@@ -147,7 +147,7 @@
                     <joint name='left-foot' type='hinge' range='-140 -30' damping='1' armature='0.01225'/>
                     <geom type='mesh' mesh='left-foot'/>
                     <geom type='capsule' size='0.02' fromto='-0.052821 0.092622 0 0.069746 -0.010224 0' class='collision-left'/>
-                    <site name="left-foot-pt" type="sphere" pos="0.01965 0.05375 0" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
+                    <site name="left-foot-mid" type="sphere" pos="0.01762 0.05219 0" euler="140 0 -90" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
                     <site name="left-toe" type="sphere" pos="-0.052821 0.092622 0" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
                     <site name="left-heel" type="sphere" pos="0.069746 -0.010224 0" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
                   </body>
@@ -218,7 +218,7 @@
                     <joint name='right-foot' type='hinge' range='-140 -30' damping='1' armature='0.01225'/>
                     <geom type='mesh' mesh='right-foot'/>
                     <geom type='capsule' size='0.02' fromto='-0.052821 0.092622 0 0.069746 -0.010224 0' class='collision-right'/>
-                    <site name="right-foot-pt" type="sphere" pos="0.01965 0.05375 0" size="0.005" rgba="0.1 0.7 0.2 1.0"/>
+                    <site name="right-foot-mid" type="sphere" pos="0.01762 0.05219 0" euler="140 0 -90" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
                     <site name="right-toe" type="sphere" pos="-0.052821 0.092622 0.0" size="0.005" rgba="0.1 0.7 0.2 1.0"/>
                     <site name="right-heel" type="sphere" pos="0.069746 -0.010224 0" size="0.005" rgba="0.1 0.7 0.2 1.0"/>
                   </body>
