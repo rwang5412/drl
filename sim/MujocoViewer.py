@@ -211,7 +211,6 @@ class MujocoViewer():
                     key_title += mj.mjRNDSTRING[i][0].replace("&", "") + "\n"
                     key_content += mj.mjRNDSTRING[i][2] + "\n"
                 frame_title = ["" for i in range(mj.mjtFrame.mjNFRAME)]
-                # for i in range(mj.mjtFrame.mjNFRAME):
                 for frame_type in dir(mj.mjtFrame):
                     if "mjFRAME" in frame_type:
                         frame_title[getattr(mj.mjtFrame, frame_type)] = frame_type[8:].lower()
