@@ -3,28 +3,53 @@ import importlib
 import numpy as np
 
 # from rewards.blah import foo_reward
-# from env.util import Clock
+from env.util.periodicclock import PeriodicClock
 from env import DigitEnv
 
 class DigitEnvClock(DigitEnv):
 
     def __init__(self,
-                 clock: str,
+                 cycle_time: float,
+                 clock_type: str,
                  reward_name: str,
                  simulator_type: str,
                  terrain: bool,
                  policy_rate: int,
                  dynamics_randomization: bool):
-        
+        assert clock_type == "linear" or clock_type == "von_mises", \
+            f"CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
+            f"\"von_mises\" are valid clock types."
+
         super().__init__(simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization)
 
         # Define env specifics
-        self.clock = clock
         self.observation_space = None
         self.action_space = None
+
+        # Clock variables
+        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
+        self.cycle_time = cycle_time
+        phase_add = 1 / self.default_policy_rate
+        swing_ratios = [0.4, 0.4]
+        period_shifts = [0.0, 0.5]
+        self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
+        self.clock_type = clock_type
+        if self.clock_type == "von_mises":
+            self.clock.precompute_von_mises()
+
+        # Command variables
+        self.traj_idx = 0
+        self.orient_add = 0
+        self.speed = 0
+
+        # Command randomization ranges
+        self.speed_bounds = [0.0, 3.0]
+        self.swing_ratio_bounds = [0.4, 0.8]
+        self._period_shift_bounds = [0.0, 0.5]
+        self.cycle_time_bounds = [0.75, 1.5]
 
         # Load reward module
         # self.reward = importlib.import_module(name='env.rewards.'+reward_name)
@@ -39,6 +64,16 @@ class DigitEnvClock(DigitEnv):
             state (np.ndarray): the s in (s, a, s')
         """
         self.reset_simulation()
+        # Randomize commands
+        self.speed = np.random.uniform(*self.speed_bounds)
+        swing_ratios = np.random.uniform(*self.swing_ratio_bounds, 2)
+        period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
+        self.cycle_time = np.random.uniform(*self.cycle_time_bounds)
+        phase_add = 1 / self.default_policy_rate
+        # Update clock
+        self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
+        if self.clock_type == "von_mises":
+            self.clock.precompute_von_mises()
         self.traj_idx = 0
         self.orient_add = 0
         return self.get_state()
@@ -53,6 +88,7 @@ class DigitEnvClock(DigitEnv):
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
         self.step_simulation(action, simulator_repeat_steps)
+        self.clock.increment()
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
 
@@ -68,7 +104,10 @@ class DigitEnvClock(DigitEnv):
         pass
 
     def get_state(self):
-        return self.get_robot_state()
+        command_state = [self.speed, self.clock.get_swing_ratios(), self.clock]
+        out = np.concatenate((self.get_robot_state(), [self.speed], self.clock.get_swing_ratios(),
+                              self.clock.get_period_shifts(), self.clock.input_clock()))
+        return out
 
     def get_action_mirror_indices(self):
         raise NotImplementedError

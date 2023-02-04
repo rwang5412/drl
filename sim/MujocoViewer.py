@@ -210,6 +210,13 @@ class MujocoViewer():
                 for i in range(mj.mjtRndFlag.mjNRNDFLAG):
                     key_title += mj.mjRNDSTRING[i][0].replace("&", "") + "\n"
                     key_content += mj.mjRNDSTRING[i][2] + "\n"
+                frame_title = ["" for i in range(mj.mjtFrame.mjNFRAME)]
+                for frame_type in dir(mj.mjtFrame):
+                    if "mjFRAME" in frame_type:
+                        frame_title[getattr(mj.mjtFrame, frame_type)] = frame_type[8:].lower()
+                for i in range(len(frame_title)):
+                    key_title += f"{frame_title[i]} frame\n"
+                    key_content += f"{i}\n"
                 key_title = key_title[:-1]
                 key_content = key_content[:-1]
                 mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value,
@@ -293,13 +300,13 @@ class MujocoViewer():
                 if glfw.get_key_name(key, scancode) == mj.mjRNDSTRING[i][2].lower():
                     self.scn.flags[i] = 1 - self.scn.flags[i]
                     return
-            # Toggle geom/site group
-            for i in range(mj.mjNGROUP):
-                if key == i + 48:   # Int('0') = 48
-                    if mods and glfw.MOD_SHIFT == True:
-                        self.vopt.sitegroup[i] = 1 - self.vopt.sitegroup[i]
+            # Toggle frame rendering
+            for i in range(mj.mjtFrame.mjNFRAME):
+                if key == i + 48:
+                    if self.vopt.frame == i:
+                        self.vopt.frame = 0
                     else:
-                        self.vopt.geomgroup[i] = 1 - self.vopt.geomgroup[i]
+                        self.vopt.frame = i
         # Handle regular inidividual key presses
         if key == glfw.KEY_F1:              # help
             self._showhelp = not self._showhelp
