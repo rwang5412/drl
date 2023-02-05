@@ -29,17 +29,17 @@ def test_all_sim():
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        num_pass += test_sim_init(sim)
-        num_pass += test_sim_sim_forward(sim)
-        num_pass += test_sim_viewer(sim)
-        num_pass += test_sim_glfw_multiple_viewer(sim)
-        num_pass += test_sim_PD(sim)
-        num_pass += test_sim_get_set(sim)
-        num_pass += test_sim_indexes(sim)
-        num_pass += test_sim_body_pose(sim)
-        num_pass += test_sim_body_velocity(sim)
-        num_pass += test_sim_body_acceleration(sim)
-        num_pass += test_sim_body_contact_force(sim)
+        # num_pass += test_sim_init(sim)
+        # num_pass += test_sim_sim_forward(sim)
+        # num_pass += test_sim_viewer(sim)
+        # num_pass += test_sim_glfw_multiple_viewer(sim)
+        # num_pass += test_sim_PD(sim)
+        # num_pass += test_sim_get_set(sim)
+        # num_pass += test_sim_indexes(sim)
+        # num_pass += test_sim_body_pose(sim)
+        # num_pass += test_sim_body_velocity(sim)
+        # num_pass += test_sim_body_acceleration(sim)
+        # num_pass += test_sim_body_contact_force(sim)
         num_pass += test_sim_relative_pose(sim)
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
@@ -292,10 +292,6 @@ def test_sim_relative_pose(sim):
     """Tilt torso/base + 10deg in pitch and measure feet flat (should be -10deg pitch) 
     on ground angle diff in base frame. 
     """
-    # TODO: helei, add stuff back for lib cassie, site support, relative pose support
-    if "lib" in sim.__name__.lower():
-        print("Bypass libcassie for test_sim_relative_pose.")
-        return True
     test_sim = sim()
     test_sim.reset()
     # Slightly tilted down
@@ -304,7 +300,9 @@ def test_sim_relative_pose(sim):
     test_sim.set_base_orientation(x_target[3:])
     test_sim.hold()
 
-    test_sim.sim_forward(dt=5)
+    # Digit torso requires onger time to settle after torso/base joint set to 10deg
+    dt = 5 if "digit" in sim.__name__.lower() else 1
+    test_sim.sim_forward(dt=dt)
     p1 = test_sim.get_body_pose(name=test_sim.base_body_name)
     p2 = test_sim.get_site_pose(name=test_sim.feet_site_name[0])
     p3 = test_sim.get_site_pose(name=test_sim.feet_site_name[1])

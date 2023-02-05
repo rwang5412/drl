@@ -191,7 +191,7 @@ class LibCassieSim(GenericSim):
     def get_simulation_time(self):
         return self.sim.time()
 
-    def get_body_pose(self, name: str, relative_to_base=False):
+    def get_body_pose(self, name: str):
         """Get body pose by name
 
         Args:
@@ -203,16 +203,18 @@ class LibCassieSim(GenericSim):
         pose = np.zeros(7)
         pose[:3] = self.sim.xpos(name)
         pose[3:] = self.sim.xquat(name)
-        if relative_to_base:
-            pose[:3] = pose[3:] - self.sim.xpos(self.base_body_name)
-            pose[3:] = self.sim.xquat(name)
         return pose
 
     def get_site_pose(self, name: str):
-        raise NotImplementedError
+        pose = np.zeros(7)
+        pose[:3] = self.sim.get_site_xpos(name)
+        pose[3:] = self.sim.get_site_quat(name)
+        return pose
 
     def get_relative_pose(self, pose1: np.ndarray, pose2: np.ndarray):
-        raise NotImplementedError
+        pose = np.zeros(7)
+        self.sim.get_object_relative_pose(pose1, pose2, pose)
+        return pose
 
     def get_body_velocity(self, name: str, local_frame=False):
         """Get body velocity by name
