@@ -189,6 +189,28 @@ class CassieSim:
             jacp[i] = jacp_array[i]
         return jacp
 
+    def get_jacobian_full(self, name):
+        jacp = np.zeros(3*self.nv)
+        jacp_array = (ctypes.c_double * (3*self.nv))()
+        jacr = np.zeros(3*self.nv)
+        jacr_array = (ctypes.c_double * (3*self.nv))()
+        cassie_sim_get_jacobian_full(self.c, jacp_array, jacr_array, name.encode())
+        for i in range(3*self.nv):
+            jacp[i] = jacp_array[i]
+            jacr[i] = jacr_array[i]
+        return jacp, jacr
+
+    def get_jacobian_full_site(self, name):
+        jacp = np.zeros(3*self.nv)
+        jacp_array = (ctypes.c_double * (3*self.nv))()
+        jacr = np.zeros(3*self.nv)
+        jacr_array = (ctypes.c_double * (3*self.nv))()
+        cassie_sim_get_jacobian_full_site(self.c, jacp_array, jacr_array, name.encode())
+        for i in range(3*self.nv):
+            jacp[i] = jacp_array[i]
+            jacr[i] = jacr_array[i]
+        return jacp, jacr
+
     def get_foot_forces(self):
         force = np.zeros(12)
         frc_array = (ctypes.c_double * 12)()
@@ -199,6 +221,18 @@ class CassieSim:
         rfrc = np.sqrt(np.power(force[6:9], 2).sum())
         return lfrc, rfrc
 
+    # Returns 2 arrays each 6 long, the toe force and heel force. Each array is in order of
+    # left foot (3) and then right foot (3)
+    def get_heeltoe_forces(self):
+        toe_force = np.zeros(6)
+        heel_force = np.zeros(6)
+        toe_array = (ctypes.c_double * 6)()
+        heel_array = (ctypes.c_double * 6)()
+        cassie_sim_heeltoe_forces(self.c, toe_array, heel_array)
+        for i in range(6):
+            toe_force[i] = toe_array[i]
+            heel_force[i] = heel_array[i]
+        return toe_force, heel_force
 
     def foot_pos(self):
         pos_array = (ctypes.c_double * 6)()
@@ -219,6 +253,18 @@ class CassieSim:
         cassie_sim_body_vel(self.c, vel_array, body_name.encode())
         for i in range(6):
             vel[i] = vel_array[i]
+
+    def get_body_acceleration(self, accel, body_name):
+        accel_array = (ctypes.c_double * 6)()
+        cassie_sim_body_acceleration(self.c, accel_array, body_name.encode())
+        for i in range(6):
+            accel[i] = accel_array[i]
+
+    def get_body_contact_force(self, force, body_name):
+        force_array = (ctypes.c_double * 6)()
+        cassie_sim_body_contact_force(self.c, force_array, body_name.encode())
+        for i in range(6):
+            force[i] = force_array[i]
 
     # Returns the center of mass position vector in world frame
     def center_of_mass_position(self):
@@ -363,6 +409,13 @@ class CassieSim:
             ret[i] = ptr[i]
         return ret
 
+    def get_body_pos(self, name):
+        ptr = cassie_sim_get_body_name_pos(self.c, name.encode())
+        ret = np.zeros(3)
+        for i in range(3):
+            ret[i] = ptr[i]
+        return ret
+
     def get_geom_friction(self):
         ptr = cassie_sim_geom_friction(self.c)
         ret = np.zeros(self.ngeom * 3)
@@ -459,6 +512,15 @@ class CassieSim:
         # "data" is a single double
         else:
             cassie_sim_set_body_name_mass(self.c, name.encode(), ctypes.c_double(data))
+
+    def set_body_pos(self, name, data):
+        if len(data) != 3:
+            print("SIZE MISMATCH SET BODY POS")
+            exit(1)
+        c_arr = (ctypes.c_double * 3)()
+        for i in range(3):
+            c_arr[i] = data[i]
+        cassie_sim_set_body_name_pos(self.c, name.encode(), c_arr)
 
     def set_body_ipos(self, data):
         nbody = self.nbody * 3
@@ -577,8 +639,35 @@ class CassieSim:
         sitep = cassie_sim_site_xpos(self.c, name.encode())
         return sitep[:3]
 
+    def get_site_quat(self, name):
+        array = (ctypes.c_double * 4)()
+        cassie_sim_site_xquat(self.c, name.encode(), array)
+        return array[:4]
+
+    def get_object_relative_pose(self, pose1, pose2, relative_pose):
+        pos = (ctypes.c_double * 3)()
+        quat = (ctypes.c_double * 4)()
+        pose1_pos = (ctypes.c_double * 3)()
+        pose1_quat = (ctypes.c_double * 4)()
+        pose2_pos = (ctypes.c_double * 3)()
+        pose2_quat = (ctypes.c_double * 4)()
+        for i in range(3):
+            pose1_pos[i] = pose1[i]
+            pose2_pos[i] = pose2[i]
+        for i in range(4):
+            pose1_quat[i] = pose1[i+3]
+            pose2_quat[i] = pose2[i+3]
+        cassie_sim_relative_pose(pose1_pos, pose1_quat, pose2_pos, pose2_quat, pos, quat)
+        for i in range(3):
+            relative_pose[i] = pos[i]
+        for i in range(4):
+            relative_pose[i+3] = quat[i]
+        
     def set_const(self):
         cassie_sim_set_const(self.c)
+
+    def just_set_const(self):
+        cassie_sim_just_set_const(self.c)
 
     def full_reset(self):
         cassie_sim_full_reset(self.c)
@@ -681,16 +770,29 @@ class CassieSim:
 class CassieVis:
     def __init__(self, c, offscreen=False):
         self.v = cassie_vis_init(c.c, c.modelfile.encode('utf-8'), ctypes.c_bool(offscreen))
+        self.is_recording = False
 
     def draw(self, c):
         state = cassie_vis_draw(self.v, c.c)
         return state
+
+    def get_extent(self):
+        return cassie_vis_extent(self.v)
+
+    def get_znear(self):
+        return cassie_vis_znear(self.v)
+
+    def get_zfar(self):
+        return cassie_vis_zfar(self.v)
 
     def valid(self):
         return cassie_vis_valid(self.v)
 
     def ispaused(self):
         return cassie_vis_paused(self.v)
+
+    def remake(self):
+        cassie_vis_remakeSceneCon(self.v)
 
     # Applies the inputted force to the inputted body. "xfrc_apply" should contain the force/torque to
     # apply in Cartesian coords as a 6-long array (first 3 are force, last 3 are torque). "body_name"
@@ -776,12 +878,14 @@ class CassieVis:
 
     def init_recording(self, filename, width=1920, height=1080):
         cassie_vis_init_recording(self.v, filename.encode(), ctypes.c_int(width), ctypes.c_int(height))
+        self.is_recording = True
 
     def record_frame(self):
         cassie_vis_record_frame(self.v)
 
     def close_recording(self):
         cassie_vis_close_recording(self.v)
+        self.is_recording = False
 
     def __del__(self):
         cassie_vis_free(self.v)

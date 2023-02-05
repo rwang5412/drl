@@ -1,7 +1,7 @@
 import numpy as np
 
 from env import GenericEnv
-from sim import DigitMjSim, DigitArSim
+from sim import MjDigitSim, ArDigitSim
 from env.util.quaternion import (
     euler2quat,
     inverse_quaternion,
@@ -27,12 +27,12 @@ class DigitEnv(GenericEnv):
 
         # Select simulator
         if simulator_type == "mujoco":
-            self.sim = DigitMjSim()
+            self.sim = MjDigitSim()
             # Handle simulation features, such as heightmap
             if terrain:
                 pass
         elif simulator_type == 'ar':
-            self.sim = DigitArSim()
+            self.sim = ArDigitSim()
             if terrain:
                 pass
         else:

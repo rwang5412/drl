@@ -3,7 +3,7 @@ import pathlib
 import time
 
 from .cassiemujoco import pd_in_t, state_out_t, CassieSim, CassieVis
-from ..GenericSim import GenericSim
+from sim import GenericSim
 
 
 class LibCassieSim(GenericSim):
@@ -34,6 +34,9 @@ class LibCassieSim(GenericSim):
         self.base_orientation_inds = [3, 4, 5, 6]
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
+        self.base_body_name = "cassie-pelvis"
+        self.feet_body_name = ["left-foot", "right-foot"] # force purpose
+        self.feet_site_name = ["left-foot-mid", "right-foot-mid"] # pose purpose
 
         self.num_actuators = 10
         self.num_joints = 4
@@ -187,6 +190,82 @@ class LibCassieSim(GenericSim):
 
     def get_simulation_time(self):
         return self.sim.time()
+
+    def get_body_pose(self, name: str):
+        """Get body pose by name
+
+        Args:
+            name (str): body name
+
+        Returns:
+            ndarray: pose [3xlinear, 4xquaternion]
+        """
+        pose = np.zeros(7)
+        pose[:3] = self.sim.xpos(name)
+        pose[3:] = self.sim.xquat(name)
+        return pose
+
+    def get_site_pose(self, name: str):
+        pose = np.zeros(7)
+        pose[:3] = self.sim.get_site_xpos(name)
+        pose[3:] = self.sim.get_site_quat(name)
+        return pose
+
+    def get_relative_pose(self, pose1: np.ndarray, pose2: np.ndarray):
+        pose = np.zeros(7)
+        self.sim.get_object_relative_pose(pose1, pose2, pose)
+        return pose
+
+    def get_body_velocity(self, name: str, local_frame=False):
+        """Get body velocity by name
+
+        Args:
+            name (str): body name
+            local_frame (bool, optional): Defaults to False.
+
+        Returns:
+            ndarray: velocity [3xlinear, 3xangular]
+        """
+        velocity = np.zeros(6)
+        self.sim.body_vel(velocity, name)
+        tmp = velocity[3:6].copy()
+        velocity[3:6] = velocity[0:3]
+        velocity[0:3] = tmp
+        if local_frame:
+            raise NotImplementedError("Not implemented local frame option. Need to add in c code.")
+        return velocity
+
+    def get_body_acceleration(self, name: str, local_frame=False):
+        """Get body acceleration by name
+
+        Args:
+            name (str): body name
+            local_frame (bool, optional): Defaults to False.
+
+        Returns:
+            ndarray: velocity [3xlinear, 3xangular]
+        """
+        accel = np.zeros(6)
+        self.sim.get_body_acceleration(accel, name)
+        tmp = accel[3:6].copy()
+        accel[3:6] = accel[0:3]
+        accel[0:3] = tmp
+        if local_frame:
+            raise NotImplementedError("Not implemented local frame option. Need to add in c code.")
+        return accel
+
+    def get_body_contact_force(self, name: str):
+        """Get sum of contact forces at the named body in global frame
+
+        Args:
+            name (str): body name
+
+        Returns:
+            ndarray: sum of all wrenches acting on the body
+        """
+        total_wrench = np.zeros(6)
+        self.sim.get_body_contact_force(total_wrench, name)
+        return total_wrench[:3]
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
