@@ -231,6 +231,8 @@ class LibCassieSim(GenericSim):
         tmp = velocity[3:6].copy()
         velocity[3:6] = velocity[0:3]
         velocity[0:3] = tmp
+        if local_frame:
+            raise NotImplementedError("Not implemented local frame option. Need to add in c code.")
         return velocity
 
     def get_body_acceleration(self, name: str, local_frame=False):
@@ -248,6 +250,8 @@ class LibCassieSim(GenericSim):
         tmp = accel[3:6].copy()
         accel[3:6] = accel[0:3]
         accel[0:3] = tmp
+        if local_frame:
+            raise NotImplementedError("Not implemented local frame option. Need to add in c code.")
         return accel
 
     def get_body_contact_force(self, name: str):
