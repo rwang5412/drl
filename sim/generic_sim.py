@@ -1,6 +1,6 @@
 import numpy as np
 
-class GenericSim:
+class GenericSim(object):
     """
     A base class to define the functions that interact with simulator.
     This class contains a set of getter/setter that unify generic naming conventions for different simulators

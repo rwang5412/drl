@@ -3,7 +3,7 @@ import pathlib
 import time
 
 from .cassiemujoco import pd_in_t, state_out_t, CassieSim, CassieVis
-from ..GenericSim import GenericSim
+from sim import GenericSim
 
 
 class LibCassieSim(GenericSim):
@@ -35,7 +35,8 @@ class LibCassieSim(GenericSim):
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
         self.base_body_name = "cassie-pelvis"
-        self.feet_body_name = ["left-foot", "right-foot"]
+        self.feet_body_name = ["left-foot", "right-foot"] # force purpose
+        self.feet_site_name = ["left-foot-mid", "right-foot-mid"] # pose purpose
 
         self.num_actuators = 10
         self.num_joints = 4
@@ -204,9 +205,14 @@ class LibCassieSim(GenericSim):
         pose[3:] = self.sim.xquat(name)
         if relative_to_base:
             pose[:3] = pose[3:] - self.sim.xpos(self.base_body_name)
-            # TODO: helei, once we have site defined
             pose[3:] = self.sim.xquat(name)
         return pose
+
+    def get_site_pose(self, name: str):
+        raise NotImplementedError
+
+    def get_relative_pose(self, pose1: np.ndarray, pose2: np.ndarray):
+        raise NotImplementedError
 
     def get_body_velocity(self, name: str, local_frame=False):
         """Get body velocity by name

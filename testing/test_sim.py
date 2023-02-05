@@ -5,7 +5,7 @@ import time
 from sim import (
     MjCassieSim,
     LibCassieSim,
-    DigitMjSim,
+    MjDigitSim,
     MujocoViewer,
 )
 
@@ -16,29 +16,32 @@ from .common import (
     CASSIE_JOINT_NAME
 )
 
+from env.util.quaternion import quaternion2euler
+
 OKGREEN = '\033[92m'
 FAIL = '\033[91m'
 ENDC = '\033[0m'
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [DigitMjSim]#[LibCassieSim, MjCassieSim, DigitMjSim]
+    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
     num_pass = 0
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        # num_pass += test_sim_init(sim)
-        # num_pass += test_sim_sim_forward(sim)
-        # num_pass += test_sim_viewer(sim)
-        # num_pass += test_sim_glfw_multiple_viewer(sim)
-        # num_pass += test_sim_PD(sim)
-        # num_pass += test_sim_get_set(sim)
-        # num_pass += test_sim_indexes(sim)
-        # num_pass += test_sim_body_pose(sim)
-        # num_pass += test_sim_body_velocity(sim)
-        # num_pass += test_sim_body_acceleration(sim)
+        num_pass += test_sim_init(sim)
+        num_pass += test_sim_sim_forward(sim)
+        num_pass += test_sim_viewer(sim)
+        num_pass += test_sim_glfw_multiple_viewer(sim)
+        num_pass += test_sim_PD(sim)
+        num_pass += test_sim_get_set(sim)
+        num_pass += test_sim_indexes(sim)
+        num_pass += test_sim_body_pose(sim)
+        num_pass += test_sim_body_velocity(sim)
+        num_pass += test_sim_body_acceleration(sim)
         num_pass += test_sim_body_contact_force(sim)
-        if num_pass == 10:
+        num_pass += test_sim_relative_pose(sim)
+        if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
             print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 10 tests.{ENDC}")
@@ -254,7 +257,6 @@ def test_sim_body_acceleration(sim):
     test_sim.hold()
     test_sim.sim_forward(dt=1)
     ddx = test_sim.get_body_acceleration(name=test_sim.base_body_name)
-    print(ddx)
     assert np.linalg.norm(ddx[:2]) < 1e-1, f"get_body_acceleration: robot should not have XY accelerations."
     assert np.abs(ddx[2] - 9.80665) < 1e-3, f"get_body_acceleration: gravity messed up."
     assert np.linalg.norm(ddx[3:]) < 1e-1, f"get_body_acceleration: robot should not have rotational accelerations."
@@ -267,42 +269,69 @@ def test_sim_body_contact_force(sim):
     """
     test_sim = sim()
     test_sim.reset()
-    # # Slightly tilted forward to let base falling to ground
-    # x_target = np.array([0, 0, 1, 0.9961947, 0, 0.0871557, 0])
-    # test_sim.set_base_position(x_target[:3])
-    # test_sim.set_base_orientation(x_target[3:])
+    # Slightly tilted down to let base falling to ground
+    x_target = np.array([0, 0, 1, 0.9961947, 0, 0.0871557, 0])
+    test_sim.set_base_position(x_target[:3])
+    test_sim.set_base_orientation(x_target[3:])
     test_sim.hold()
-    # test_sim.sim_forward(dt=0.1)
-    # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[0])
-    # assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
-    # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
-    # assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+    test_sim.sim_forward(dt=1)
+    force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[0])
+    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+    force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
+    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
 
-    # test_sim.release()
-    # test_sim.sim_forward(dt=2)
-    # force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
-    # assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
-
-    from env.util.quaternion import quaternion2euler
-    test_sim.viewer_init()
-    render_state = test_sim.viewer_render()
-    while render_state:
-        start_t = time.time()
-        for _ in range(50):
-            # force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
-            # # force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
-            # print(force)
-            x1 = test_sim.get_body_pose(name=test_sim.feet_body_name[0])
-            x2 = test_sim.get_body_pose(name=test_sim.feet_body_name[0], relative_to_body_name=test_sim.base_body_name)
-            # print(x1[:3], x1[3:])
-            # print(x2[:3], x2[3:])
-            # print(quaternion2euler(x2[3:7])/np.pi*180)
-            print(x2[:3])
-            print()
-            test_sim.sim_forward()
-        render_state = test_sim.viewer_render()
-        delaytime = max(0, 50/2000 - (time.time() - start_t))
-        time.sleep(delaytime)
+    test_sim.release()
+    test_sim.sim_forward(dt=2)
+    force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
+    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
 
     print("Passed sim get body contact force")
+    return True
+
+def test_sim_relative_pose(sim):
+    """Tilt torso/base + 10deg in pitch and measure feet flat (should be -10deg pitch) 
+    on ground angle diff in base frame. 
+    """
+    # TODO: helei, add stuff back for lib cassie, site support, relative pose support
+    if "lib" in sim.__name__.lower():
+        print("Bypass libcassie for test_sim_relative_pose.")
+        return True
+    test_sim = sim()
+    test_sim.reset()
+    # Slightly tilted down
+    x_target = np.array([0, 0, 1, 0.9961947, 0, 0.0871557, 0])
+    test_sim.set_base_position(x_target[:3])
+    test_sim.set_base_orientation(x_target[3:])
+    test_sim.hold()
+
+    test_sim.sim_forward(dt=5)
+    p1 = test_sim.get_body_pose(name=test_sim.base_body_name)
+    p2 = test_sim.get_site_pose(name=test_sim.feet_site_name[0])
+    p3 = test_sim.get_site_pose(name=test_sim.feet_site_name[1])
+    lfoot_in_base = test_sim.get_relative_pose(p1, p2)
+    rfoot_in_base = test_sim.get_relative_pose(p1, p3)
+    lfoot_euler = quaternion2euler(lfoot_in_base[3:7])/np.pi*180
+    rfoot_euler = quaternion2euler(rfoot_in_base[3:7])/np.pi*180
+    x_target_euler = quaternion2euler(x_target[3:7])/np.pi*180
+    assert lfoot_euler[1] + x_target_euler[1] < 1e-1 , "get_relative_pose returns wrong lfoot angles."
+    assert rfoot_euler[1] + x_target_euler[1] < 1e-1 , "get_relative_pose returns wrong rfoot angles."
+    
+    # NOTE: left for testing purposes
+    # test_sim.viewer_init()
+    # render_state = test_sim.viewer_render()
+    # while render_state:
+    #     start_t = time.time()
+    #     for _ in range(50):
+    #         x1 = test_sim.get_body_pose(name=test_sim.base_body_name)
+    #         x2 = test_sim.get_site_pose(name=test_sim.feet_site_name[0])
+    #         x3 = test_sim.get_relative_pose(x1, x2)
+    #         print("left foot relative to base angles, ", quaternion2euler(x3[3:7])/np.pi*180)
+    #         print("left foot relative to base positions, ", x3[:3])
+    #         print()
+    #         test_sim.sim_forward()
+    #     render_state = test_sim.viewer_render()
+    #     delaytime = max(0, 50/2000 - (time.time() - start_t))
+    #     time.sleep(delaytime)
+
+    print("Passed sim get_relative_pose")
     return True

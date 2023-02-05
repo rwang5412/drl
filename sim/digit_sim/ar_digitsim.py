@@ -22,7 +22,7 @@ from .digit_ar_sim.llapi.llapictypes import (
 )
 
 
-class DigitArSim:
+class ArDigitSim:
     """
     This class will handle simulator initialization and close. The path to ar-control binary file 
     should be provided at construction. Conf files (args) can be loaded as well.
