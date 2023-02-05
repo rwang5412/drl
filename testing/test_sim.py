@@ -29,22 +29,22 @@ def test_all_sim():
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        # num_pass += test_sim_init(sim)
-        # num_pass += test_sim_sim_forward(sim)
-        # num_pass += test_sim_viewer(sim)
-        # num_pass += test_sim_glfw_multiple_viewer(sim)
-        # num_pass += test_sim_PD(sim)
-        # num_pass += test_sim_get_set(sim)
-        # num_pass += test_sim_indexes(sim)
-        # num_pass += test_sim_body_pose(sim)
-        # num_pass += test_sim_body_velocity(sim)
-        # num_pass += test_sim_body_acceleration(sim)
-        # num_pass += test_sim_body_contact_force(sim)
+        num_pass += test_sim_init(sim)
+        num_pass += test_sim_sim_forward(sim)
+        num_pass += test_sim_viewer(sim)
+        num_pass += test_sim_glfw_multiple_viewer(sim)
+        num_pass += test_sim_PD(sim)
+        num_pass += test_sim_get_set(sim)
+        num_pass += test_sim_indexes(sim)
+        num_pass += test_sim_body_pose(sim)
+        num_pass += test_sim_body_velocity(sim)
+        num_pass += test_sim_body_acceleration(sim)
+        num_pass += test_sim_body_contact_force(sim)
         num_pass += test_sim_relative_pose(sim)
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
-            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 10 tests.{ENDC}")
+            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 12 tests.{ENDC}")
         num_pass = 0
 
 def test_sim_init(sim):
@@ -289,8 +289,8 @@ def test_sim_body_contact_force(sim):
     return True
 
 def test_sim_relative_pose(sim):
-    """Tilt torso/base + 10deg in pitch and measure feet flat (should be -10deg pitch) 
-    on ground angle diff in base frame. 
+    """Tilt torso/base + 10deg in pitch and measure feet flat (should be -10deg pitch)
+    on ground angle diff in base frame.
     """
     test_sim = sim()
     test_sim.reset()
@@ -313,7 +313,7 @@ def test_sim_relative_pose(sim):
     x_target_euler = quaternion2euler(x_target[3:7])/np.pi*180
     assert lfoot_euler[1] + x_target_euler[1] < 1e-1 , "get_relative_pose returns wrong lfoot angles."
     assert rfoot_euler[1] + x_target_euler[1] < 1e-1 , "get_relative_pose returns wrong rfoot angles."
-    
+
     # NOTE: left for testing purposes
     # test_sim.viewer_init()
     # render_state = test_sim.viewer_render()
