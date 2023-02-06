@@ -74,7 +74,7 @@ def compute_reward(self, action):
     if self.orient_add != 0:
         command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
         target_quat = quaternion_product(target_quat, command_quat)
-    orientation_error = quaternion_similarity(base_quat, target_quat)
+    orientation_error = quaternion_distance(base_quat, target_quat)
     # Deadzone around quaternion as well
     if orientation_error < 5e-3:
         orientation_error = 0
@@ -85,8 +85,8 @@ def compute_reward(self, action):
     ### Foot orientation rewards ###
     # Foor orientation target in global frame. Want to be flat and face same direction as base all
     # the time. So compare to the same orientation target as the base.
-    q["l_foot_orientation"] = quaternion_similarity(target_quat, feet_pose["left foot"][3:])
-    q["r_foot_orientation"] = quaternion_similarity(target_quat, feet_pose["right foot"][3:])
+    q["l_foot_orientation"] = quaternion_distance(target_quat, feet_pose["left foot"][3:])
+    q["r_foot_orientation"] = quaternion_distance(target_quat, feet_pose["right foot"][3:])
 
     ### Stable base reward terms.  Don't want base to rotate or accelerate too much ###
     base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)

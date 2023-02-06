@@ -58,15 +58,15 @@ def compute_reward(self, action):
     if self.orient_add != 0:
         command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
         target_quat = quaternion_product(target_quat, command_quat)
-    orientation_error = quaternion_similarity(base_pose[3:], target_quat)
+    orientation_error = quaternion_distance(base_pose[3:], target_quat)
     # Deadzone around quaternion as well
     if orientation_error < 5e-3:
         orientation_error = 0
 
     # Foor orientation target in global frame. Want to be flat and face same direction as base all
     # the time. So compare to the same orientation target as the base.
-    foot_orientation_error = quaternion_similarity(target_quat, feet_pose["left foot"][3:]) + \
-                             quaternion_similarity(target_quat, feet_pose["right foot"][3:])
+    foot_orientation_error = quaternion_distance(target_quat, feet_pose["left foot"][3:]) + \
+                             quaternion_distance(target_quat, feet_pose["right foot"][3:])
     q["orientation"] = orientation_error + foot_orientation_error
 
     ### Hop symmetry reward (keep feet equidistant) ###
@@ -102,7 +102,7 @@ def compute_done(self):
     target_quat = np.array([1, 0, 0, 0])
     command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
     target_quat = quaternion_product(target_quat, command_quat)
-    orientation_error = 3 * quaternion_similarity(base_quat, target_quat)
+    orientation_error = 3 * quaternion_distance(base_quat, target_quat)
     if np.exp(-orientation_error) < 0.8:
         return True
     else:

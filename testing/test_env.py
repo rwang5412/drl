@@ -38,16 +38,12 @@ def test_base_env_step(test_env, test_sim):
                    dynamics_randomization=False,
                    terrain=False)
     env.reset_simulation()
-    env.sim.viewer_init()
     sim_duration = []
-    render_state = env.sim.viewer_render()
-    while render_state:
-        if not env.sim.viewer_paused():
-            start = env.sim.get_simulation_time()
-            env.step_simulation(action=np.zeros(env.sim.num_actuators),
-                                   simulator_repeat_steps=int(env.sim.simulator_rate/env.default_policy_rate))
-            sim_duration.append(env.sim.get_simulation_time() - start)
-        render_state = env.sim.viewer_render()
+    for i in range(100):
+        start = env.sim.get_simulation_time()
+        env.step_simulation(action=np.zeros(env.sim.num_actuators),
+                                simulator_repeat_steps=int(env.sim.simulator_rate/env.default_policy_rate))
+        sim_duration.append(env.sim.get_simulation_time() - start)
     assert np.abs(1 / env.default_policy_rate - np.mean(sim_duration)) < 1e-5,\
            f"Simulator steps by {np.mean(sim_duration)},"\
            f"but defined to step as {1 / env.default_policy_rate}"
@@ -63,17 +59,13 @@ def test_child_env_step(test_env, test_sim):
                    clock_type="linear",
                    reward_name="locomotion_linear_clock_reward")
     env.reset()
-    env.sim.viewer_init()
     sim_duration = []
-    render_state = env.sim.viewer_render()
-    while render_state:
-        if not env.sim.viewer_paused():
-            start = env.sim.get_simulation_time()
-            s, r, _, _ = env.step(action=np.zeros(env.sim.num_actuators))
-            assert None not in s, "Child env.step() returns state has None."
-            assert r is not None, "Child env.step() returns reward as None."
-            sim_duration.append(env.sim.get_simulation_time() - start)
-        render_state = env.sim.viewer_render()
+    for i in range(100):
+        start = env.sim.get_simulation_time()
+        s, r, _, _ = env.step(action=np.zeros(env.sim.num_actuators))
+        assert None not in s, "Child env.step() returns state has None."
+        assert r is not None, "Child env.step() returns reward as None."
+        sim_duration.append(env.sim.get_simulation_time() - start)
     assert np.abs(1 / env.default_policy_rate - np.mean(sim_duration)) < 1e-5,\
            f"Simulator steps by {np.mean(sim_duration)},"\
            f"but defined to step as {1 / env.default_policy_rate}"

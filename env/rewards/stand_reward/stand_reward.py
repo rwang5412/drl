@@ -24,9 +24,9 @@ def compute_reward(self, action):
         feet_pose[f"{side} foot"] = pose
 
     orient_target = np.array([1, 0, 0, 0])
-    q["base_orientation"] = 1 - np.inner(base_pose[3:], orient_target) ** 2
-    q["l_foot_orientation"] = (1 - np.inner(orient_target, feet_pose["left foot"][3:]) ** 2)
-    q["r_foot_orientation"] = (1 - np.inner(orient_target, feet_pose["right foot"][3:]) ** 2)
+    q["base_orientation"] = quaternion_distance(base_pose[3:], orient_target)
+    q["l_foot_orientation"] = quaternion_distance(orient_target, feet_pose["left foot"][3:])
+    q["r_foot_orientation"] = quaternion_distance(orient_target, feet_pose["right foot"][3:])
 
     ### Static rewards. Want feet and motor velocities to be zero ###
     motor_vel = self.sim.get_motor_velocity()
