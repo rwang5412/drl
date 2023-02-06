@@ -4,7 +4,7 @@ import time
 
 from .cassiemujoco import pd_in_t, state_out_t, CassieSim, CassieVis
 from sim import GenericSim
-from util.colors import *
+from util.colors import FAIL, ENDC
 
 
 class LibCassieSim(GenericSim):

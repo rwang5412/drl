@@ -3,7 +3,7 @@ import mujoco as mj
 
 from .generic_sim import GenericSim
 from .mujoco_viewer import MujocoViewer
-from util.colors import *
+from util.colors import FAIL, WARNING, ENDC
 
 class MujocoSim(GenericSim):
     """

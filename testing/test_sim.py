@@ -17,7 +17,7 @@ from .common import (
 )
 
 from env.util.quaternion import quaternion2euler
-from util.colors import *
+from util.colors import FAIL, ENDC
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented

@@ -8,7 +8,7 @@ from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
 from env import CassieEnv
 from importlib import import_module
-from util.colors import *
+from util.colors import FAIL, WARNING, ENDC
 
 class CassieEnvClock(CassieEnv):
 

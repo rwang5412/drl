@@ -1,7 +1,7 @@
 import numpy as np
 
 from env.util.quaternion import *
-from util.colors import *
+from util.colors import FAIL, ENDC
 
 def kernel(x):
   return np.exp(-x)

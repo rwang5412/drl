@@ -7,7 +7,8 @@ from env import (
     CassieEnvClock,
     DigitEnvClock
 )
-from util.colors import *
+from util.colors import FAIL, ENDC
+
 
 def test_all_env():
     base_env_sim_pair = [[CassieEnv, "mujoco"], [DigitEnv, "mujoco"],
