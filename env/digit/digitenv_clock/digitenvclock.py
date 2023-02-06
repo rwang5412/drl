@@ -1,10 +1,13 @@
-import importlib
-
+import json
 import numpy as np
+import os
+from pathlib import Path
+import traceback
 
-# from rewards.blah import foo_reward
+from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
 from env import DigitEnv
+from importlib import import_module
 
 class DigitEnvClock(DigitEnv):
 
@@ -43,19 +46,41 @@ class DigitEnvClock(DigitEnv):
         # Command variables
         self.traj_idx = 0
         self.orient_add = 0
-        self.speed = 0
+        self.x_velocity = 0
+        self.y_velocity = 0
 
         # Command randomization ranges
-        self.speed_bounds = [0.0, 3.0]
-        self.swing_ratio_bounds = [0.4, 0.8]
+        self._x_velocity_bounds = [0.0, 3.0]
+        self._y_velocity_bounds = [-0.3, 0.3]
+        self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
-        self.cycle_time_bounds = [0.75, 1.5]
+        self._cycle_time_bounds = [0.75, 1.5]
+
+        self.last_action = None
 
         # Load reward module
-        # self.reward = importlib.import_module(name='env.rewards.'+reward_name)
-        # self.w = setup_reward_components(self, incentive=self.incentive)
-        # self.compute_reward = self.reward.compute_reward
-        # self.compute_done = self.reward.compute_done
+        self.reward_name = reward_name
+        try:
+            reward_module = import_module(f"env.rewards.{self.reward_name}.{self.reward_name}")
+            reward_path = Path(__file__).parents[2] / "rewards" / self.reward_name / "reward_weight.json"
+            self.reward_weight = json.load(open(reward_path))
+            # Double check that reward weights add up to 1
+            weight_sum = Decimal('0')
+            for name, weight_dict in self.reward_weight.items():
+                weighting = weight_dict["weighting"]
+                weight_sum += Decimal(f"{weighting}")
+            if weight_sum != 1:
+                print("WARNING: Reward weightings do not sum up to 1, renormalizing.")
+                for name, weight_dict in self.reward_weight.items():
+                    weight_dict["weighting"] /= weight_sum
+            self._compute_reward = reward_module.compute_reward
+            self._compute_done = reward_module.compute_done
+        except ModuleNotFoundError:
+            print(f"ERROR: No such reward '{reward}'.")
+            exit(1)
+        except:
+            print(traceback.format_exc())
+            exit(1)
 
     def reset(self):
         """Reset simulator and env variables.
@@ -65,10 +90,14 @@ class DigitEnvClock(DigitEnv):
         """
         self.reset_simulation()
         # Randomize commands
-        self.speed = np.random.uniform(*self.speed_bounds)
-        swing_ratios = np.random.uniform(*self.swing_ratio_bounds, 2)
+        self._x_velocity = np.random.uniform(*self._x_velocity_bounds)
+        if self.x_velocity > 2.0:
+            self.y_velocity = 0
+        else:
+            self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
         period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
-        self.cycle_time = np.random.uniform(*self.cycle_time_bounds)
+        self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         # Update clock
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
@@ -98,15 +127,15 @@ class DigitEnvClock(DigitEnv):
         return self.get_state(), r, self.compute_done(), {}
 
     def compute_reward(self, action: np.ndarray):
-        return 1
+        return self._compute_reward(self, action)
 
     def compute_done(self):
-        pass
+        return self._compute_done(self)
 
     def get_state(self):
-        command_state = [self.speed, self.clock.get_swing_ratios(), self.clock]
-        out = np.concatenate((self.get_robot_state(), [self.speed], self.clock.get_swing_ratios(),
-                              self.clock.get_period_shifts(), self.clock.input_clock()))
+        out = np.concatenate((self.get_robot_state(), [self.x_velocity, self.y_velocity],
+                              self.clock.get_swing_ratios(), self.clock.get_period_shifts(),
+                              self.clock.input_clock()))
         return out
 
     def get_action_mirror_indices(self):

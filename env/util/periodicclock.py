@@ -111,7 +111,7 @@ class PeriodicClock:
         for i in range(2):
             x = (self._phase / self._cycle_time + self._period_shifts[i]) * 2 * np.pi
             start = 0
-            mid = self._swing_ratios[i] * 2 * np.pi
+            mid = (1 - self._swing_ratios[i]) * 2 * np.pi
             end = 2 * np.pi
             p1 = vonmises.cdf(x, kappa=kappa, loc=start, scale=1)
             p2 = vonmises.cdf(x, kappa=kappa, loc=mid, scale=1)

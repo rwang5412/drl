@@ -202,7 +202,7 @@ class MujocoSim(GenericSim):
                        conjugate_pose1[0:3], conjugate_pose1[3:7],
                        pose2[0:3], pose2[3:7])
         return pose2_in_pose1
-        
+
     def get_body_velocity(self, name: str, local_frame=False):
         """Get body velocity by name
 
