@@ -32,7 +32,7 @@ def quaternion_similarity(q1: np.ndarray, q2: np.ndarray):
         f"quaternion_similarity received quaternion 1 of shape {q1.shape}, but should be of shape (4,)"
     assert q2.shape == (4,), \
         f"quaternion_similarity received quaternion 2 of shape {q2.shape}, but should be of shape (4,)"
-    return 1 - np.inner(q1, q1) ** 2
+    return 1 - np.inner(q1, q2) ** 2
 
 def rotate_by_quaternion(vector, quaternion):
     q1 = np.copy(quaternion)
