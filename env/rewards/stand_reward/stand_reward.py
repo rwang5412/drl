@@ -15,7 +15,7 @@ def compute_reward(self, action):
     feet_vel = {}
     feet_pose = {}
     for foot_name in self.sim.feet_body_name:
-        vel = np.linalg.norm(self.sim.get_body_velocity(foot_name)[0:3])
+        vel = np.linalg.norm(self.feet_velocity_2khz_avg[foot_name])
         side = "left" if "left" in foot_name else "right"
         feet_vel[f"{side} foot"] = vel
     for foot_name in self.sim.feet_site_name:

@@ -204,7 +204,8 @@ class MujocoSim(GenericSim):
         return pose2_in_pose1
 
     def get_body_velocity(self, name: str, local_frame=False):
-        """Get body velocity by name
+        """Get body velocity by name.
+        # TODO: helei, make this generic to take geom and site
 
         Args:
             name (str): body name
