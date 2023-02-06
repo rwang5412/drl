@@ -1,47 +1,23 @@
-import mujoco as mj
 import numpy as np
-import pathlib
+import mujoco as mj
 
-from sim import GenericSim, MujocoViewer
+from .generic_sim import GenericSim
+from .mujoco_viewer import MujocoViewer
 
 WARNING = '\033[93m'
 ENDC = '\033[0m'
 
-class MjCassieSim(GenericSim):
-
+class MujocoSim(GenericSim):
     """
-    A python wrapper around Mujoco python pkg that works better with Cassie???
+    A base class to define general useful functions that interact with Mujoco simulator.
+    This class explicitly avoids robot-specific names.
     """
 
-    def __init__(self):
+    def __init__(self, model_path):
         super().__init__()
-        model_path = pathlib.Path(__file__).parent.resolve() / "cassiemujoco/cassie.xml"
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
         self.viewer = None
-        self.motor_position_inds = [7, 8, 9, 14, 20, 21, 22, 23, 28, 34]
-        self.joint_position_inds = [15, 16, 29, 30]
-        self.motor_velocity_inds = [6, 7, 8, 12, 18, 19, 20, 21, 25, 31]
-        self.joint_velocity_inds = [13, 14, 26, 27]
-
-        self.base_position_inds = [0, 1, 2]
-        self.base_orientation_inds = [3, 4, 5, 6]
-        self.base_linear_velocity_inds = [0, 1, 2]
-        self.base_angular_velocity_inds = [3, 4, 5]
-        self.base_body_name = "cassie-pelvis"
-        self.feet_body_name = ["left-foot", "right-foot"]
-
-        self.simulator_rate = int(1 / self.model.opt.timestep)
-        self.num_actuators = 10
-        self.num_joints = 4
-        self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
-        self.kp = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
-        self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
-        self.reset_qpos = np.array([0, 0, 1.01, 1, 0, 0, 0,
-                    0.0045, 0, 0.4973, 0.9785, -0.0164, 0.01787, -0.2049,
-                    -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968,
-                    -0.0045, 0, 0.4973, 0.9786, 0.00386, -0.01524, -0.2051,
-                    -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968])
 
     def reset(self, qpos: np.ndarray=None):
         if qpos:
@@ -83,23 +59,26 @@ class MjCassieSim(GenericSim):
         self.data.ctrl[:] = torque
 
     def hold(self):
-        # Set stiffness/damping for body translation joints
+        """Set stiffness/damping for base 6DOF so base is fixed
+        NOTE: There is an old funky stuff when left hip-roll motor is somehow coupled with the base
+        joint, so left-hip-roll is not doing things correctly when holding.
+        Turns out xml seems need to be defined with 3 slide and 1 ball instead of free joint.
+        """
         for i in range(3):
             self.model.jnt_stiffness[i] = 1e5
             self.model.dof_damping[i] = 1e4
             self.model.qpos_spring[i] = self.data.qpos[i]
 
-        # Set damping for body rotation joint
         for i in range(3, 6):
-            self.model.dof_damping[i] = 1e4
+            self.model.dof_damping[i] = 1e5
 
     def release(self):
-        # Zero stiffness/damping for body translation joints
+        """Zero stiffness/damping for base 6DOF
+        """
         for i in range(3):
             self.model.jnt_stiffness[i] = 0
             self.model.dof_damping[i] = 0
 
-        # Zero damping for body rotation joint
         for i in range(3, 6):
             self.model.dof_damping[i] = 0
 
@@ -113,8 +92,8 @@ class MjCassieSim(GenericSim):
         if self.viewer.is_alive:
             return self.viewer.render()
         else:
-            raise RuntimeError("Error: Viewer not alive, can not render. Check that viewer has not \
-                  been destroyed.")
+            raise RuntimeError("Error: Viewer not alive, can not check paused status. Check that \
+                  viewer has not been destroyed.")
 
     def viewer_paused(self):
         assert not self.viewer is None, \
@@ -163,17 +142,135 @@ class MjCassieSim(GenericSim):
     def get_simulation_time(self):
         return self.data.time
 
-    def get_body_pose(self, name):
-        return np.zeros(7)
+    def get_body_pose(self, name: str):
+        """Get object pose by name
 
-    def get_body_velocity(self, name):
-        return np.zeros(6)
+        Args:
+            name (str): object name
 
-    def get_body_acceleration(self, name):
-        return np.zeros(6)
+        Returns:
+            ndarray: pose [3xlinear, 4xquaternion]
+        """
+        pose = np.zeros(7)
+        pose[:3] = self.data.body(name).xpos
+        pose[3:] = self.data.body(name).xquat
+        return pose
 
-    def get_body_contact_force(self, name):
-        return np.zeros(3)
+    def get_site_pose(self, name: str):
+        """Get site pose by name
+
+        Args:
+            name (str): site name
+
+        Returns:
+            ndarray: pose [3xlinear, 4xquaternion]
+        """
+        pose = np.zeros(7)
+        pose[:3] = self.data.site(name).xpos
+        mj.mju_mat2Quat(pose[3:7], self.data.site(name).xmat)
+        return pose
+
+    def get_geom_pose(self, name: str):
+        """Get geom pose by name
+
+        Args:
+            name (str): geom name
+
+        Returns:
+            ndarray: pose [3xlinear, 4xquaternion]
+        """
+        pose = np.zeros(7)
+        pose[:3] = self.data.geom(name).xpos
+        mj.mju_mat2Quat(pose[3:7], self.data.geom(name).xmat)
+        return pose
+
+    def get_relative_pose(self, pose1: np.ndarray, pose2: np.ndarray):
+        """Computes relative pose of object2 in the frame of object1.
+
+        Args:
+            pose1 (np.ndarray): pose of object1
+            pose2 (np.ndarray): pose of object2
+
+        Returns:
+            pose2_in_pose1: relative pose
+        """
+        conjugate_pose1 = np.zeros(7)
+        mj.mju_negPose(conjugate_pose1[0:3], conjugate_pose1[3:7],
+                       pose1[0:3], pose1[3:7])
+        pose2_in_pose1 = np.zeros(7)
+        mj.mju_mulPose(pose2_in_pose1[0:3], pose2_in_pose1[3:7],
+                       conjugate_pose1[0:3], conjugate_pose1[3:7],
+                       pose2[0:3], pose2[3:7])
+        return pose2_in_pose1
+
+    def get_body_velocity(self, name: str, local_frame=False):
+        """Get body velocity by name
+
+        Args:
+            name (str): body name
+            local_frame (bool, optional): Defaults to False.
+
+        Returns:
+            ndarray: velocity [3xlinear, 3xangular]
+        """
+        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+        velocity = np.zeros(6)
+        mj.mj_objectVelocity(self.model, self.data, mj.mjtObj.mjOBJ_BODY, body_id, velocity, local_frame)
+        tmp = velocity[3:6].copy()
+        velocity[3:6] = velocity[0:3]
+        velocity[0:3] = tmp
+        return velocity
+
+    def get_body_acceleration(self, name: str, local_frame=False):
+        """Get body acceleration by name
+
+        Args:
+            name (str): body name
+            local_frame (bool, optional): Defaults to False.
+
+        Returns:
+            ndarray: velocity [3xlinear, 3xangular]
+        """
+        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+        velocity = np.zeros(6)
+        mj.mj_objectAcceleration(self.model, self.data, mj.mjtObj.mjOBJ_BODY, body_id, velocity, local_frame)
+        tmp = velocity[3:6].copy()
+        velocity[3:6] = velocity[0:3]
+        velocity[0:3] = tmp
+        return velocity
+
+    def get_body_contact_force(self, name: str):
+        """Get sum of contact forces at the named body in global frame
+
+        Args:
+            name (str): body name
+
+        Returns:
+            ndarray: sum of all wrenches acting on the body
+        """
+        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+        # Sum over all contact wrenches over possible geoms within the body
+        total_wrench = np.zeros(6)
+        contact_points = 0
+        for contact_id, contact_struct in enumerate(self.data.contact):
+            if body_id == self.model.geom_bodyid[contact_struct.geom1] or \
+               body_id == self.model.geom_bodyid[contact_struct.geom2]:
+                contact_points += 1
+                contact_wrench_local = np.zeros(6)
+                mj.mj_contactForce(self.model, self.data, contact_id, contact_wrench_local)
+                contact_wrench_global = np.zeros(6)
+                mj.mju_transformSpatial(contact_wrench_global, contact_wrench_local, True,
+                                        self.data.xpos[body_id],
+                                        self.data.contact[contact_id].pos,
+                                        self.data.contact[contact_id].frame)
+                if body_id == self.model.geom_bodyid[contact_struct.geom1]:
+                    # This body is exerting forces onto geom2, substract from the sum.
+                    total_wrench -= contact_wrench_global
+                elif body_id == self.model.geom_bodyid[contact_struct.geom2]:
+                    # This body is taking forces from geom1, add into the sum.
+                    total_wrench += contact_wrench_global
+        # Since condim=3, let's keep XYZ for now
+        return total_wrench[:3]
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
@@ -230,4 +327,3 @@ class MjCassieSim(GenericSim):
                f"should be shape (3,)."
         self.data.qvel[self.base_angular_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
-

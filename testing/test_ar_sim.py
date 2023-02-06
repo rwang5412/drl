@@ -2,7 +2,7 @@ import asyncio
 import agility.messages as msg
 import numpy as np
 
-from sim.digit_sim import DigitArSim
+from sim.digit_sim import ArDigitSim
 from .common import (
     SIM_PATH, 
     ROBOT_CONFIG,
@@ -14,7 +14,7 @@ The followings are independent tests for wrappers around Agility's ar-control, p
 """
 
 async def test_ar_connect():
-    ar = DigitArSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
+    ar = ArDigitSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
     # Need to call this to connect API with simulator
     await ar.setup()
     await ar.reset()
@@ -24,7 +24,7 @@ async def test_ar_connect():
     print("Closed all")
 
 async def test_ar_api_goto():
-    ar = DigitArSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
+    ar = ArDigitSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
     # Need to call this to connect API with simulator
     await ar.setup()
     await ar.reset()
@@ -35,7 +35,7 @@ async def test_ar_api_goto():
     print("Closed all")
     
 async def test_ar_sim_forward():
-    ar = DigitArSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
+    ar = ArDigitSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
     # Need to call this to connect API with simulator
     await ar.setup()
     await ar.reset()
@@ -54,7 +54,7 @@ async def test_ar_sim_forward():
     print("Closed all")
     
 async def test_ar_sim_llapi_walking_handover():
-    ar = DigitArSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
+    ar = ArDigitSim(path_to_ar_control=SIM_PATH, args=ROBOT_CONFIG)
     # Need to call this to connect API with simulator
     await ar.setup()
     await ar.reset()
@@ -130,7 +130,7 @@ timeout = 0.05
 listen-port = 25500
 send-port = 25501
 """]
-    ar = DigitArSim(path_to_ar_control=SIM_PATH, args=conf)
+    ar = ArDigitSim(path_to_ar_control=SIM_PATH, args=conf)
     # Need to call this to connect API with simulator
     await ar.setup()
     await ar.reset()

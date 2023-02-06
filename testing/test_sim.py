@@ -5,7 +5,7 @@ import time
 from sim import (
     MjCassieSim,
     LibCassieSim,
-    DigitMjSim,
+    MjDigitSim,
     MujocoViewer,
 )
 
@@ -16,13 +16,15 @@ from .common import (
     CASSIE_JOINT_NAME
 )
 
+from env.util.quaternion import quaternion2euler
+
 OKGREEN = '\033[92m'
 FAIL = '\033[91m'
 ENDC = '\033[0m'
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [MjCassieSim, LibCassieSim, DigitMjSim]
+    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
     num_pass = 0
     for sim in sim_list:
         num_pass = 0
@@ -34,10 +36,15 @@ def test_all_sim():
         num_pass += test_sim_PD(sim)
         num_pass += test_sim_get_set(sim)
         num_pass += test_sim_indexes(sim)
-        if num_pass == 7:
+        num_pass += test_sim_body_pose(sim)
+        num_pass += test_sim_body_velocity(sim)
+        num_pass += test_sim_body_acceleration(sim)
+        num_pass += test_sim_body_contact_force(sim)
+        num_pass += test_sim_relative_pose(sim)
+        if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
-            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 7 tests.{ENDC}")
+            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 12 tests.{ENDC}")
         num_pass = 0
 
 def test_sim_init(sim):
@@ -188,4 +195,141 @@ def test_sim_indexes(sim):
     assert joint_velocity_inds == test_sim.joint_velocity_inds, "Mismatch between joint_velocity_inds!"
 
     print("Pass indices test")
+    return True
+
+def test_sim_body_pose(sim):
+    test_sim = sim()
+    test_sim.reset()
+    x_target = np.array([0, 0, 1.5, 0, 0, 0, 1])
+    test_sim.set_base_position(x_target[:3])
+    test_sim.set_base_orientation(x_target[3:])
+    test_sim.hold()
+    test_sim.sim_forward(dt=0.1)
+    x = test_sim.get_body_pose(name=test_sim.base_body_name)
+    assert np.linalg.norm(x[:3] - x_target[:3]) < 1e-2, f"get_body_pose returns base at {x[:3]}, but sim sets to {x_target[:3]}."
+    assert 1 - np.inner(x[3:], x_target[3:]) < 1e-2, f"get_body_pose returns base at {x[3:]}, but sim sets to {x_target[3:]}."
+
+    test_sim.release()
+    test_sim.sim_forward(dt=1)
+
+    x_target = np.array([10, 10, 2, 0, 1, 0, 0])
+    test_sim.set_base_position(x_target[:3])
+    test_sim.set_base_orientation(x_target[3:])
+    test_sim.hold()
+    test_sim.sim_forward(dt=0.1)
+    x = test_sim.get_body_pose(name=test_sim.base_body_name)
+    assert np.linalg.norm(x[:3] - x_target[:3]) < 1e-2, f"get_body_pose returns base at {x[:3]}, but sim sets to {x_target[:3]}."
+    assert 1 - np.inner(x[3:], x_target[3:]) < 1e-2, f"get_body_pose returns base at {x[3:]}, but sim sets to {x_target[3:]}."
+
+    print("Passed sim get body pose")
+    return True
+
+def test_sim_body_velocity(sim):
+    test_sim = sim()
+    test_sim.reset()
+    # NOTE: use small velocity here to avoid creating out of axis velocities, ie, if the torso has
+    # inertia like Digit, set dtheta_x=1 will cause other axis to have velocities even sim 1 step.
+    dx_target = np.array([1, 0, 0, 0, 0, 0])
+    test_sim.set_base_linear_velocity(dx_target[:3])
+    test_sim.set_base_angular_velocity(dx_target[3:])
+    test_sim.sim_forward()
+    dx = test_sim.get_body_velocity(name=test_sim.base_body_name)
+    assert np.linalg.norm(dx[:3] - dx_target[:3]) < 1e-1, f"get_body_velocity returns base at {dx[:3]}, but sim sets to {dx_target[:3]}."
+    assert np.linalg.norm(dx[3:] - dx_target[3:]) < 1e-1, f"get_body_velocity returns base at {dx[3:]}, but sim sets to {dx_target[3:]}."
+
+    test_sim.release()
+    test_sim.sim_forward(dt=1)
+
+    dx_target = np.array([0, 0, 0.1, 0, 0, 0])
+    test_sim.set_base_linear_velocity(dx_target[:3])
+    test_sim.set_base_angular_velocity(dx_target[3:])
+    test_sim.sim_forward()
+    dx = test_sim.get_body_velocity(name=test_sim.base_body_name)
+    assert np.linalg.norm(dx[:3] - dx_target[:3]) < 1e-1, f"get_body_velocity returns base at {dx[:3]}, but sim sets to {dx_target[:3]}."
+    assert np.linalg.norm(dx[3:] - dx_target[3:]) < 1e-1, f"get_body_velocity returns base at {dx[3:]}, but sim sets to {dx_target[3:]}."
+
+    print("Passed sim get body velocity")
+    return True
+
+def test_sim_body_acceleration(sim):
+    test_sim = sim()
+    test_sim.reset()
+    test_sim.hold()
+    test_sim.sim_forward(dt=1)
+    ddx = test_sim.get_body_acceleration(name=test_sim.base_body_name)
+    assert np.linalg.norm(ddx[:2]) < 1e-1, f"get_body_acceleration: robot should not have XY accelerations."
+    assert np.abs(ddx[2] - 9.80665) < 1e-3, f"get_body_acceleration: gravity messed up."
+    assert np.linalg.norm(ddx[3:]) < 1e-1, f"get_body_acceleration: robot should not have rotational accelerations."
+    print("Passed sim get body acceleration")
+    return True
+
+def test_sim_body_contact_force(sim):
+    """Hold robot in the air while feet touching ground. Check contact forces from each foot.
+    Then drop the robot and check if floating base body gets contact forces.
+    """
+    test_sim = sim()
+    test_sim.reset()
+    # Slightly tilted down to let base falling to ground
+    x_target = np.array([0, 0, 1, 0.9961947, 0, 0.0871557, 0])
+    test_sim.set_base_position(x_target[:3])
+    test_sim.set_base_orientation(x_target[3:])
+    test_sim.hold()
+    test_sim.sim_forward(dt=1)
+    force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[0])
+    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+    force = test_sim.get_body_contact_force(name=test_sim.feet_body_name[1])
+    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+
+    test_sim.release()
+    test_sim.sim_forward(dt=2)
+    force = test_sim.get_body_contact_force(name=test_sim.base_body_name)
+    assert np.linalg.norm(force) > 10 , "get_body_contact_force returns wrong forces."
+
+    print("Passed sim get body contact force")
+    return True
+
+def test_sim_relative_pose(sim):
+    """Tilt torso/base + 10deg in pitch and measure feet flat (should be -10deg pitch)
+    on ground angle diff in base frame.
+    """
+    test_sim = sim()
+    test_sim.reset()
+    # Slightly tilted down
+    x_target = np.array([0, 0, 1, 0.9961947, 0, 0.0871557, 0])
+    test_sim.set_base_position(x_target[:3])
+    test_sim.set_base_orientation(x_target[3:])
+    test_sim.hold()
+
+    # Digit torso requires onger time to settle after torso/base joint set to 10deg
+    dt = 5 if "digit" in sim.__name__.lower() else 1
+    test_sim.sim_forward(dt=dt)
+    p1 = test_sim.get_body_pose(name=test_sim.base_body_name)
+    p2 = test_sim.get_site_pose(name=test_sim.feet_site_name[0])
+    p3 = test_sim.get_site_pose(name=test_sim.feet_site_name[1])
+    lfoot_in_base = test_sim.get_relative_pose(p1, p2)
+    rfoot_in_base = test_sim.get_relative_pose(p1, p3)
+    lfoot_euler = quaternion2euler(lfoot_in_base[3:7])/np.pi*180
+    rfoot_euler = quaternion2euler(rfoot_in_base[3:7])/np.pi*180
+    x_target_euler = quaternion2euler(x_target[3:7])/np.pi*180
+    assert lfoot_euler[1] + x_target_euler[1] < 1e-1 , "get_relative_pose returns wrong lfoot angles."
+    assert rfoot_euler[1] + x_target_euler[1] < 1e-1 , "get_relative_pose returns wrong rfoot angles."
+
+    # NOTE: left for testing purposes
+    # test_sim.viewer_init()
+    # render_state = test_sim.viewer_render()
+    # while render_state:
+    #     start_t = time.time()
+    #     for _ in range(50):
+    #         x1 = test_sim.get_body_pose(name=test_sim.base_body_name)
+    #         x2 = test_sim.get_site_pose(name=test_sim.feet_site_name[0])
+    #         x3 = test_sim.get_relative_pose(x1, x2)
+    #         print("left foot relative to base angles, ", quaternion2euler(x3[3:7])/np.pi*180)
+    #         print("left foot relative to base positions, ", x3[:3])
+    #         print()
+    #         test_sim.sim_forward()
+    #     render_state = test_sim.viewer_render()
+    #     delaytime = max(0, 50/2000 - (time.time() - start_t))
+    #     time.sleep(delaytime)
+
+    print("Passed sim get_relative_pose")
     return True
