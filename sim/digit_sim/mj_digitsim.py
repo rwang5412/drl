@@ -26,9 +26,8 @@ class MjDigitSim(MujocoSim):
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
         self.base_body_name = "torso/base"
-        self.feet_body_name = ["left-foot-roll", "right-foot-roll"] # force purpose
         self.feet_site_name = ["left-foot-mid", "right-foot-mid"] # pose purpose
-        self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"]
+        self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"] # force purpose
         self.hand_body_name = ["left-arm/elbow", "right-arm/elbow"]
 
         self.simulator_rate = int(1 / self.model.opt.timestep)

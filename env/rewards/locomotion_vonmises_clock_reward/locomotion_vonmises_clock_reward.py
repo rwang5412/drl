@@ -16,28 +16,28 @@ def compute_reward(self, action):
     q = {}
 
     ### Cyclic foot force/velocity reward ###
-    # Get foot cost clock weightings, linear replacement for the von mises function. There are two separate clocks
-    # with different transition timings for the force/velocity cost and the position (foot height) cost.
-    # Force/velocity cost transitions between stance and swing quicker to try and make sure get full swing phase in there,
-    # especially important for higher speeds where we try to enforce longer swing time for aerial phase.
-    # However, don't need foot height to reach clearance level as quickly, so can use smoother transition (higher percent_trans)
     l_force, r_force = self.clock.von_mises()
     l_stance = 1 - l_force
     r_stance = 1 - r_force
-    # Ok to assume that left foot name comes first?
-    # Probably fine to assume that there are only 2 feet
-    feet_force = np.zeros(2)
-    feet_vel = np.zeros(2)
-    feet_pose = np.zeros((2, 7))
-    for i in range(2):
-        feet_force[i] = np.linalg.norm(self.sim.get_body_contact_force(self.sim.feet_body_name[i]))
-        feet_vel[i] = np.linalg.norm(self.sim.get_body_velocity(self.sim.feet_body_name[i])[0:3])
-        feet_pose[i, :] = self.sim.get_body_pose(self.sim.feet_body_name[i])
 
-    q["left_force"] = l_force * np.abs(feet_force[0])
-    q["right_force"] = r_force * np.abs(feet_force[1])
-    q["left_speed"] = l_stance * feet_vel[0]
-    q["right_speed"] = r_stance * feet_vel[1]
+    feet_force = {}
+    feet_vel = {}
+    feet_pose = {}
+    for foot_name in self.sim.feet_body_name:
+        vel = np.linalg.norm(self.sim.get_body_velocity(foot_name)[0:3])
+        force = np.linalg.norm(self.sim.get_body_contact_force(foot_name))
+        side = "left" if "left" in foot_name else "right"
+        feet_force[f"{side} foot"] = force
+        feet_vel[f"{side} foot"] = vel
+    for foot_name in self.sim.feet_site_name:
+        pose = self.sim.get_site_pose(foot_name)
+        side = "left" if "left" in foot_name else "right"
+        feet_pose[f"{side} foot"] = pose
+
+    q["left_force"] = l_force * np.abs(feet_force["left foot"])
+    q["right_force"] = r_force * np.abs(feet_force["right foot"])
+    q["left_speed"] = l_stance * feet_vel["left foot"]
+    q["right_speed"] = r_stance * feet_vel["right foot"]
 
     ### Speed rewards ###
     base_vel = self.sim.get_body_velocity(self.sim.base_body_name)
@@ -55,33 +55,26 @@ def compute_reward(self, action):
     ### Orientation rewards (base and feet) ###
     base_pose = self.sim.get_body_pose(self.sim.base_body_name)
     target_quat = np.array([1, 0, 0, 0])
-    command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
-    target_quat = quaternion_product(target_quat, command_quat)
+    if self.orient_add != 0:
+        command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
+        target_quat = quaternion_product(target_quat, command_quat)
     orientation_error = quaternion_similarity(base_pose[3:], target_quat)
     # Deadzone around quaternion as well
     if orientation_error < 5e-3:
         orientation_error = 0
 
-    # Foor orientation target in global frame. Heuristic hard coded value to be flat all the time.
-    # If we change the turn command (self.orient_add) then need to rotate the foot orient target
-    # as well. NOTE: Should figure out Mujoco body rotations so don't have to do this.
-    # NOTE: For Cassie this target is the same for both feet, for Digit I think some things might be
-    # flipped between left and right.
-    foot_orient_target = np.array([-0.24790886454547323, -0.24679713195445646, -0.6609396704367185, 0.663921021343526])
-    if self.orient_add != 0:
-        iquaternion = inverse_quaternion(command_quat)
-        foot_orient_target = quaternion_product(iquaternion, foot_orient_target)
-    foot_orientation_error = quaternion_similarity(foot_orient_target, feet_pose[0, 3:]) + \
-                             quaternion_similarity(foot_orient_target, feet_pose[1, 3:])
+    # Foor orientation target in global frame. Want to be flat and face same direction as base all
+    # the time. So compare to the same orientation target as the base.
+    foot_orientation_error = quaternion_similarity(target_quat, feet_pose["left foot"][3:]) + \
+                             quaternion_similarity(target_quat, feet_pose["right foot"][3:])
     q["orientation"] = orientation_error + foot_orientation_error
 
     ### Hop symmetry reward (keep feet equidistant) ###
     period_shifts = self.clock.get_period_shifts()
-    # lpos, rpos = self.get_info('robot_foot_positions', local=True)
-    rel_foot_pos = np.subtract(feet_pose[:, 0:3], base_pose[0:3])
-    # lpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
-    # rpos = np.array([rel_foot_pos[0], rel_foot_pos[2]])
-    xdif = np.sqrt(np.power(rel_foot_pos[0, [0, 2]] - rel_foot_pos[1, [0, 2]], 2).sum())
+    rel_foot_pos = {}
+    for foot in feet_pose:
+        rel_foot_pos[foot] = (feet_pose[foot][0:3] - base_pose[0:3])[[0, 2]]
+    xdif = np.sqrt(np.power(rel_foot_pos["left foot"] - rel_foot_pos["right foot"], 2).sum())
     pdif = np.exp(-5 * np.abs(np.sin(np.pi * (period_shifts[0] - period_shifts[1]))))
     q['hop_symmetry'] = pdif * xdif
 

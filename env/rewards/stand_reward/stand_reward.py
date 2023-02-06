@@ -12,23 +12,26 @@ def compute_reward(self, action):
     q['height_penalty'] = np.abs(base_pose[2] - 0.9)
 
     ### Orientation rewards, base and feet ###
-    # Ok to assume that left foot name comes first?
-    # Probably fine to assume that there are only 2 feet
-    feet_vel = np.zeros(2)
-    feet_pose = np.zeros((2, 7))
-    for i in range(2):
-        feet_vel[i] = np.linalg.norm(self.sim.get_body_velocity(self.sim.feet_body_name[i])[0:3])
-        feet_pose[i, :] = self.sim.get_body_pose(self.sim.feet_body_name[i])
-    foot_orient_target = np.array([-0.24790886454547323, -0.24679713195445646, -0.6609396704367185, 0.663921021343526])
-    q["l_foot_orientation"] = (1 - np.inner(foot_orient_target, feet_pose[0, 3:]) ** 2)
-    q["r_foot_orientation"] = (1 - np.inner(foot_orient_target, feet_pose[1, 3:]) ** 2)
-    base_orient_target = np.array([1, 0, 0, 0])
-    q["base_orientation"] = 1 - np.inner(base_pose[3:], base_orient_target) ** 2
+    feet_vel = {}
+    feet_pose = {}
+    for foot_name in self.sim.feet_body_name:
+        vel = np.linalg.norm(self.sim.get_body_velocity(foot_name)[0:3])
+        side = "left" if "left" in foot_name else "right"
+        feet_vel[f"{side} foot"] = vel
+    for foot_name in self.sim.feet_site_name:
+        pose = self.sim.get_site_pose(foot_name)
+        side = "left" if "left" in foot_name else "right"
+        feet_pose[f"{side} foot"] = pose
+
+    orient_target = np.array([1, 0, 0, 0])
+    q["base_orientation"] = 1 - np.inner(base_pose[3:], orient_target) ** 2
+    q["l_foot_orientation"] = (1 - np.inner(orient_target, feet_pose["left foot"][3:]) ** 2)
+    q["r_foot_orientation"] = (1 - np.inner(orient_target, feet_pose["right foot"][3:]) ** 2)
 
     ### Static rewards. Want feet and motor velocities to be zero ###
     motor_vel = self.sim.get_motor_velocity()
     q['motor_vel_penalty'] = np.linalg.norm(motor_vel) / len(motor_vel)
-    q['foot_vel_penalty'] = np.sum(feet_vel)
+    q['foot_vel_penalty'] = feet_vel["left foot"] + feet_vel["right foot"]
 
     ### Control rewards ###
     if self.last_action is not None:
