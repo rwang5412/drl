@@ -7,7 +7,7 @@ from env import (
     CassieEnvClock,
     DigitEnvClock
 )
-from util.colors import FAIL, ENDC
+from util.colors import FAIL, ENDC, OKGREEN
 
 
 def test_all_env():
