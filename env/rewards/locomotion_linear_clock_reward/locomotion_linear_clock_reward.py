@@ -1,17 +1,19 @@
 import numpy as np
+
 from env.util.quaternion import *
+from util.colors import FAIL, ENDC
 
 def kernel(x):
   return np.exp(-x)
 
 def compute_reward(self, action):
     assert hasattr(self, "clock"), \
-        f"Environment {self.__class__.__name__} does not have a clock object"
+        f"{FAIL}Environment {self.__class__.__name__} does not have a clock object.{ENDC}"
     assert self.clock is not None, \
-        f"Clock has not been initialized, is still None"
+        f"{FAIL}Clock has not been initialized, is still None.{ENDC}"
     assert self.clock_type == "linear", \
-        f"locomotion_linear_clock_reward should be used with linear clock type, but clock type is" \
-        f"{self.clock_type}."
+        f"{FAIL}locomotion_linear_clock_reward should be used with linear clock type, but clock " \
+        f"type is {self.clock_type}.{ENDC}"
 
     q = {}
 
