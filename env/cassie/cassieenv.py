@@ -44,8 +44,6 @@ class CassieEnv(GenericEnv):
 
         # Low-level control specifics
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
-        self.kp = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
-        self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.trackers = [self.update_tracker_grf, 
