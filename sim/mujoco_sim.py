@@ -18,6 +18,16 @@ class MujocoSim(GenericSim):
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
         self.viewer = None
+        # Enforce that motor model constants are defined
+        assert hasattr(self, "torque_delay_cycles"), \
+            f"Env {self.__class__.__name__} has not defined self.torque_delay_cycles."
+        assert self.torque_delay_cycles is not None, \
+            f"In env {self.__class__.__name__} self.torque_delay_cycles is None."
+        assert hasattr(self, "torque_efficiency"), \
+            f"Env {self.__class__.__name__} has not defined self.torque_efficiency."
+        assert self.torque_efficiency is not None, \
+            f"In env {self.__class__.__name__} self.torque_efficiency is None."
+        self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
 
     def reset(self, qpos: np.ndarray=None):
         if qpos:
@@ -42,7 +52,11 @@ class MujocoSim(GenericSim):
         assert torque.shape == (self.num_actuators,), \
                f"set_torque got array of shape {torque.shape} but " \
                f"should be shape ({self.num_actuators},)."
-        self.data.ctrl[:] = torque
+        # Apply next torque command in buffer
+        self.data.ctrl[:] = self.torque_buffer[0, :]
+        # Shift torque buffer values and append new command at the end
+        self.torque_buffer = np.roll(self.torque_buffer, -1, axis = 0)
+        self.torque_buffer[-1, :] = self.torque_efficiency * torque / self.model.actuator_gear[:, 0]
 
     def set_PD(self,
                setpoint: np.ndarray,
@@ -56,7 +70,7 @@ class MujocoSim(GenericSim):
                 f"set_PD {arg} was not a 1 dimensional array of size {self.model.nu}"
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
                  kd * (velocity - self.data.qvel[self.motor_velocity_inds])
-        self.data.ctrl[:] = torque
+        self.set_torque(torque)
 
     def hold(self):
         """Set stiffness/damping for base 6DOF so base is fixed

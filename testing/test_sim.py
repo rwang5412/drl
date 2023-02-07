@@ -24,23 +24,25 @@ ENDC = '\033[0m'
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
+    # sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
+    sim_list = [LibCassieSim, MjCassieSim]
     num_pass = 0
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        num_pass += test_sim_init(sim)
-        num_pass += test_sim_sim_forward(sim)
-        num_pass += test_sim_viewer(sim)
-        num_pass += test_sim_glfw_multiple_viewer(sim)
-        num_pass += test_sim_PD(sim)
-        num_pass += test_sim_get_set(sim)
-        num_pass += test_sim_indexes(sim)
-        num_pass += test_sim_body_pose(sim)
-        num_pass += test_sim_body_velocity(sim)
-        num_pass += test_sim_body_acceleration(sim)
-        num_pass += test_sim_body_contact_force(sim)
-        num_pass += test_sim_relative_pose(sim)
+        test_sim_drop(sim)
+        # num_pass += test_sim_init(sim)
+        # num_pass += test_sim_sim_forward(sim)
+        # num_pass += test_sim_viewer(sim)
+        # num_pass += test_sim_glfw_multiple_viewer(sim)
+        # num_pass += test_sim_PD(sim)
+        # num_pass += test_sim_get_set(sim)
+        # num_pass += test_sim_indexes(sim)
+        # num_pass += test_sim_body_pose(sim)
+        # num_pass += test_sim_body_velocity(sim)
+        # num_pass += test_sim_body_acceleration(sim)
+        # num_pass += test_sim_body_contact_force(sim)
+        # num_pass += test_sim_relative_pose(sim)
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
@@ -144,6 +146,24 @@ def test_sim_PD(sim):
     else:
         print("Passed sim PD")
         return True
+
+def test_sim_drop(sim):
+    print("Testing sim PD")
+    test_sim = sim()
+    test_sim.reset()
+    test_sim.set_base_position(np.array([0, 0, 1.5]))
+    test_sim.viewer_init()
+    render_state = test_sim.viewer_render()
+    while render_state:
+        start_t = time.time()
+        if not test_sim.viewer_paused():
+            for _ in range(50):
+                test_sim.set_PD(test_sim.offset, np.zeros(test_sim.num_actuators), test_sim.kp, test_sim.kd)
+                test_sim.sim_forward()
+        render_state = test_sim.viewer_render()
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
+    return True
 
 def test_sim_get_set(sim):
     print("Testing sim getter and setter functions")

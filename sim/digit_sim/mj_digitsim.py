@@ -14,6 +14,9 @@ class MjDigitSim(MujocoSim):
     """
     def __init__(self, model_name: str = "digit-v3-new.xml"):
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
+        # Number of sim steps before commanded torque is actually applied
+        self.torque_delay_cycles = 6
+        self.torque_efficiency = 1.0
         super().__init__(model_path=model_path)
 
         self.motor_position_inds = [7, 8, 9, 14, 18, 23, 30, 31, 32, 33, 34, 35, 36, 41, 45, 50, 57, 58, 59, 60]

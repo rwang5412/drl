@@ -14,6 +14,9 @@ class MjCassieSim(MujocoSim):
     """
     def __init__(self, model_name: str = "cassiemujoco/cassie.xml"):
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
+        # Number of sim steps before commanded torque is actually applied
+        self.torque_delay_cycles = 6
+        self.torque_efficiency = 1.0
         super().__init__(model_path=model_path)
 
         self.motor_position_inds = [7, 8, 9, 14, 20, 21, 22, 23, 28, 34]
