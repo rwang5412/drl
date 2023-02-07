@@ -3,9 +3,7 @@ import mujoco as mj
 
 from .generic_sim import GenericSim
 from .mujoco_viewer import MujocoViewer
-
-WARNING = '\033[93m'
-ENDC = '\033[0m'
+from util.colors import FAIL, WARNING, ENDC
 
 class MujocoSim(GenericSim):
     """
@@ -20,8 +18,9 @@ class MujocoSim(GenericSim):
         self.viewer = None
 
     def reset(self, qpos: np.ndarray=None):
-        if qpos:
-            assert len(qpos) == self.model.nq, f"reset qpos len={len(qpos)}, but should be {self.model.nq}"
+        if qpos is not None:
+            assert len(qpos) == self.model.nq, \
+                f"{FAIL}reset qpos len={len(qpos)}, but should be {self.model.nq}{ENDC}"
             self.data.qpos = qpos
         else:
             self.data.qpos = self.reset_qpos
@@ -31,17 +30,17 @@ class MujocoSim(GenericSim):
         if dt:
             num_steps = int(dt / self.model.opt.timestep)
             if num_steps * self.model.opt.timestep != dt:
-                raise RuntimeError(f"{WARNING}Warning: {dt} does not fit evenly within the sim timestep of"
-                    f" {self.model.opt.timestep}, simulating forward"
-                    f" {num_steps * self.model.opt.timestep}s instead.{ENDC}")
+                raise RuntimeError(f"{WARNING}Warning: {dt} does not fit evenly within the sim "
+                    f"timestep of {self.model.opt.timestep}, simulating forward "
+                    f"{num_steps * self.model.opt.timestep}s instead.{ENDC}")
         else:
             num_steps = 1
         mj.mj_step(self.model, self.data, nstep=num_steps)
 
     def set_torque(self, torque: np.ndarray):
         assert torque.shape == (self.num_actuators,), \
-               f"set_torque got array of shape {torque.shape} but " \
-               f"should be shape ({self.num_actuators},)."
+               f"{FAIL}set_torque got array of shape {torque.shape} but " \
+               f"should be shape ({self.num_actuators},).{ENDC}"
         self.data.ctrl[:] = torque
 
     def set_PD(self,
@@ -53,7 +52,7 @@ class MujocoSim(GenericSim):
         for arg in args:
             if arg != "self":
                 assert args[arg].shape == (self.model.nu,), \
-                f"set_PD {arg} was not a 1 dimensional array of size {self.model.nu}"
+                f"{FAIL}set_PD {arg} was not a 1 dimensional array of size {self.model.nu}{ENDC}"
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
                  kd * (velocity - self.data.qvel[self.motor_velocity_inds])
         self.data.ctrl[:] = torque
@@ -88,21 +87,21 @@ class MujocoSim(GenericSim):
 
     def viewer_render(self):
         assert not self.viewer is None, \
-               f"viewer has not been initalized yet, can not render"
+               f"{FAIL}viewer has not been initalized yet, can not render.{ENDC}"
         if self.viewer.is_alive:
             return self.viewer.render()
         else:
-            raise RuntimeError("Error: Viewer not alive, can not check paused status. Check that \
-                  viewer has not been destroyed.")
+            raise RuntimeError(f"{FAIL}Error: Viewer not alive, can not check paused status. Check "
+                f"that viewer has not been destroyed.{ENDC}")
 
     def viewer_paused(self):
         assert not self.viewer is None, \
-               f"viewer has not been initalized yet, can not check paused status"
+               f"{FAIL}viewer has not been initalized yet, can not check paused status.{ENDC}"
         if self.viewer.is_alive:
             return self.viewer.paused
         else:
-            raise RuntimeError("Error: Viewer not alive, can not check paused status. Check that \
-                  viewer has not been destroyed.")
+            raise RuntimeError(f"{FAIL}Error: Viewer not alive, can not check paused status. Check "
+                f"that viewer has not been destroyed.{ENDC}")
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
@@ -274,56 +273,56 @@ class MujocoSim(GenericSim):
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
-               f"set_joint_position got array of shape {position.shape} but " \
-               f"should be shape ({self.num_joints},)."
+               f"{FAIL}set_joint_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_joints},).{ENDC}"
         self.data.qpos[self.joint_position_inds] = position
         mj.mj_forward(self.model, self.data)
 
     def set_joint_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (self.num_joints,), \
-               f"set_joint_velocity got array of shape {velocity.shape} but " \
-               f"should be shape ({self.num_joints},)."
+               f"{FAIL}set_joint_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_joints},).{ENDC}"
         self.data.qvel[self.joint_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
     def set_motor_position(self, position: np.ndarray):
         assert position.shape == (self.num_actuators,), \
-               f"set_motor_position got array of shape {position.shape} but " \
-               f"should be shape ({self.num_actuators},)."
+               f"{FAIL}set_motor_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_actuators},).{ENDC}"
         self.data.qpos[self.motor_position_inds] = position
         mj.mj_forward(self.model, self.data)
 
     def set_motor_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (self.num_actuators,), \
-               f"set_motor_velocity got array of shape {velocity.shape} but " \
-               f"should be shape ({self.num_actuators},)."
+               f"{FAIL}set_motor_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_actuators},).{ENDC}"
         self.data.qvel[self.motor_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
     def set_base_position(self, position: np.ndarray):
         assert position.shape == (3,), \
-               f"set_base_position got array of shape {position.shape} but " \
-               f"should be shape (3,)."
+               f"{FAIL}set_base_position got array of shape {position.shape} but " \
+               f"should be shape (3,).{ENDC}"
         self.data.qpos[self.base_position_inds] = position
         mj.mj_forward(self.model, self.data)
 
     def set_base_linear_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (3,), \
-               f"set_base_linear_velocity got array of shape {velocity.shape} but " \
-               f"should be shape (3,)."
+               f"{FAIL}set_base_linear_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,).{ENDC}"
         self.data.qvel[self.base_linear_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
     def set_base_orientation(self, quat: np.ndarray):
         assert quat.shape == (4,), \
-               f"set_base_orientation got array of shape {quat.shape} but " \
-               f"should be shape (4,)."
+               f"{FAIL}set_base_orientation got array of shape {quat.shape} but " \
+               f"should be shape (4,).{ENDC}"
         self.data.qpos[self.base_orientation_inds] = quat
         mj.mj_forward(self.model, self.data)
 
     def set_base_angular_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (3,), \
-               f"set_base_angular_velocity got array of shape {velocity.shape} but " \
-               f"should be shape (3,)."
+               f"{FAIL}set_base_angular_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,).{ENDC}"
         self.data.qvel[self.base_angular_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)

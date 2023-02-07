@@ -2,7 +2,10 @@ import glfw
 import imageio
 import mujoco as mj
 import numpy as np
+
 from threading import Lock
+from util.colors import FAIL, ENDC
+
 
 """
 Class to handle visualization of generic Mujoco models. Adapted from cassie-mujoco-sim
@@ -63,7 +66,7 @@ class MujocoViewer():
         self.data = data
         self.reset_qpos = reset_qpos
         assert len(self.reset_qpos) == self.model.nq, \
-               f"Size of MujocoViewer reset qpos does not match model nq size"
+               f"{FAIL}Size of MujocoViewer reset qpos does not match model nq size.{ENDC}"
 
         self.is_alive = True
         self.paused = True

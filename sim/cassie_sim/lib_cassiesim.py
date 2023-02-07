@@ -4,6 +4,7 @@ import time
 
 from .cassiemujoco import pd_in_t, state_out_t, CassieSim, CassieVis
 from sim import GenericSim
+from util.colors import FAIL, ENDC
 
 
 class LibCassieSim(GenericSim):
@@ -57,7 +58,8 @@ class LibCassieSim(GenericSim):
     def reset(self, qpos: np.ndarray=None):
         self.sim.set_const()
         if qpos:
-            assert len(qpos) == self.model.nq, f"reset qpos len={len(qpos)}, but should be {self.model.nq}"
+            assert len(qpos) == self.model.nq, \
+                f"{FAIL}reset qpos len={len(qpos)}, but should be {self.model.nq}.{ENDC}"
             self.sim.set_qpos(qpos)
         else:
             self.sim.set_qpos(self.reset_qpos)
@@ -78,8 +80,8 @@ class LibCassieSim(GenericSim):
 
     def set_torque(self, torque: np.ndarray):
         assert torque.shape == (self.num_actuators,), \
-               f"set_torque got array of shape {torque.shape} but " \
-               f"should be shape ({self.num_actuators},)."
+               f"{FAIL}set_torque got array of shape {torque.shape} but " \
+               f"should be shape ({self.num_actuators},).{ENDC}"
         # Only setting self.u, not actually calling step yet
         # Assume that torque order follows qpos order, so left leg and then right leg
         self.u = pd_in_t()
@@ -108,7 +110,7 @@ class LibCassieSim(GenericSim):
         for arg in args:
             if arg != "self":
                 assert args[arg].shape == (self.num_actuators,), \
-                f"set_PD {arg} was not a 1 dimensional array of size {self.num_actuators}"
+                f"{FAIL}set_PD {arg} was not a 1 dimensional array of size {self.num_actuators}.{ENDC}"
         self.u = pd_in_t()
         for i in range(5):
             self.u.leftLeg.motorPd.pGain[i]  = kp[i]
@@ -137,12 +139,12 @@ class LibCassieSim(GenericSim):
 
     def viewer_render(self):
         assert not self.viewer is None, \
-               f"viewer has not been initalized yet, can not render"
+               f"{FAIL}viewer has not been initalized yet, can not render.{ENDC}"
         return self.viewer.draw(self.sim)
 
     def viewer_paused(self):
         assert not self.viewer is None, \
-               f"viewer has not been initalized yet, can not check paused status"
+               f"{FAIL}viewer has not been initalized yet, can not check paused status.{ENDC}"
         return self.viewer.ispaused()
 
     """
@@ -269,64 +271,64 @@ class LibCassieSim(GenericSim):
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
-               f"set_joint_position got array of shape {position.shape} but " \
-               f"should be shape ({self.num_joints},)."
+               f"{FAIL}set_joint_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_joints},).{ENDC}"
         curr_qpos = np.array(self.sim.qpos())
         curr_qpos[self.joint_position_inds] = position
         self.sim.set_qpos(curr_qpos)
 
     def set_joint_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (self.num_joints,), \
-               f"set_joint_velocity got array of shape {velocity.shape} but " \
-               f"should be shape ({self.num_joints},)."
+               f"{FAIL}set_joint_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_joints},).{ENDC}"
         curr_qvel = np.array(self.sim.qvel())
         curr_qvel[self.joint_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
     def set_motor_position(self, position: np.ndarray):
         assert position.shape == (self.num_actuators,), \
-               f"set_motor_position got array of shape {position.shape} but " \
-               f"should be shape ({self.num_actuators},)."
+               f"{FAIL}set_motor_position got array of shape {position.shape} but " \
+               f"should be shape ({self.num_actuators},).{ENDC}"
         curr_qpos = np.array(self.sim.qpos())
         curr_qpos[self.motor_position_inds] = position
         self.sim.set_qpos(curr_qpos)
 
     def set_motor_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (self.num_actuators,), \
-               f"set_motor_velocity got array of shape {velocity.shape} but " \
-               f"should be shape ({self.num_actuators},)."
+               f"{FAIL}set_motor_velocity got array of shape {velocity.shape} but " \
+               f"should be shape ({self.num_actuators},).{ENDC}"
         curr_qvel = np.array(self.sim.qvel())
         curr_qvel[self.motor_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
     def set_base_position(self, position: np.ndarray):
         assert position.shape == (3,), \
-               f"set_base_position got array of shape {position.shape} but " \
-               f"should be shape (3,)."
+               f"{FAIL}set_base_position got array of shape {position.shape} but " \
+               f"should be shape (3,).{ENDC}"
         curr_qpos = np.array(self.sim.qpos())
         curr_qpos[self.base_position_inds] = position
         self.sim.set_qpos(curr_qpos)
 
     def set_base_linear_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (3,), \
-               f"set_base_linear_velocity got array of shape {velocity.shape} but " \
-               f"should be shape (3,)."
+               f"{FAIL}set_base_linear_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,).{ENDC}"
         curr_qvel = np.array(self.sim.qvel())
         curr_qvel[self.base_linear_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
     def set_base_orientation(self, quat: np.ndarray):
         assert quat.shape == (4,), \
-               f"set_base_orientation got array of shape {quat.shape} but " \
-               f"should be shape (4,)."
+               f"{FAIL}set_base_orientation got array of shape {quat.shape} but " \
+               f"should be shape (4,).{ENDC}"
         curr_qpos = np.array(self.sim.qpos())
         curr_qpos[self.base_orientation_inds] = quat
         self.sim.set_qpos(curr_qpos)
 
     def set_base_angular_velocity(self, velocity: np.ndarray):
         assert velocity.shape == (3,), \
-               f"set_base_angular_velocity got array of shape {velocity.shape} but " \
-               f"should be shape (3,)."
+               f"{FAIL}set_base_angular_velocity got array of shape {velocity.shape} but " \
+               f"should be shape (3,).{ENDC}"
         curr_qvel = np.array(self.sim.qvel())
         curr_qvel[self.base_angular_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
