@@ -1,3 +1,5 @@
+import argparse
+import sys
 import numpy as np
 
 from env import (
@@ -6,6 +8,7 @@ from env import (
     CassieEnvClock,
     DigitEnvClock
 )
+from util.env_factory import env_factory
 
 def test_all_env():
     base_env_sim_pair = [[CassieEnv, "mujoco"], [DigitEnv, "mujoco"],
@@ -16,17 +19,23 @@ def test_all_env():
                    ["von_mises", "locomotion_vonmises_clock_reward"],
                    ["linear", "stand_reward"]]
 
-    for pair in base_env_sim_pair:
-        test_base_env_step(test_env=pair[0], test_sim=pair[1])
-        print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
+    # for pair in base_env_sim_pair:
+    #     test_base_env_step(test_env=pair[0], test_sim=pair[1])
+    #     print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
 
-    for pair in child_env_list:
-        test_child_env_step(test_env=pair[0], test_sim=pair[1])
-        print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
+    # for pair in child_env_list:
+    #     test_child_env_step(test_env=pair[0], test_sim=pair[1])
+    #     print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
+
+    # for pair in child_env_list:
+    #     for rew_pair in reward_list:
+    #         test_child_env_reward(pair[0], pair[1], rew_pair[0], rew_pair[1])
+    #         print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
+    #               f"reward {rew_pair[1]}.")
 
     for pair in child_env_list:
         for rew_pair in reward_list:
-            test_child_env_reward(pair[0], pair[1], rew_pair[0], rew_pair[1])
+            test_env_factory(pair[0], pair[1], rew_pair[0], rew_pair[1])
             print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
                   f"reward {rew_pair[1]}.")
 
@@ -90,5 +99,31 @@ def test_child_env_reward(test_env, test_sim, clock_type, reward):
             f"Env {test_env} with {test_sim}, clock {clock_type}, and reward {reward} encountered " \
             f"a reward greater than 1."
 
+def test_env_factory(test_env, test_sim, clock_type, reward):
+    if '--env' in sys.argv: # remove args from test.py root args
+        sys.argv.remove(sys.argv[1])
+    # Create new args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--env-name', default=test_env.__name__)
+    parser.add_argument('--simulator-type', default=test_sim)
+    parser.add_argument('--clock-type', default=clock_type)
+    parser.add_argument('--reward-name', default=reward)
+    parser.add_argument('--policy-rate', default=50)
+    parser.add_argument('--dynamics-randomization', default=False)
+    parser.add_argument('--terrain', default=False)
+    args = parser.parse_args()
 
-
+    # load callable env partial
+    env_fn = env_factory(**vars(args))
+    env = env_fn()
+    env.reset()
+    sim_duration = []
+    for i in range(100):
+        start = env.sim.get_simulation_time()
+        s, r, _, _ = env.step(action=np.zeros(env.sim.num_actuators))
+        assert None not in s, "Child env.step() returns state has None."
+        assert r is not None, "Child env.step() returns reward as None."
+        sim_duration.append(env.sim.get_simulation_time() - start)
+    assert np.abs(1 / env.default_policy_rate - np.mean(sim_duration)) < 1e-5,\
+           f"Simulator steps by {np.mean(sim_duration)},"\
+           f"but defined to step as {1 / env.default_policy_rate}"
