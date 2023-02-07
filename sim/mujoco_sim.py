@@ -68,8 +68,11 @@ class MujocoSim(GenericSim):
             if arg != "self":
                 assert args[arg].shape == (self.model.nu,), \
                 f"set_PD {arg} was not a 1 dimensional array of size {self.model.nu}"
-        torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
-                 kd * (velocity - self.data.qvel[self.motor_velocity_inds])
+        torque = kp * (setpoint - self.data.qpos[self.motor_position_inds])
+        # Explicit damping
+        torque += kd * velocity
+        # Implicit damping
+        self.model.dof_damping[self.motor_velocity_inds] = kd
         self.set_torque(torque)
 
     def hold(self):
