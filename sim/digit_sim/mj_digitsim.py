@@ -15,7 +15,6 @@ class MjDigitSim(MujocoSim):
         # Number of sim steps before commanded torque is actually applied
         self.torque_delay_cycles = 6
         self.torque_efficiency = 1.0
-        super().__init__(model_path=model_path)
 
         self.motor_position_inds = [7, 8, 9, 14, 18, 23, 30, 31, 32, 33, 34, 35, 36, 41, 45, 50, 57, 58, 59, 60]
         self.motor_velocity_inds = [6, 7, 8, 12, 16, 20, 26, 27, 28, 29, 30, 31, 32, 36, 40, 44, 50, 51, 52, 53]
@@ -30,6 +29,9 @@ class MjDigitSim(MujocoSim):
         self.feet_site_name = ["left-foot-mid", "right-foot-mid"] # pose purpose
         self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"] # force purpose
         self.hand_body_name = ["left-arm/elbow", "right-arm/elbow"]
+
+        # NOTE: Have to call super init AFTER index arrays are defined
+        super().__init__(model_path=model_path)
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
         self.num_actuators = self.model.nu

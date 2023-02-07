@@ -17,13 +17,14 @@ from .common import (
 )
 
 from env.util.quaternion import quaternion2euler
-from util.colors import FAIL, ENDC
+from util.colors import OKGREEN, FAIL, ENDC
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
     # sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
     sim_list = [LibCassieSim, MjCassieSim]
     num_pass = 0
+    failed = False
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
@@ -43,9 +44,11 @@ def test_all_sim():
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
+            failed = True
             print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 12 tests.{ENDC}")
         num_pass = 0
-    print(f"{OKGREEN}Passed all sim tests! \u2713{ENDC}")
+    if not failed:
+        print(f"{OKGREEN}Passed all sim tests! \u2713{ENDC}")
 
 def test_sim_init(sim):
     print("Making sim")

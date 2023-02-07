@@ -17,7 +17,6 @@ class MjCassieSim(MujocoSim):
         # Number of sim steps before commanded torque is actually applied
         self.torque_delay_cycles = 6
         self.torque_efficiency = 1.0
-        super().__init__(model_path=model_path)
 
         self.motor_position_inds = [7, 8, 9, 14, 20, 21, 22, 23, 28, 34]
         self.joint_position_inds = [15, 16, 29, 30]
@@ -31,6 +30,9 @@ class MjCassieSim(MujocoSim):
         self.base_body_name = "cassie-pelvis"
         self.feet_body_name = ["left-foot", "right-foot"] # force purpose
         self.feet_site_name = ["left-foot-mid", "right-foot-mid"] # pose purpose
+
+        # NOTE: Have to call super init AFTER index arrays are defined
+        super().__init__(model_path=model_path)
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
         self.num_actuators = 10

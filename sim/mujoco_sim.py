@@ -16,15 +16,17 @@ class MujocoSim(GenericSim):
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
         self.viewer = None
-        # Enforce that motor model constants are defined
-        assert hasattr(self, "torque_delay_cycles"), \
-            f"Env {self.__class__.__name__} has not defined self.torque_delay_cycles."
-        assert self.torque_delay_cycles is not None, \
-            f"In env {self.__class__.__name__} self.torque_delay_cycles is None."
-        assert hasattr(self, "torque_efficiency"), \
-            f"Env {self.__class__.__name__} has not defined self.torque_efficiency."
-        assert self.torque_efficiency is not None, \
-            f"In env {self.__class__.__name__} self.torque_efficiency is None."
+        # Enforce that necessary constants and index arrays are defined
+        check_vars = ["torque_delay_cycles", "torque_efficiency", "motor_position_inds",
+            "motor_velocity_inds", "joint_position_inds", "joint_velocity_inds",
+            "base_position_inds", "base_orientation_inds", "base_linear_velocity_inds",
+            "base_angular_velocity_inds"]
+        for var in check_vars:
+            assert hasattr(self, var), \
+                f"{FAIL}Env {self.__class__.__name__} has not defined self.{var}.{ENDC}"
+            assert getattr(self, var) is not None, \
+                f"{FAIL}In env {self.__class__.__name__} self.{var} is None.{ENDC}"
+
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
 
     def reset(self, qpos: np.ndarray=None):
