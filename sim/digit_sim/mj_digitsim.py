@@ -4,8 +4,6 @@ import pathlib
 
 from sim import MujocoSim
 
-WARNING = '\033[93m'
-ENDC = '\033[0m'
 
 class MjDigitSim(MujocoSim):
 

@@ -8,6 +8,7 @@ from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
 from env import CassieEnv
 from importlib import import_module
+from util.colors import FAIL, WARNING, ENDC
 
 class CassieEnvClock(CassieEnv):
 
@@ -20,8 +21,8 @@ class CassieEnvClock(CassieEnv):
                  policy_rate: int,
                  dynamics_randomization: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
-            f"CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
-            f"\"von_mises\" are valid clock types."
+            f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
+            f"\"von_mises\" are valid clock types.{ENDC}"
 
         super().__init__(simulator_type=simulator_type,
                          terrain=terrain,
@@ -62,13 +63,13 @@ class CassieEnvClock(CassieEnv):
                 weighting = weight_dict["weighting"]
                 weight_sum += Decimal(f"{weighting}")
             if weight_sum != 1:
-                print("WARNING: Reward weightings do not sum up to 1, renormalizing.")
+                print(f"{WARNING}WARNING: Reward weightings do not sum up to 1, renormalizing.{ENDC}")
                 for name, weight_dict in self.reward_weight.items():
                     weight_dict["weighting"] /= weight_sum
             self._compute_reward = reward_module.compute_reward
             self._compute_done = reward_module.compute_done
         except ModuleNotFoundError:
-            print(f"ERROR: No such reward '{reward}'.")
+            print(f"{FAIL}ERROR: No such reward '{reward}'.{ENDC}")
             exit(1)
         except:
             print(traceback.format_exc())

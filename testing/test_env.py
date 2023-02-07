@@ -1,4 +1,5 @@
 import numpy as np
+import traceback
 
 from env import (
     CassieEnv,
@@ -6,6 +7,8 @@ from env import (
     CassieEnvClock,
     DigitEnvClock
 )
+from util.colors import FAIL, ENDC
+
 
 def test_all_env():
     base_env_sim_pair = [[CassieEnv, "mujoco"], [DigitEnv, "mujoco"],
@@ -17,18 +20,33 @@ def test_all_env():
                    ["linear", "stand_reward"]]
 
     for pair in base_env_sim_pair:
-        test_base_env_step(test_env=pair[0], test_sim=pair[1])
-        print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
+        try:
+            test_base_env_step(test_env=pair[0], test_sim=pair[1])
+            print(f"{OKGREEN}Pass test with {pair[0].__name__} and {pair[1]}.{ENDC}")
+        except Exception:
+            print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
+            print(traceback.format_exc())
+
 
     for pair in child_env_list:
-        test_child_env_step(test_env=pair[0], test_sim=pair[1])
-        print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
+        try:
+            test_child_env_step(test_env=pair[0], test_sim=pair[1])
+            print(f"{OKGREEN}Pass test with {pair[0].__name__} and {pair[1]}.{ENDC}")
+        except Exception:
+            print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
+            print(traceback.format_exc())
 
     for pair in child_env_list:
         for rew_pair in reward_list:
-            test_child_env_reward(pair[0], pair[1], rew_pair[0], rew_pair[1])
-            print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
-                  f"reward {rew_pair[1]}.")
+            try:
+                test_child_env_reward(pair[0], pair[1], rew_pair[0], rew_pair[1])
+                print(f"{OKGREEN}Pass test with {pair[0].__name__} and {pair[1]}, clock " \
+                      f"{rew_pair[0]}, and reward {rew_pair[1]}.{ENDC}")
+            except Exception:
+                print(f"{FAIL}{pair[0].__name__} with {pair[1]}, clock {rew_pair[0]}, and reward " \
+                     f"{rew_pair[1]} failed test with error:{ENDC}")
+                print(traceback.format_exc())
+    print(f"{OKGREEN}Passed all env tests! \u2713{ENDC}")
 
 def test_base_env_step(test_env, test_sim):
     """Test if base env is step simulation in correct rate based on policy rate

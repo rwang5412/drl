@@ -17,10 +17,7 @@ from .common import (
 )
 
 from env.util.quaternion import quaternion2euler
-
-OKGREEN = '\033[92m'
-FAIL = '\033[91m'
-ENDC = '\033[0m'
+from util.colors import FAIL, ENDC
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
@@ -48,6 +45,7 @@ def test_all_sim():
         else:
             print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 12 tests.{ENDC}")
         num_pass = 0
+    print(f"{OKGREEN}Passed all sim tests! \u2713{ENDC}")
 
 def test_sim_init(sim):
     print("Making sim")
