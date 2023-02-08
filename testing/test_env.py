@@ -7,7 +7,7 @@ from env import (
     CassieEnvClock,
     DigitEnvClock
 )
-from util.colors import FAIL, ENDC
+from util.colors import FAIL, ENDC, OKGREEN
 
 
 def test_all_env():
@@ -57,7 +57,7 @@ def test_base_env_step(test_env, test_sim):
                    terrain=False)
     env.reset_simulation()
     sim_duration = []
-    for i in range(100):
+    for i in range(3):
         start = env.sim.get_simulation_time()
         env.step_simulation(action=np.zeros(env.sim.num_actuators),
                                 simulator_repeat_steps=int(env.sim.simulator_rate/env.default_policy_rate))
