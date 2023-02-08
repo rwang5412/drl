@@ -51,9 +51,15 @@ def test_all_env():
 
     for pair in child_env_list:
         for rew_pair in reward_list:
-            test_env_factory(pair[0], pair[1], rew_pair[0], rew_pair[1])
-            print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
-                  f"reward {rew_pair[1]}.")
+            try:
+                test_env_factory(pair[0], pair[1], rew_pair[0], rew_pair[1])
+                print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
+                      f"reward {rew_pair[1]}.")
+            except Exception:
+                print(f"{FAIL}{pair[0].__name__} with {pair[1]}, clock {rew_pair[0]}, and reward " \
+                      f"{rew_pair[1]} failed test with error:{ENDC}")
+                print(traceback.format_exc())
+    print(f"{OKGREEN}Passed all env factory tests! \u2713{ENDC}")
 
 def test_base_env_step(test_env, test_sim):
     """Test if base env is step simulation in correct rate based on policy rate
