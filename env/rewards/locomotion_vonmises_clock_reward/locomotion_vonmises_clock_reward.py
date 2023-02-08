@@ -22,24 +22,18 @@ def compute_reward(self, action):
     l_stance = 1 - l_force
     r_stance = 1 - r_force
 
-    feet_force = {}
-    feet_vel = {}
-    feet_pose = {}
-    for foot_name in self.sim.feet_body_name:
-        vel = np.linalg.norm(self.feet_velocity_2khz_avg[foot_name])
-        force = np.linalg.norm(self.feet_grf_2khz_avg(foot_name))
-        side = "left" if "left" in foot_name else "right"
-        feet_force[f"{side} foot"] = force
-        feet_vel[f"{side} foot"] = vel
-    for foot_name in self.sim.feet_site_name:
-        pose = self.sim.get_site_pose(foot_name)
-        side = "left" if "left" in foot_name else "right"
-        feet_pose[f"{side} foot"] = pose
+    # Retrieve states
+    l_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[0]])
+    r_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[0]])
+    r_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[0])
+    r_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[1])
 
-    q["left_force"] = l_force * np.abs(feet_force["left foot"])
-    q["right_force"] = r_force * np.abs(feet_force["right foot"])
-    q["left_speed"] = l_stance * feet_vel["left foot"]
-    q["right_speed"] = r_stance * feet_vel["right foot"]
+    q["left_force"] = l_force * l_foot_force
+    q["right_force"] = r_force * r_foot_force
+    q["left_speed"] = l_stance * l_foot_vel
+    q["right_speed"] = r_stance * r_foot_vel
 
     ### Speed rewards ###
     base_vel = self.sim.get_body_velocity(self.sim.base_body_name)
@@ -67,16 +61,15 @@ def compute_reward(self, action):
 
     # Foor orientation target in global frame. Want to be flat and face same direction as base all
     # the time. So compare to the same orientation target as the base.
-    foot_orientation_error = quaternion_distance(target_quat, feet_pose["left foot"][3:]) + \
-                             quaternion_distance(target_quat, feet_pose["right foot"][3:])
+    foot_orientation_error = quaternion_distance(target_quat, l_foot_pose[3:]) + \
+                             quaternion_distance(target_quat, r_foot_pose[3:])
     q["orientation"] = orientation_error + foot_orientation_error
 
     ### Hop symmetry reward (keep feet equidistant) ###
     period_shifts = self.clock.get_period_shifts()
-    rel_foot_pos = {}
-    for foot in feet_pose:
-        rel_foot_pos[foot] = (feet_pose[foot][0:3] - base_pose[0:3])[[0, 2]]
-    xdif = np.sqrt(np.power(rel_foot_pos["left foot"] - rel_foot_pos["right foot"], 2).sum())
+    l_foot_pose_in_base = self.sim.get_relative_pose(base_pose, l_foot_pose)
+    r_foot_pose_in_base = self.sim.get_relative_pose(base_pose, r_foot_pose)
+    xdif = np.sqrt(np.power(l_foot_pose_in_base[[0, 2]] - r_foot_pose_in_base[[0, 2]], 2).sum())
     pdif = np.exp(-5 * np.abs(np.sin(np.pi * (period_shifts[0] - period_shifts[1]))))
     q['hop_symmetry'] = pdif * xdif
 

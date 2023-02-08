@@ -44,6 +44,8 @@ class CassieEnv(GenericEnv):
 
         # Low-level control specifics
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
+        self.kp = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
+        self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.trackers = [self.update_tracker_grf, 
@@ -80,9 +82,6 @@ class CassieEnv(GenericEnv):
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
             for tracker in self.trackers:
                 tracker(weighting=1/simulator_repeat_steps, sim_step=sim_step)
-                print("every step", self.sim.get_body_contact_force(name=self.sim.feet_body_name[1]))
-        print("avg ", self.feet_grf_2khz_avg[self.sim.feet_body_name[1]])
-        print()
 
     def get_robot_state(self):
         """Get standard robot prioceptive states

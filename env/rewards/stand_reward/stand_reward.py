@@ -12,26 +12,21 @@ def compute_reward(self, action):
     q['height_penalty'] = np.abs(base_pose[2] - 0.9)
 
     ### Orientation rewards, base and feet ###
-    feet_vel = {}
-    feet_pose = {}
-    for foot_name in self.sim.feet_body_name:
-        vel = np.linalg.norm(self.feet_velocity_2khz_avg[foot_name])
-        side = "left" if "left" in foot_name else "right"
-        feet_vel[f"{side} foot"] = vel
-    for foot_name in self.sim.feet_site_name:
-        pose = self.sim.get_site_pose(foot_name)
-        side = "left" if "left" in foot_name else "right"
-        feet_pose[f"{side} foot"] = pose
+    # Retrieve states
+    l_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[0]])
+    r_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[0])
+    r_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[1])
 
     orient_target = np.array([1, 0, 0, 0])
     q["base_orientation"] = quaternion_distance(base_pose[3:], orient_target)
-    q["l_foot_orientation"] = quaternion_distance(orient_target, feet_pose["left foot"][3:])
-    q["r_foot_orientation"] = quaternion_distance(orient_target, feet_pose["right foot"][3:])
+    q["l_foot_orientation"] = quaternion_distance(orient_target, l_foot_pose[3:])
+    q["r_foot_orientation"] = quaternion_distance(orient_target, r_foot_pose[3:])
 
     ### Static rewards. Want feet and motor velocities to be zero ###
     motor_vel = self.sim.get_motor_velocity()
     q['motor_vel_penalty'] = np.linalg.norm(motor_vel) / len(motor_vel)
-    q['foot_vel_penalty'] = feet_vel["left foot"] + feet_vel["right foot"]
+    q['foot_vel_penalty'] = l_foot_vel + r_foot_vel
 
     ### Control rewards ###
     if self.last_action is not None:
