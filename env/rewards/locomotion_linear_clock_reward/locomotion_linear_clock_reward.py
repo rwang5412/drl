@@ -44,8 +44,8 @@ def compute_reward(self, action):
     else:
         des_foot_height = 0.3
 
-    l_force_cost = np.linalg.norm(l_foot_force) / 75
-    r_force_cost = np.linalg.norm(r_foot_force) / 75
+    l_force_cost = l_foot_force / 75
+    r_force_cost = r_foot_force / 75
     l_height_cost = (des_foot_height - l_foot_pose[2])**2
     r_height_cost = (des_foot_height - r_foot_pose[2])**2
 
