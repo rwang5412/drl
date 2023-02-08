@@ -1,325 +1,215 @@
 import torch
+
 import torch.nn as nn
-import torch.nn.functional as F
 import math as math
 
-from nn.base import FF_Base, LSTM_Base, GRU_Base, CNN_Base, CNN_AE, CNN_Encoder, CNN_Decoder, CNN_Depth, Mix_Base, Mix_FF_Base
-from nn.base import LSTM_Concat_CNN_Base
+from nn.base import FFBase, LSTMBase, GRUBase, MixBase
 
-class Stochastic_Actor:
-    """
-    The base class for stochastic actors.
-    """
-    def __init__(self, latent, action_dim, env_name, bounded, fixed_std=None, perception_in=None, perception_out=None, perception_size=None):
+class Actor:
+    def __init__(self, 
+                 latent: int, 
+                 action_dim: int, 
+                 bounded: bool, 
+                 learn_std: bool, 
+                 std: float):
+        """The base class for stochastic actors.
 
-        self.action_dim        = action_dim
-        self.env_name          = env_name
-        self.means             = nn.Linear(latent, action_dim)
-        self.bounded           = bounded
-
-        if perception_in is not None and perception_out is not None:
-            self.perception = True
-            self.perception_in_size  = perception_in
-            self.perception_out_size = perception_out
-            self.image_width = perception_size[0]
-            self.image_height = perception_size[1]
-            self.image_channel = 1
-            if perception_in < 1000: # TODO: better robust handling of network
-                self.cnn_module = CNN_Base(in_dim=perception_in, out_dim=perception_out, image_size=perception_size)
-            else:
-                self.cnn_module = CNN_Depth(in_dim=perception_in, out_dim=perception_out, image_size=perception_size)
-        else:
-            self.perception = False
-
-        if fixed_std is None:
+        Args:
+            latent (int): Input size for last action layer.
+            action_dim (int): Action dim for last action layer.
+            bounded (bool): Additional tanh activation after last layer.
+            learn_std (bool): Option to learn std.
+            std (float): Constant std.
+        """
+        self.action_dim = action_dim
+        self.bounded    = bounded
+        self.std        = std
+        self.means      = nn.Linear(latent, action_dim)
+        self.learn_std  = learn_std
+        if self.learn_std:
             self.log_stds = nn.Linear(latent, action_dim)
-        self.fixed_std = fixed_std
 
-    def _get_dist_params(self, input_state, update=False):
-        state = self.normalize_state(input_state, update=update) # this won't affect since we dont use prenorm anymore
-        size = state.size()
-        dims = len(size)
-        # print("input size", state.size())
-        # print("sample dim", dims)
+    def _get_distrbution_params(self, input_state, update_normalization_param):
+        """Perform a complete forward pass of the model and output mean/std for policy
+        forward in stochastic_forward()
 
-        if self.perception: # process inputs for CNN with iid data
-            if dims == 3: # for optimizaton with batch of trajectories
-                traj_len = size[0]
-                robot_state = state[:,:,:-self.perception_in_size]
-                cnn_feature_out = torch.empty(size=(size[0], size[1], self.perception_out_size)).to(input_state.device) # preallocate torch tensors
-                # print("robot state", robot_state.shape)
-                # print("perception state", cnn_feature_out.shape)
-                for traj_idx in range(traj_len):
-                    batch_data = state[traj_idx, :, -self.perception_in_size:]
-                    # print("each traj size", batch_data.shape)
-                    perception_state = batch_data[-self.perception_in_size:].reshape(-1, self.image_channel, self.image_width, self.image_height)
-                    # print("cnn input size", perception_state.shape)
-                    cnn_feature = self.cnn_module.forward(perception_state).squeeze() # forward the CNN to get feature vector
-                    # print("iid feature size", cnn_feature.shape)
-                    cnn_feature_out[traj_idx,:,:] = cnn_feature
+        Args:
+            input_state (_type_): Model input
+            update (bool): Option to update prenorm params. Defaults to False.
 
-                # print("cnn feature traj", cnn_feature_out.shape)
-                # input()
-                state = torch.cat((robot_state, cnn_feature_out), dim=2) # concatenate feature vector with robot states
-
-            elif dims == 1: # for model forward
-                robot_state = state[:-self.perception_in_size]
-                # perception_state = state[-self.perception_in_size:].reshape(-1, self.image_channel, self.image_width, self.image_height)
-                perception_state = state[-self.perception_in_size:].reshape(-1, self.image_channel, 32, 32)
-                cnn_feature_out = self.cnn_module.cnn_net(perception_state).squeeze() # forward the CNN to get feature vector
-                state = torch.cat((robot_state, cnn_feature_out)) # concatenate feature vector with robot states
-
-            # print("ok to cat") if input_state.size() ==3 else None
-            # input() if input_state.size() ==3 else None
-
-        x = self._base_forward(state)
-        # print("ok to forward") if input_state.size() ==3 else None
-        # input() if input_state.size() ==3 else None
-
-        mu = self.means(x)
-
-        if self.fixed_std is None:
-            std = torch.clamp(self.log_stds(x), -2, 1).exp().to(mu.device)
+        Returns:
+            mu: Model output, ie, mean of the distribution
+            std: Optionally trainable param for distribution std. Default is constant.
+        """
+        state = self.normalize_state(input_state, 
+                                     update_normalization_param=update_normalization_param)
+        latent = self._base_forward(state)
+        mu = self.means(latent)
+        if self.learn_std:
+            std = torch.clamp(self.log_stds(latent), -2, 1).exp()
         else:
-            std = self.fixed_std.to(mu.device)
-
+            std = self.std
         return mu, std
 
-    def stochastic_forward(self, state, deterministic=True, update=False, log_probs=False):
-        mu, sd = self._get_dist_params(state, update=update)
+    def pdf(self, state):
+        """Return Diagonal Normal Distribution object given mean/std from part of actor forward pass
+        """
+        mu, sd = self._get_distrbution_params(state, update_normalization_param=False)
+        return torch.distributions.Normal(mu, sd)
+    
+    def log_prob(self, state, action):
+        """Return the log probability of a distribution given state and action
+        """
+        log_prob = self.pdf(state=state).log_prob(action).sum(-1, keepdim=True)
+        if self.bounded: # 
+            log_prob -= torch.log((1 - torch.tanh(state).pow(2)) + 1e-6)
+        return log_prob
 
-        if not deterministic or log_probs:
-            dist = torch.distributions.Normal(mu, sd)
+    def actor_forward(self, 
+                      state: torch.Tensor, 
+                      deterministic=True, 
+                      update_normalization_param=False):
+        """Perform actor forward in either deterministic or stochastic way, ie, inference/training.
+        This function is default to inference mode. 
+
+        Args:
+            state (torch.Tensor): Input to actor.
+            deterministic (bool, optional): inference mode. Defaults to True.
+            update_normalization_param (bool, optional): Toggle to update params. Defaults to False.
+
+        Returns:
+            action with or without noise.
+        """
+        mu, std = self._get_distrbution_params(state, 
+                                               update_normalization_param=update_normalization_param)
+        if not deterministic: # draw random samples for stochastic forward
+            dist = torch.distributions.Normal(mu, std)
             sample = dist.rsample()
-
         if self.bounded:
             action = torch.tanh(mu) if deterministic else torch.tanh(sample)
         else:
             action = mu if deterministic else sample
+        return action
 
-        if log_probs:
-            log_prob = dist.log_prob(sample)
-            if self.bounded:
-                log_prob -= torch.log((1 - torch.tanh(sample).pow(2)) + 1e-6)
-
-            return action, log_prob.sum(1, keepdim=True)
-        else:
-            return action
-
-    def pdf(self, state):
-        mu, sd = self._get_dist_params(state)
-        return torch.distributions.Normal(mu, sd)
-
-
-class FF_Stochastic_Actor(FF_Base, Stochastic_Actor):
+class FFActor(FFBase, Actor):
     """
-    A class inheriting from FF_Base and Stochastic_Actor
+    A class inheriting from FF_Base and Actor
     which implements a feedforward stochastic policy.
     """
-    def __init__(self, input_dim, action_dim, layers=(256, 256), env_name=None, nonlinearity=torch.tanh, bounded=False, fixed_std=None):
-        FF_Base.__init__(self, input_dim, layers, nonlinearity)
-        Stochastic_Actor.__init__(self, layers[-1], action_dim, env_name, bounded, fixed_std=fixed_std)
+    def __init__(self, 
+                 input_dim, 
+                 action_dim, 
+                 layers, 
+                 bounded, 
+                 learn_std,
+                 std):
+        FFBase.__init__(self, in_dim=input_dim, layers=layers)
+        Actor.__init__(self, 
+                       latent=layers[-1], 
+                       action_dim=action_dim, 
+                       bounded=bounded, 
+                       learn_std=learn_std, 
+                       std=std)
 
-    def forward(self, x, deterministic=True, update_norm=False, return_log_probs=False):
-        return self.stochastic_forward(x, deterministic=deterministic, update=update_norm, log_probs=return_log_probs)
+    def forward(self, x, deterministic=True, update_norm=False):
+        return self.actor_forward(x, deterministic=deterministic, 
+                                  update_normalization_param=update_norm)
 
-class LSTM_Stochastic_Actor(LSTM_Base, Stochastic_Actor):
+class LSTMActor(LSTMBase, Actor):
     """
-    A class inheriting from LSTM_Base and Stochastic_Actor
+    A class inheriting from LSTM_Base and Actor
     which implements a recurrent stochastic policy.
     """
-    def __init__(self, input_dim, action_dim, layers=(128, 128), env_name=None, bounded=False, fixed_std=None, perception_in=None, perception_out=None, perception_size=None):
+    def __init__(self, 
+                 input_dim, 
+                 action_dim, 
+                 layers, 
+                 bounded, 
+                 learn_std,
+                 std):
 
-        LSTM_Base.__init__(self, input_dim, layers)
-        Stochastic_Actor.__init__(self, layers[-1], action_dim, env_name, bounded, fixed_std=fixed_std, perception_in=perception_in, perception_out=perception_out, perception_size=perception_size)
+        LSTMBase.__init__(self, input_dim, layers)
+        Actor.__init__(self, 
+                       latent=layers[-1], 
+                       action_dim=action_dim, 
+                       bounded=bounded, 
+                       learn_std=learn_std,
+                       std=std)
 
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, update_norm=False, return_log_probs=False):
-        return self.stochastic_forward(x, deterministic=deterministic, update=update_norm, log_probs=return_log_probs)
+    def forward(self, x, deterministic=True, update_norm=False):
+        return self.actor_forward(x, deterministic=deterministic, 
+                                  update_normalization_param=update_norm)
 
-class Mix_Stochastic_Actor(Mix_Base, Stochastic_Actor):
+class MixActor(MixBase, Actor):
     """
-    A class inheriting from Mix_Base and Stochastic_Actor
+    A class inheriting from Mix_Base and Actor
     which implements a recurrent + FF stochastic policy.
     """
-    def __init__(self, input_dim, state_dim, nonstate_dim, action_dim, nonstate_encoder_dim, \
-        layers=(128, 128), env_name=None, bounded=False, fixed_std=None, perception_in=None, perception_out=None, perception_size=None, \
-            nonstate_encoder_on=True):
+    def __init__(self, 
+                 input_dim, 
+                 state_dim, 
+                 nonstate_dim, 
+                 action_dim, 
+                 lstm_layers, 
+                 ff_layers,
+                 bounded, 
+                 learn_std,
+                 std,
+                 nonstate_encoder_dim, 
+                 nonstate_encoder_on):
 
-        Mix_Base.__init__(self, input_dim, state_dim, nonstate_dim, nonstate_encoder_dim, layers, layers, nonstate_encoder_on=nonstate_encoder_on)
-        Stochastic_Actor.__init__(self, layers[-1], action_dim, env_name, bounded, fixed_std=fixed_std, perception_in=perception_in, perception_out=perception_out, perception_size=perception_size)
+        MixBase.__init__(self,
+                          in_dim=input_dim, 
+                          state_dim=state_dim, 
+                          nonstate_dim=nonstate_dim, 
+                          lstm_layers=lstm_layers, 
+                          ff_layers=ff_layers, 
+                          nonstate_encoder_dim=nonstate_encoder_dim,
+                          nonstate_encoder_on=nonstate_encoder_on)
+        Actor.__init__(self, 
+                       latent=ff_layers[-1], 
+                       action_dim=action_dim, 
+                       bounded=bounded, 
+                       learn_std=learn_std,
+                       std=std)
 
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, update_norm=False, return_log_probs=False):
-        return self.stochastic_forward(x, deterministic=deterministic, update=update_norm, log_probs=return_log_probs)
+    def forward(self, x, deterministic=True, update_norm=False):
+        return self.actor_forward(x, deterministic=deterministic, 
+                                  update_normalization_param=update_norm)
 
-    def predict_ts(self, x):
-        return self._base_predict_ts_forward(x)
+    def latent_space(self, x):
+        return self._latent_space_forward(x)
 
-class Mix_FF_Stochastic_Actor(Mix_FF_Base, Stochastic_Actor):
+class GRUActor(GRUBase, Actor):
     """
-    A class inheriting from Mix_Base and Stochastic_Actor
-    which implements a FF dynamics + FF stochastic policy.
-    """
-    def __init__(self, input_dim, state_dim, nonstate_dim, action_dim, nonstate_encoder_dim, \
-        layers=(128, 128), env_name=None, bounded=False, fixed_std=None, perception_in=None, perception_out=None, perception_size=None, \
-            nonstate_encoder_on=True):
-
-        Mix_FF_Base.__init__(self, input_dim, state_dim, nonstate_dim, nonstate_encoder_dim, layers, layers, nonstate_encoder_on=nonstate_encoder_on)
-        Stochastic_Actor.__init__(self, layers[-1], action_dim, env_name, bounded, fixed_std=fixed_std, perception_in=perception_in, perception_out=perception_out, perception_size=perception_size)
-
-        self.is_recurrent = False
-
-    def forward(self, x, deterministic=True, update_norm=False, return_log_probs=False):
-        return self.stochastic_forward(x, deterministic=deterministic, update=update_norm, log_probs=return_log_probs)
-
-class GRU_Stochastic_Actor(GRU_Base, Stochastic_Actor):
-    """
-    A class inheriting from GRU_Base and Stochastic_Actor
+    A class inheriting from GRU_Base and Actor
     which implements a recurrent stochastic policy.
     """
-    def __init__(self, input_dim, action_dim, layers=(128, 128), env_name=None, bounded=False, fixed_std=None):
+    def __init__(self, 
+                 input_dim, 
+                 action_dim, 
+                 layers, 
+                 bounded, 
+                 learn_std,
+                 std):
 
-        GRU_Base.__init__(self, input_dim, layers)
-        Stochastic_Actor.__init__(self, layers[-1], action_dim, env_name, bounded, fixed_std=fixed_std)
-
-        self.is_recurrent = True
-        self.init_hidden_state()
-
-    def forward(self, x, deterministic=True, update_norm=False, return_log_probs=False):
-        return self.stochastic_forward(x, deterministic=deterministic, update=update_norm, log_probs=return_log_probs)
-        
-class Jac_Actor:
-    """
-    The base class for jacobian-based exploration actors. Using multivariantNormal().
-    """
-    def __init__(self, latent, action_dim, env_name, bounded, fixed_std=None, perception_in=None, perception_out=None, perception_size=None):
-
-        self.action_dim        = action_dim
-        self.env_name          = env_name
-        self.means             = nn.Linear(latent, action_dim)
-        self.bounded           = bounded
-
-        if fixed_std is None:
-            self.log_stds = nn.Linear(latent, action_dim)
-        
-        ts_noise_up = torch.Tensor([[0,         0, fixed_std, fixed_std, 0],
-                                    [fixed_std, 0, 0.0      , 0.0     ,  0],
-                                    [0,         0, fixed_std, fixed_std, 0]])
-
-        self.fixed_std = torch.hstack((torch.vstack((ts_noise_up,        torch.zeros((3,5)))), 
-                                (torch.vstack((torch.zeros((3,5)), ts_noise_up)))))
-
-    def _get_dist_params(self, input_state, update=False, jac_pinv=None):
-        state = self.normalize_state(input_state, update=update) # this won't affect since we dont use prenorm anymore
-        x = self._base_forward(state)
-        mu = self.means(x)
-        if self.fixed_std is None:
-            std = torch.clamp(self.log_stds(x), -2, 1).exp()
-        else:
-            if jac_pinv is not None:
-                std = torch.matmul(jac_pinv, self.fixed_std) # 10x6 x 6x10 = 10x10 gaussian
-                std[1,1] = 0.13
-                std[4,4] = 0.13
-                std[6,6] = 0.13
-                std[9,9] = 0.13
-            else:
-                raise Exception("must provide jacobian for noise sampling.")
-
-        return mu, std
-
-    def stochastic_forward(self, state, deterministic=True, update=False, log_probs=False, jac_pinv=None):
-        mu, sd = self._get_dist_params(state, update=update, jac_pinv=jac_pinv)
-
-        if not deterministic or log_probs:
-            dist = torch.distributions.MultivariateNormal(mu, sd)
-            sample = dist.rsample()
-
-        if self.bounded:
-            action = torch.tanh(mu) if deterministic else torch.tanh(sample)
-        else:
-            action = mu if deterministic else sample
-
-        if log_probs:
-            log_prob = dist.log_prob(sample)
-            if self.bounded:
-                log_prob -= torch.log((1 - torch.tanh(sample).pow(2)) + 1e-6)
-
-            return action, log_prob.sum(1, keepdim=True)
-        else:
-            return action
-
-    def pdf(self, state):
-        mu, sd = self._get_dist_params(state)
-        return torch.distributions.Normal(mu, sd)
-
-class Stochastic_Actor_2:
-    """
-    The base class for stochastic actors.
-    """
-    def __init__(self, latent, action_dim, bounded, fixed_std=None):
-
-        self.action_dim        = action_dim
-        self.means             = nn.Linear(latent, action_dim)
-        self.bounded           = bounded
-
-        if fixed_std is None:
-            self.log_stds = nn.Linear(latent, action_dim)
-        self.fixed_std = fixed_std
-
-    def _get_dist_params(self, input_state, update=False):
-        state = self.normalize_state(input_state, update=update) # this won't affect since we dont use prenorm anymore
-        x = self._base_forward(state)
-        mu = self.means(x)
-
-        if self.fixed_std is None:
-            std = torch.clamp(self.log_stds(x), -2, 1).exp()
-        else:
-            std = self.fixed_std
-
-        return mu, std
-
-    def stochastic_forward(self, state, deterministic=True, update=False, log_probs=False):
-        mu, sd = self._get_dist_params(state, update=update)
-
-        if not deterministic or log_probs:
-            dist = torch.distributions.Normal(mu, sd)
-            sample = dist.rsample()
-
-        if self.bounded:
-            action = torch.tanh(mu) if deterministic else torch.tanh(sample)
-        else:
-            action = mu if deterministic else sample
-
-        if log_probs:
-            log_prob = dist.log_prob(sample)
-            if self.bounded:
-                log_prob -= torch.log((1 - torch.tanh(sample).pow(2)) + 1e-6)
-
-            return action, log_prob.sum(1, keepdim=True)
-        else:
-            return action
-
-    def pdf(self, state):
-        mu, sd = self._get_dist_params(state)
-        return torch.distributions.Normal(mu, sd)
-
-class LSTM_CNN_Actor(LSTM_Concat_CNN_Base, Stochastic_Actor_2):
-    """
-    A class inheriting from LSTM_Base and Stochastic_Actor
-    which implements a recurrent stochastic policy.
-    """
-    def __init__(self, input_dim, action_dim, layers=(128, 128), bounded=False, fixed_std=None, image_shape=None, image_channel=None):
-
-        LSTM_Concat_CNN_Base.__init__(self, input_dim, layers, image_shape=image_shape, image_channel=image_channel)
-        Stochastic_Actor_2.__init__(self, layers[-1], action_dim, bounded, fixed_std=fixed_std)
+        GRUBase.__init__(self, input_dim, layers)
+        Actor.__init__(self, 
+                       latent=layers[-1], 
+                       action_dim=action_dim, 
+                       bounded=bounded, 
+                       learn_std=learn_std,
+                       std=std)
 
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, update_norm=False, return_log_probs=False):
-        return self.stochastic_forward(x, deterministic=deterministic, update=update_norm, log_probs=return_log_probs)
+    def forward(self, x, deterministic=True, update_norm=False):
+        return self.actor_forward(x, deterministic=deterministic, 
+                                  update_normalization_param=update_norm)
