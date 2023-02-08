@@ -1,6 +1,6 @@
 import numpy as np
 
-from env import GenericEnv
+from env.genericenv import GenericEnv
 from sim import MjDigitSim, ArDigitSim
 from env.util.quaternion import (
     euler2quat,

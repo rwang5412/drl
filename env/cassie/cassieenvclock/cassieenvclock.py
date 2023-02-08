@@ -6,7 +6,7 @@ import traceback
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
-from env import CassieEnv
+from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
 
 class CassieEnvClock(CassieEnv):

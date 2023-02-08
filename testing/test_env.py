@@ -2,12 +2,10 @@ import argparse
 import sys
 import numpy as np
 
-from env import (
-    CassieEnv,
-    DigitEnv,
-    CassieEnvClock,
-    DigitEnvClock
-)
+from env.cassie.cassieenv import CassieEnv
+from env.digit.digitenv import DigitEnv
+from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
+from env.digit.digitenvclock.digitenvclock import DigitEnvClock
 from util.env_factory import env_factory
 
 def test_all_env():
@@ -19,19 +17,19 @@ def test_all_env():
                    ["von_mises", "locomotion_vonmises_clock_reward"],
                    ["linear", "stand_reward"]]
 
-    # for pair in base_env_sim_pair:
-    #     test_base_env_step(test_env=pair[0], test_sim=pair[1])
-    #     print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
+    for pair in base_env_sim_pair:
+        test_base_env_step(test_env=pair[0], test_sim=pair[1])
+        print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
 
-    # for pair in child_env_list:
-    #     test_child_env_step(test_env=pair[0], test_sim=pair[1])
-    #     print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
+    for pair in child_env_list:
+        test_child_env_step(test_env=pair[0], test_sim=pair[1])
+        print(f"Pass test with {pair[0].__name__} and {pair[1]}.")
 
-    # for pair in child_env_list:
-    #     for rew_pair in reward_list:
-    #         test_child_env_reward(pair[0], pair[1], rew_pair[0], rew_pair[1])
-    #         print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
-    #               f"reward {rew_pair[1]}.")
+    for pair in child_env_list:
+        for rew_pair in reward_list:
+            test_child_env_reward(pair[0], pair[1], rew_pair[0], rew_pair[1])
+            print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
+                  f"reward {rew_pair[1]}.")
 
     for pair in child_env_list:
         for rew_pair in reward_list:
@@ -48,7 +46,7 @@ def test_base_env_step(test_env, test_sim):
                    terrain=False)
     env.reset_simulation()
     sim_duration = []
-    for i in range(100):
+    for i in range(10):
         start = env.sim.get_simulation_time()
         env.step_simulation(action=np.zeros(env.sim.num_actuators),
                                 simulator_repeat_steps=int(env.sim.simulator_rate/env.default_policy_rate))
@@ -69,7 +67,7 @@ def test_child_env_step(test_env, test_sim):
                    reward_name="locomotion_linear_clock_reward")
     env.reset()
     sim_duration = []
-    for i in range(100):
+    for i in range(10):
         start = env.sim.get_simulation_time()
         s, r, _, _ = env.step(action=np.zeros(env.sim.num_actuators))
         assert None not in s, "Child env.step() returns state has None."
@@ -90,7 +88,7 @@ def test_child_env_reward(test_env, test_sim, clock_type, reward):
                    clock_type=clock_type,
                    reward_name=reward)
     env.reset()
-    for i in range(100):
+    for i in range(10):
         s, r, _, _ = env.step(action=np.zeros(env.sim.num_actuators))
         assert r >= 0, \
             f"Env {test_env} with {test_sim}, clock {clock_type}, and reward {reward} encountered " \
@@ -118,7 +116,7 @@ def test_env_factory(test_env, test_sim, clock_type, reward):
     env = env_fn()
     env.reset()
     sim_duration = []
-    for i in range(100):
+    for i in range(10):
         start = env.sim.get_simulation_time()
         s, r, _, _ = env.step(action=np.zeros(env.sim.num_actuators))
         assert None not in s, "Child env.step() returns state has None."

@@ -6,7 +6,7 @@ import traceback
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
-from env import DigitEnv
+from env.digit.digitenv import DigitEnv
 from importlib import import_module
 
 class DigitEnvClock(DigitEnv):
