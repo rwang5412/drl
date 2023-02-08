@@ -43,11 +43,6 @@ class DigitEnv(GenericEnv):
         self.orient_add = 0
 
         # Low-level control specifics
-        self.kp = np.array([200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
-                            200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0])
-        self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
-                            10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
-        
         self.reset_qpos = np.array([0, 0, 1,  1, 0 ,0 ,0,
         3.33020155e-01, -2.66178730e-02, 1.92369587e-01, 
         9.93409734e-01, -1.04126145e-03, 1.82534311e-03, 1.14597921e-01,
@@ -70,6 +65,20 @@ class DigitEnv(GenericEnv):
         ])
         
         self.offset = self.reset_qpos[self.sim.motor_position_inds]
+
+        self.kp = np.array([200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
+                            200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0])
+        self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
+                            10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
+
+        # Init trackers to weigh/avg 2kHz signals and containers for each signal
+        self.trackers = [self.update_tracker_grf, 
+                         self.update_tracker_velocity]
+        self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
+        self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
+        for foot in self.sim.feet_body_name:
+            self.feet_grf_2khz_avg[foot] = self.sim.get_body_contact_force(name=foot)
+            self.feet_velocity_2khz_avg[foot] = self.sim.get_body_velocity(name=foot)
 
     def reset_simulation(self):
         """Reset simulator.
@@ -95,7 +104,8 @@ class DigitEnv(GenericEnv):
             # step simulation
             self.sim.sim_forward()
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
-            self.foot_GRF = None
+            for tracker in self.trackers:
+                tracker(weighting=1/simulator_repeat_steps, sim_step=sim_step)
 
     def get_robot_state(self):
         """Get standard robot prioceptive states
@@ -113,7 +123,27 @@ class DigitEnv(GenericEnv):
         ])
         return robot_state
 
-    def rotate_to_heading(self, orientation: list):
+    def update_tracker_grf(self, weighting: float, sim_step: int):
+        """Keep track of 2khz signals, aggragate, and average uniformly.
+
+        Args:
+            weighting (float): weightings of each signal at simulation step to aggregate total
+            sim_step (int): indicate which simulation step
+        """
+        for foot in self.feet_grf_2khz_avg.keys():
+            if sim_step == 0: # reset at first sim step
+                self.feet_grf_2khz_avg[foot] = 0.0    
+            self.feet_grf_2khz_avg[foot] += \
+                weighting * self.sim.get_body_contact_force(name=foot)
+
+    def update_tracker_velocity(self, weighting: float, sim_step: int):
+        for foot in self.feet_velocity_2khz_avg.keys():
+            if sim_step == 0: # reset at first sim step
+                self.feet_velocity_2khz_avg[foot] = 0.0    
+            self.feet_velocity_2khz_avg[foot] += \
+                weighting * self.sim.get_body_velocity(name=foot)
+
+    def rotate_to_heading(self, orientation: np.ndarray):
         """Offset robot heading in world frame by self.orient_add amount
 
         Args:

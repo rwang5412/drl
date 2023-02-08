@@ -1,17 +1,19 @@
 import numpy as np
+
 from env.util.quaternion import *
+from util.colors import FAIL, ENDC
 
 def kernel(x):
   return np.exp(-x)
 
 def compute_reward(self, action):
     assert hasattr(self, "clock"), \
-        f"Environment {self.__class__.__name__} does not have a clock object"
+        f"{FAIL}Environment {self.__class__.__name__} does not have a clock object.{ENDC}"
     assert self.clock is not None, \
-        f"Clock has not been initialized, is still None"
+        f"{FAIL}Clock has not been initialized, is still None.{ENDC}"
     assert self.clock_type == "linear", \
-        f"locomotion_linear_clock_reward should be used with linear clock type, but clock type is" \
-        f"{self.clock_type}."
+        f"{FAIL}locomotion_linear_clock_reward should be used with linear clock type, but clock " \
+        f"type is {self.clock_type}.{ENDC}"
 
     q = {}
 
@@ -27,19 +29,13 @@ def compute_reward(self, action):
     l_stance = 1 - l_force
     r_stance = 1 - r_force
 
-    feet_force = {}
-    feet_vel = {}
-    feet_pose = {}
-    for foot_name in self.sim.feet_body_name:
-        vel = np.linalg.norm(self.sim.get_body_velocity(foot_name)[0:3])
-        force = np.linalg.norm(self.sim.get_body_contact_force(foot_name))
-        side = "left" if "left" in foot_name else "right"
-        feet_force[f"{side} foot"] = force
-        feet_vel[f"{side} foot"] = vel
-    for foot_name in self.sim.feet_site_name:
-        pose = self.sim.get_site_pose(foot_name)
-        side = "left" if "left" in foot_name else "right"
-        feet_pose[f"{side} foot"] = pose
+    # Retrieve states
+    l_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[0]])
+    r_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[0]])
+    r_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[0])
+    r_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[1])
 
     if self.x_velocity <= 1:
         des_foot_height = 0.1
@@ -48,13 +44,13 @@ def compute_reward(self, action):
     else:
         des_foot_height = 0.3
 
-    l_force_cost = np.abs(feet_force["left foot"]) / 75
-    r_force_cost = np.abs(feet_force["right foot"]) / 75
-    l_height_cost = (des_foot_height - feet_pose["left foot"][2])**2
-    r_height_cost = (des_foot_height - feet_pose["right foot"][2])**2
+    l_force_cost = l_foot_force / 75
+    r_force_cost = r_foot_force / 75
+    l_height_cost = (des_foot_height - l_foot_pose[2])**2
+    r_height_cost = (des_foot_height - r_foot_pose[2])**2
 
-    q["l_foot_cost_forcevel"] = l_force * l_force_cost + l_stance * feet_vel["left foot"]
-    q["r_foot_cost_forcevel"] = r_force * r_force_cost + r_stance * feet_vel["right foot"]
+    q["l_foot_cost_forcevel"] = l_force * l_force_cost + l_stance * l_foot_vel
+    q["r_foot_cost_forcevel"] = r_force * r_force_cost + r_stance * r_foot_vel
     q["l_foot_cost_pos"] = l_swing * l_height_cost
     q["r_foot_cost_pos"] = r_swing * r_height_cost
 
@@ -85,8 +81,8 @@ def compute_reward(self, action):
     ### Foot orientation rewards ###
     # Foor orientation target in global frame. Want to be flat and face same direction as base all
     # the time. So compare to the same orientation target as the base.
-    q["l_foot_orientation"] = quaternion_distance(target_quat, feet_pose["left foot"][3:])
-    q["r_foot_orientation"] = quaternion_distance(target_quat, feet_pose["right foot"][3:])
+    q["l_foot_orientation"] = quaternion_distance(target_quat, l_foot_pose[3:])
+    q["r_foot_orientation"] = quaternion_distance(target_quat, r_foot_pose[3:])
 
     ### Stable base reward terms.  Don't want base to rotate or accelerate too much ###
     base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
