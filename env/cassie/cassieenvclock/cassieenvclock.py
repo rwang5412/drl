@@ -6,20 +6,20 @@ import traceback
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
-from env import DigitEnv
+from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
 from util.colors import FAIL, WARNING, ENDC
 
-class DigitEnvClock(DigitEnv):
+class CassieEnvClock(CassieEnv):
 
     def __init__(self,
-                 cycle_time: float,
                  clock_type: str,
                  reward_name: str,
                  simulator_type: str,
                  terrain: bool,
                  policy_rate: int,
-                 dynamics_randomization: bool):
+                 dynamics_randomization: bool,
+                 **kwargs):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -34,15 +34,7 @@ class DigitEnvClock(DigitEnv):
         self.action_space = None
 
         # Clock variables
-        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        self.cycle_time = cycle_time
-        phase_add = 1 / self.default_policy_rate
-        swing_ratios = [0.4, 0.4]
-        period_shifts = [0.0, 0.5]
-        self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         self.clock_type = clock_type
-        if self.clock_type == "von_mises":
-            self.clock.precompute_von_mises()
 
         # Command variables
         self.traj_idx = 0
@@ -77,11 +69,13 @@ class DigitEnvClock(DigitEnv):
             self._compute_reward = reward_module.compute_reward
             self._compute_done = reward_module.compute_done
         except ModuleNotFoundError:
-            print(f"{FAIL}ERROR: No such reward '{reward}'.{ENDC}")
+            print(f"{FAIL}ERROR: No such reward '{self.reward_name}'.{ENDC}")
             exit(1)
         except:
             print(traceback.format_exc())
             exit(1)
+
+        self.reset()
 
     def reset(self):
         """Reset simulator and env variables.
@@ -91,7 +85,8 @@ class DigitEnvClock(DigitEnv):
         """
         self.reset_simulation()
         # Randomize commands
-        self._x_velocity = np.random.uniform(*self._x_velocity_bounds)
+        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
+        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
         if self.x_velocity > 2.0:
             self.y_velocity = 0
         else:
@@ -109,7 +104,6 @@ class DigitEnvClock(DigitEnv):
         return self.get_state()
 
     def step(self, action: np.ndarray):
-
         if self.dynamics_randomization:
             self.policy_rate = self.default_policy_rate + np.random.randint(-5, 6)
         else:

@@ -6,20 +6,20 @@ import traceback
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
-from env import CassieEnv
+from env.digit.digitenv import DigitEnv
 from importlib import import_module
 from util.colors import FAIL, WARNING, ENDC
 
-class CassieEnvClock(CassieEnv):
+class DigitEnvClock(DigitEnv):
 
     def __init__(self,
-                 cycle_time: float,
                  clock_type: str,
                  reward_name: str,
                  simulator_type: str,
                  terrain: bool,
                  policy_rate: int,
-                 dynamics_randomization: bool):
+                 dynamics_randomization: bool,
+                 **kwargs):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -69,7 +69,7 @@ class CassieEnvClock(CassieEnv):
             self._compute_reward = reward_module.compute_reward
             self._compute_done = reward_module.compute_done
         except ModuleNotFoundError:
-            print(f"{FAIL}ERROR: No such reward '{reward}'.{ENDC}")
+            print(f"{FAIL}ERROR: No such reward '{self.reward_name}'.{ENDC}")
             exit(1)
         except:
             print(traceback.format_exc())
