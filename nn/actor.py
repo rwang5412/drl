@@ -64,8 +64,8 @@ class Actor:
         """Return the log probability of a distribution given state and action
         """
         log_prob = self.pdf(state=state).log_prob(action).sum(-1, keepdim=True)
-        if self.bounded: # 
-            log_prob -= torch.log((1 - torch.tanh(state).pow(2)) + 1e-6)
+        if self.bounded: # SAC, Appendix C, https://arxiv.org/pdf/1801.01290.pdf
+            log_prob -= torch.log((1 - torch.tanh(state).pow(2)) + 1e-6).sum(-1, keepdim=True)
         return log_prob
 
     def actor_forward(self, 
@@ -102,7 +102,7 @@ class Actor:
         if return_log_prob:
             log_prob = dist.log_prob(stochastic_action).sum(-1, keepdim=True)
             if self.bounded:
-                log_prob -= torch.log((1 - torch.tanh(stochastic_action).pow(2)) + 1e-6)
+                log_prob -= torch.log((1 - torch.tanh(stochastic_action).pow(2)) + 1e-6).sum(-1, keepdim=True)
             return action, log_prob
         else:
             return action

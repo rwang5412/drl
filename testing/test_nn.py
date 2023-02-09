@@ -5,71 +5,137 @@ from nn.critic import FFCritic, LSTMCritic, MixCritic
 from nn.base import FFBase, LSTMBase, MixBase
 from util.colors import FAIL, ENDC, OKGREEN
 
-def test_nn():
-    state_size = 50
-    traj_length = 100
-    num_traj = 30
-    state_batch_size = (num_traj, traj_length, state_size)
-    x = torch.zeros((state_size,))
-    x_batch = torch.zeros(state_batch_size)
-    ff_layers = [128, 128]
-    lstm_layers = [64, 64]
-    
-    ff_base = FFBase(in_dim=state_size, layers=ff_layers)
-    assert ff_base._base_forward(x).size(dim=0) == ff_layers[-1], f"{ff_base.__class__.__name__} output wrong size."
-    
-    lstm_base = LSTMBase(in_dim=state_size, layers=lstm_layers)
-    lstm_base.init_hidden_state()
-    assert lstm_base._base_forward(x).size(dim=0) == lstm_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
-    lstm_base.init_hidden_state()
-    assert lstm_base._base_forward(x_batch).size(dim=0) == num_traj, f"{lstm_base.__class__.__name__} num traj output wrong size."
-    assert lstm_base._base_forward(x_batch).size(dim=1) == traj_length, f"{lstm_base.__class__.__name__} traj length output wrong size."
-    assert lstm_base._base_forward(x_batch).size(dim=2) == lstm_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
-    
-    mix_base = MixBase(in_dim=state_size, state_dim=40, nonstate_dim=10, lstm_layers=lstm_layers,
-                        ff_layers=ff_layers, nonstate_encoder_dim=10)
-    mix_base.init_hidden_state()
-    assert mix_base._base_forward(x).size(dim=0) == ff_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
-    mix_base.init_hidden_state()
-    assert mix_base._base_forward(x_batch).size(dim=0) == num_traj, f"{lstm_base.__class__.__name__} num traj output wrong size."
-    assert mix_base._base_forward(x_batch).size(dim=1) == traj_length, f"{lstm_base.__class__.__name__} traj length output wrong size."
-    assert mix_base._base_forward(x_batch).size(dim=2) == ff_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
+state_size = 50
+traj_length = 100
+num_traj = 30
+state_batch_size = (num_traj, traj_length, state_size)
+x = torch.zeros((state_size,))
+x_batch = torch.zeros(state_batch_size)
+ff_layers = [128, 128]
+lstm_layers = [64, 64]
+action_size = 10
 
-    action_size = 10
-    
-    ff_actor = FFActor(input_dim=state_size, action_dim=action_size, layers=ff_layers, 
-                       bounded=False, learn_std=False, std=0.1)
-    action = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
-    assert action.size(dim=0) == action_size, f"{ff_actor.__class__.__name__} output wrong size."
-    
+def test_base_module(base_partial):
+
+    if base_partial == FFBase:
+        ff_base = FFBase(in_dim=state_size, layers=ff_layers)
+        assert ff_base._base_forward(x).size(dim=0) == ff_layers[-1], f"{ff_base.__class__.__name__} output wrong size."
+    elif base_partial == LSTMBase:
+        lstm_base = LSTMBase(in_dim=state_size, layers=lstm_layers)
+        lstm_base.init_hidden_state()
+        assert lstm_base._base_forward(x).size(dim=0) == lstm_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
+        lstm_base.init_hidden_state()
+        assert lstm_base._base_forward(x_batch).size(dim=0) == num_traj, f"{lstm_base.__class__.__name__} num traj output wrong size."
+        assert lstm_base._base_forward(x_batch).size(dim=1) == traj_length, f"{lstm_base.__class__.__name__} traj length output wrong size."
+        assert lstm_base._base_forward(x_batch).size(dim=2) == lstm_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
+    elif base_partial == MixBase:
+        mix_base = MixBase(in_dim=state_size, state_dim=40, nonstate_dim=10, lstm_layers=lstm_layers,
+                            ff_layers=ff_layers, nonstate_encoder_dim=10)
+        mix_base.init_hidden_state()
+        assert mix_base._base_forward(x).size(dim=0) == ff_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
+        mix_base.init_hidden_state()
+        assert mix_base._base_forward(x_batch).size(dim=0) == num_traj, f"{lstm_base.__class__.__name__} num traj output wrong size."
+        assert mix_base._base_forward(x_batch).size(dim=1) == traj_length, f"{lstm_base.__class__.__name__} traj length output wrong size."
+        assert mix_base._base_forward(x_batch).size(dim=2) == ff_layers[-1], f"{lstm_base.__class__.__name__} output wrong size."
+    else:
+        raise RuntimeError("No such base module exists.")
+
+def test_actor_module(actor_partial):
+
+    if actor_partial == FFActor:
+        ff_actor = FFActor(input_dim=state_size, action_dim=action_size, layers=ff_layers,
+                        bounded=False, learn_std=False, std=0.1)
+        action = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
+        assert action.size(dim=0) == action_size, f"{ff_actor.__class__.__name__} output wrong size."
+        test_actor_forward(ff_actor)
+    elif actor_partial == LSTMActor:
+        lstm_actor = LSTMActor(input_dim=state_size, action_dim=action_size, layers=lstm_layers,
+                            bounded=False, learn_std=False, std=0.1)
+        action = lstm_actor.forward(x, deterministic=False, update_normalization_param=False)
+        assert action.size(dim=0) == action_size, f"{lstm_actor.__class__.__name__} output wrong size."
+        action = lstm_actor.forward(x_batch, deterministic=False, update_normalization_param=False)
+        assert lstm_actor.forward(x_batch).size(dim=0) == num_traj, f"{lstm_actor.__class__.__name__} num traj output wrong size."
+        assert lstm_actor.forward(x_batch).size(dim=1) == traj_length, f"{lstm_actor.__class__.__name__} traj length output wrong size."
+        assert lstm_actor.forward(x_batch).size(dim=2) == action_size, f"{lstm_actor.__class__.__name__} output wrong size."
+        test_actor_forward(lstm_actor)
+    elif actor_partial == MixActor:
+        mix_actor = MixActor(input_dim=state_size, state_dim=40, nonstate_dim=10, action_dim=action_size,
+                            lstm_layers=lstm_layers, ff_layers=ff_layers, bounded=True,
+                            learn_std=False, std=0.1, nonstate_encoder_dim=10, nonstate_encoder_on=True)
+        action = mix_actor.forward(x, deterministic=False, update_normalization_param=False)
+        assert action.size(dim=0) == action_size, f"{mix_actor.__class__.__name__} output wrong size."
+        action = mix_actor.forward(x_batch, deterministic=False, update_normalization_param=False)
+        assert mix_actor.forward(x_batch).size(dim=0) == num_traj, f"{mix_actor.__class__.__name__} num traj output wrong size."
+        assert mix_actor.forward(x_batch).size(dim=1) == traj_length, f"{mix_actor.__class__.__name__} traj length output wrong size."
+        assert mix_actor.forward(x_batch).size(dim=2) == action_size, f"{mix_actor.__class__.__name__} output wrong size."
+        test_actor_forward(mix_actor)
+    else:
+        raise RuntimeError("No such base module exists.")
+
+def test_critic_module(critic_partial):
+
+    if critic_partial == FFCritic:
+        ff_critic = FFCritic(input_dim=state_size, layers=ff_layers)
+        action = ff_critic.forward(x, update_normalization_param=False)
+        assert action.size(dim=0) == 1, f"{ff_critic.__class__.__name__} output wrong size."
+    elif critic_partial == LSTMCritic:
+        lstm_critic = LSTMCritic(input_dim=state_size, layers=lstm_layers)
+        action = lstm_critic.forward(x, update_normalization_param=False)
+        assert action.size(dim=0) == 1, f"{lstm_critic.__class__.__name__} output wrong size."
+        action = lstm_critic.forward(x_batch, update_normalization_param=False)
+        assert lstm_critic.forward(x_batch).size(dim=0) == num_traj, f"{lstm_critic.__class__.__name__} num traj output wrong size."
+        assert lstm_critic.forward(x_batch).size(dim=1) == traj_length, f"{lstm_critic.__class__.__name__} traj length output wrong size."
+        assert lstm_critic.forward(x_batch).size(dim=2) == 1, f"{lstm_critic.__class__.__name__} output wrong size."
+    elif critic_partial == MixCritic:
+        mix_critic = MixCritic(input_dim=state_size, state_dim=40, nonstate_dim=10,
+                            lstm_layers=lstm_layers, ff_layers=ff_layers, nonstate_encoder_dim=10, nonstate_encoder_on=True)
+        action = mix_critic.forward(x, update_normalization_param=False)
+        assert action.size(dim=0) == 1, f"{mix_critic.__class__.__name__} output wrong size."
+        action = mix_critic.forward(x_batch, update_normalization_param=False)
+        assert mix_critic.forward(x_batch).size(dim=0) == num_traj, f"{mix_critic.__class__.__name__} num traj output wrong size."
+        assert mix_critic.forward(x_batch).size(dim=1) == traj_length, f"{mix_critic.__class__.__name__} traj length output wrong size."
+        assert mix_critic.forward(x_batch).size(dim=2) == 1, f"{mix_critic.__class__.__name__} output wrong size."
+    else:
+        raise RuntimeError("No such base module exists.")
+
+def test_actor_forward(actor):
+    if actor.is_recurrent:
+        actor.init_hidden_state()
     # This essentially tests shared method for actors, regardless of actor type.
-    a1 = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
-    a2 = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
+    a1 = actor.forward(x, deterministic=False, update_normalization_param=False)
+    a2 = actor.forward(x, deterministic=False, update_normalization_param=False)
     assert not torch.equal(a1, a2), "Stochastic forward result in the same output!"
-    log_prob = ff_actor.log_prob(state=x, action=torch.zeros((action_size)))
+
+    log_prob = actor.log_prob(state=x, action=torch.zeros((action_size)))
     assert not torch.isnan(log_prob), "Log prob is Nan!"
     assert torch.isreal(log_prob), "Log prob is not real number!"
-    _, log_prob = ff_actor.forward(x, deterministic=False, update_normalization_param=False,
+    _, log_prob = actor.forward(x, deterministic=False, update_normalization_param=False,
                                    return_log_prob=True)
     assert not torch.isnan(log_prob), "Log prob is Nan!"
     assert torch.isreal(log_prob), "Log prob is not real number!"
 
-    lstm_actor = LSTMActor(input_dim=state_size, action_dim=action_size, layers=lstm_layers,
-                           bounded=False, learn_std=False, std=0.1)
-    action = lstm_actor.forward(x, deterministic=False, update_normalization_param=False)
-    assert action.size(dim=0) == action_size, f"{lstm_actor.__class__.__name__} output wrong size."
-    action = lstm_actor.forward(x_batch, deterministic=False, update_normalization_param=False)
-    assert lstm_actor.forward(x_batch).size(dim=0) == num_traj, f"{lstm_actor.__class__.__name__} num traj output wrong size."
-    assert lstm_actor.forward(x_batch).size(dim=1) == traj_length, f"{lstm_actor.__class__.__name__} traj length output wrong size."
-    assert lstm_actor.forward(x_batch).size(dim=2) == action_size, f"{lstm_actor.__class__.__name__} output wrong size."
-    
-    mix_actor = MixActor(input_dim=state_size, state_dim=40, nonstate_dim=10, action_dim=action_size,
-                         lstm_layers=lstm_layers, ff_layers=ff_layers, bounded=True,
-                         learn_std=False, std=0.1, nonstate_encoder_dim=10, nonstate_encoder_on=True)
-    action = mix_actor.forward(x, deterministic=False, update_normalization_param=False)
-    assert action.size(dim=0) == action_size, f"{mix_actor.__class__.__name__} output wrong size."
-    action = lstm_actor.forward(x_batch, deterministic=False, update_normalization_param=False)
-    assert mix_actor.forward(x_batch).size(dim=0) == num_traj, f"{mix_actor.__class__.__name__} num traj output wrong size."
-    assert mix_actor.forward(x_batch).size(dim=1) == traj_length, f"{mix_actor.__class__.__name__} traj length output wrong size."
-    assert mix_actor.forward(x_batch).size(dim=2) == action_size, f"{mix_actor.__class__.__name__} output wrong size."
+    if actor.is_recurrent:
+        log_prob = actor.log_prob(state=x_batch, action=torch.zeros((action_size)))
+        assert not torch.any(torch.isnan(log_prob)), "Log prob is Nan!"
+        assert torch.any(torch.isreal(log_prob)), "Log prob is not real number!"
+        _, log_prob = actor.forward(x_batch, deterministic=False, update_normalization_param=False,
+                                    return_log_prob=True)
+        assert not torch.any(torch.isnan(log_prob)), "Log prob is Nan!"
+        assert torch.any(torch.isreal(log_prob)), "Log prob is not real number!"
+
+def test_nn():
+
+    base_modules = [FFBase, LSTMBase, MixBase]
+    actor_modules = [FFActor, LSTMActor, MixActor]
+    critic_modules = [FFCritic, LSTMCritic, MixCritic]
+
+    for m in base_modules:
+        test_base_module(m)
+
+    for a in actor_modules:
+        test_actor_module(a)
+
+    for c in critic_modules:
+        test_critic_module(c)
+
     print(f"{OKGREEN}Passed all NN tests! \u2713{ENDC}")
