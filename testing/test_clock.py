@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import time
-from env import (
-    CassieEnvClock,
-    DigitEnvClock
-)
+
+from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
+from env.digit.digitenvclock.digitenvclock import DigitEnvClock
 from env.util.periodicclock import PeriodicClock
 
 

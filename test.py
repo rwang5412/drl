@@ -4,7 +4,7 @@ import os
 import pickle
 import sys
 
-import testing.test_sim as ts
+import testing.test_sim as test_sim
 import testing.test_env as test_env
 
 from testing.test_ar_sim import (
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     if args.env:
         test_env.test_all_env()
     if args.sim:
-        ts.test_all_sim()
+        test_sim.test_all_sim()
     if args.ar:
         asyncio.run(test_ar_connect())
         asyncio.run(test_ar_api_goto())
