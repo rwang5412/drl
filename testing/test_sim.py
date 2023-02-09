@@ -23,6 +23,7 @@ def test_all_sim():
     # TODO: Add other sims to this list after implemented
     sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
     num_pass = 0
+    failed = False
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
@@ -41,9 +42,11 @@ def test_all_sim():
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
+            failed = True
             print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 12 tests.{ENDC}")
         num_pass = 0
-    print(f"{OKGREEN}Passed all sim tests! \u2713{ENDC}")
+    if not failed:
+        print(f"{OKGREEN}Passed all sim tests! \u2713{ENDC}")
 
 def test_sim_init(sim):
     print("Making sim")
@@ -142,6 +145,24 @@ def test_sim_PD(sim):
     else:
         print("Passed sim PD")
         return True
+
+def test_sim_drop(sim):
+    print("Testing sim PD")
+    test_sim = sim()
+    test_sim.reset()
+    test_sim.set_base_position(np.array([0, 0, 1.5]))
+    test_sim.viewer_init()
+    render_state = test_sim.viewer_render()
+    while render_state:
+        start_t = time.time()
+        if not test_sim.viewer_paused():
+            for _ in range(50):
+                test_sim.set_PD(test_sim.offset, np.zeros(test_sim.num_actuators), test_sim.kp, test_sim.kd)
+                test_sim.sim_forward()
+        render_state = test_sim.viewer_render()
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
+    return True
 
 def test_sim_get_set(sim):
     print("Testing sim getter and setter functions")
