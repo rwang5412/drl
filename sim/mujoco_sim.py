@@ -20,7 +20,7 @@ class MujocoSim(GenericSim):
         check_vars = ["torque_delay_cycles", "torque_efficiency", "motor_position_inds",
             "motor_velocity_inds", "joint_position_inds", "joint_velocity_inds",
             "base_position_inds", "base_orientation_inds", "base_linear_velocity_inds",
-            "base_angular_velocity_inds"]
+            "base_angular_velocity_inds", "num_actuators", "num_joints", "reset_qpos"]
         for var in check_vars:
             assert hasattr(self, var), \
                 f"{FAIL}Env {self.__class__.__name__} has not defined self.{var}.{ENDC}"
