@@ -35,8 +35,9 @@ class PeriodicClock:
     def input_clock(self):
         # NOTE: This is doing straight sin/cos clock. I don't know if we want to use the input
         # clocks where it changes with period shift too.
-        clock = [np.sin(2 * np.pi * (self._phase / self._cycle_time)),
-                 np.cos(2 * np.pi * (self._phase / self._cycle_time))]
+        # clock = [np.sin(2 * np.pi * (self._phase / self._cycle_time)),
+        #          np.cos(2 * np.pi * (self._phase / self._cycle_time))]
+        clock = [np.sin(2 * np.pi * ((self._phase/self._cycle_time)+s)) for s in self._period_shifts]
         return clock
 
     def linear_clock(self, percent_transition: float = 0.2):
