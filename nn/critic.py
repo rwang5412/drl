@@ -14,6 +14,31 @@ class Critic:
         """
         self.critic_last_layer = nn.Linear(latent, 1)
 
+        # Params for nn-input normalization
+        self.welford_state_mean = torch.zeros(1)
+        self.welford_state_mean_diff = torch.ones(1)
+        self.welford_state_n = 1
+
+    def normalize_state(self, state, update_normalization_param=True):
+        """
+        Use Welford's algorithm to normalize a state, and optionally update the statistics
+        for normalizing states using the new state, online.
+        """
+
+        if self.welford_state_n == 1:
+            self.welford_state_mean = torch.zeros(state.size(-1)).to(state.device)
+            self.welford_state_mean_diff = torch.ones(state.size(-1)).to(state.device)
+
+        if update_normalization_param:
+            if len(state.size()) == 1:  # if we get a single state vector
+                state_old = self.welford_state_mean
+                self.welford_state_mean += (state - state_old) / self.welford_state_n
+                self.welford_state_mean_diff += (state - state_old) * (state - state_old)
+                self.welford_state_n += 1
+            else:
+                raise RuntimeError  # this really should not happen
+        return (state - self.welford_state_mean) / torch.sqrt(self.welford_state_mean_diff / self.welford_state_n)
+
     def critic_forward(self, state, update_norm=False):
         """Forward pass output value function result.
 
