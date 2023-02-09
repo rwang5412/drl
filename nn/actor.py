@@ -12,7 +12,10 @@ class Actor:
                  bounded: bool, 
                  learn_std: bool, 
                  std: float):
-        """The base class for stochastic actors.
+        """The base class for actors. This class alone cannot be used for training, since it does
+        not have complete model definition. normalize_state() and _base_forward() would be required
+        to loaded to perform complete forward pass. Thus, child classes need to inherit 
+        this class with any model class in base.py. 
 
         Args:
             latent (int): Input size for last action layer.
@@ -28,36 +31,6 @@ class Actor:
         self.learn_std  = learn_std
         if self.learn_std:
             self.log_stds = nn.Linear(latent, action_dim)
-
-        # Params for nn-input normalization
-        self.welford_state_mean = torch.zeros(1)
-        self.welford_state_mean_diff = torch.ones(1)
-        self.welford_state_n = 1
-
-    def normalize_state(self, state, update_normalization_param=True):
-        """
-        Use Welford's algorithm to normalize a state, and optionally update the statistics
-        for normalizing states using the new state, online.
-        """
-
-        if self.welford_state_n == 1:
-            self.welford_state_mean = torch.zeros(state.size(-1)).to(state.device)
-            self.welford_state_mean_diff = torch.ones(state.size(-1)).to(state.device)
-
-        if update_normalization_param:
-            if len(state.size()) == 1:  # if we get a single state vector
-                state_old = self.welford_state_mean
-                self.welford_state_mean += (state - state_old) / self.welford_state_n
-                self.welford_state_mean_diff += (state - state_old) * (state - state_old)
-                self.welford_state_n += 1
-            else:
-                raise RuntimeError  # this really should not happen
-        return (state - self.welford_state_mean) / torch.sqrt(self.welford_state_mean_diff / self.welford_state_n)
-
-    def copy_normalizer_stats(self, net):
-        self.welford_state_mean      = net.welford_state_mean
-        self.welford_state_mean_diff = net.welford_state_mean_diff
-        self.welford_state_n         = net.welford_state_n
 
     def _get_distrbution_params(self, input_state, update_normalization_param):
         """Perform a complete forward pass of the model and output mean/std for policy

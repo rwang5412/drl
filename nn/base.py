@@ -36,6 +36,11 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.is_recurrent = False
 
+        # Params for nn-input normalization
+        self.welford_state_mean = torch.zeros(1)
+        self.welford_state_mean_diff = torch.ones(1)
+        self.welford_state_n = 1
+
     def initialize_parameters(self):
         self.apply(normc_fn)
         if hasattr(self, 'critic_last_layer'):
@@ -43,6 +48,31 @@ class Net(nn.Module):
 
     def _base_forward(self, x):
         raise NotImplementedError
+
+    def normalize_state(self, state, update_normalization_param=True):
+        """
+        Use Welford's algorithm to normalize a state, and optionally update the statistics
+        for normalizing states using the new state, online.
+        """
+
+        if self.welford_state_n == 1:
+            self.welford_state_mean = torch.zeros(state.size(-1)).to(state.device)
+            self.welford_state_mean_diff = torch.ones(state.size(-1)).to(state.device)
+
+        if update_normalization_param:
+            if len(state.size()) == 1:  # if we get a single state vector
+                state_old = self.welford_state_mean
+                self.welford_state_mean += (state - state_old) / self.welford_state_n
+                self.welford_state_mean_diff += (state - state_old) * (state - state_old)
+                self.welford_state_n += 1
+            else:
+                raise RuntimeError  # this really should not happen
+        return (state - self.welford_state_mean) / torch.sqrt(self.welford_state_mean_diff / self.welford_state_n)
+
+    def copy_normalizer_stats(self, net):
+        self.welford_state_mean      = net.welford_state_mean
+        self.welford_state_mean_diff = net.welford_state_mean_diff
+        self.welford_state_n         = net.welford_state_n
 
 class FFBase(Net):
     """
