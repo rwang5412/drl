@@ -16,6 +16,18 @@ class MujocoSim(GenericSim):
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
         self.viewer = None
+        # Enforce that necessary constants and index arrays are defined
+        check_vars = ["torque_delay_cycles", "torque_efficiency", "motor_position_inds",
+            "motor_velocity_inds", "joint_position_inds", "joint_velocity_inds",
+            "base_position_inds", "base_orientation_inds", "base_linear_velocity_inds",
+            "base_angular_velocity_inds", "num_actuators", "num_joints", "reset_qpos"]
+        for var in check_vars:
+            assert hasattr(self, var), \
+                f"{FAIL}Env {self.__class__.__name__} has not defined self.{var}.{ENDC}"
+            assert getattr(self, var) is not None, \
+                f"{FAIL}In env {self.__class__.__name__} self.{var} is None.{ENDC}"
+
+        self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
 
     def reset(self, qpos: np.ndarray=None):
         if qpos is not None:
@@ -41,7 +53,11 @@ class MujocoSim(GenericSim):
         assert torque.shape == (self.num_actuators,), \
                f"{FAIL}set_torque got array of shape {torque.shape} but " \
                f"should be shape ({self.num_actuators},).{ENDC}"
-        self.data.ctrl[:] = torque
+        # Apply next torque command in buffer
+        self.data.ctrl[:] = self.torque_buffer[0, :]
+        # Shift torque buffer values and append new command at the end
+        self.torque_buffer = np.roll(self.torque_buffer, -1, axis = 0)
+        self.torque_buffer[-1, :] = self.torque_efficiency * torque / self.model.actuator_gear[:, 0]
 
     def set_PD(self,
                setpoint: np.ndarray,
@@ -53,9 +69,12 @@ class MujocoSim(GenericSim):
             if arg != "self":
                 assert args[arg].shape == (self.model.nu,), \
                 f"{FAIL}set_PD {arg} was not a 1 dimensional array of size {self.model.nu}{ENDC}"
-        torque = kp * (setpoint - self.data.qpos[self.motor_position_inds]) + \
-                 kd * (velocity - self.data.qvel[self.motor_velocity_inds])
-        self.data.ctrl[:] = torque
+        torque = kp * (setpoint - self.data.qpos[self.motor_position_inds])
+        # Explicit damping
+        torque += kd * velocity
+        # Implicit damping
+        self.model.dof_damping[self.motor_velocity_inds] = kd
+        self.set_torque(torque)
 
     def hold(self):
         """Set stiffness/damping for base 6DOF so base is fixed
