@@ -21,26 +21,24 @@ from util.colors import OKGREEN, FAIL, ENDC
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    # sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
-    sim_list = [LibCassieSim, MjCassieSim]
+    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
     num_pass = 0
     failed = False
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        test_sim_drop(sim)
-        # num_pass += test_sim_init(sim)
-        # num_pass += test_sim_sim_forward(sim)
-        # num_pass += test_sim_viewer(sim)
-        # num_pass += test_sim_glfw_multiple_viewer(sim)
-        # num_pass += test_sim_PD(sim)
-        # num_pass += test_sim_get_set(sim)
-        # num_pass += test_sim_indexes(sim)
-        # num_pass += test_sim_body_pose(sim)
-        # num_pass += test_sim_body_velocity(sim)
-        # num_pass += test_sim_body_acceleration(sim)
-        # num_pass += test_sim_body_contact_force(sim)
-        # num_pass += test_sim_relative_pose(sim)
+        num_pass += test_sim_init(sim)
+        num_pass += test_sim_sim_forward(sim)
+        num_pass += test_sim_viewer(sim)
+        num_pass += test_sim_glfw_multiple_viewer(sim)
+        num_pass += test_sim_PD(sim)
+        num_pass += test_sim_get_set(sim)
+        num_pass += test_sim_indexes(sim)
+        num_pass += test_sim_body_pose(sim)
+        num_pass += test_sim_body_velocity(sim)
+        num_pass += test_sim_body_acceleration(sim)
+        num_pass += test_sim_body_contact_force(sim)
+        num_pass += test_sim_relative_pose(sim)
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:

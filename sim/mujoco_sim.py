@@ -58,7 +58,6 @@ class MujocoSim(GenericSim):
         # Shift torque buffer values and append new command at the end
         self.torque_buffer = np.roll(self.torque_buffer, -1, axis = 0)
         self.torque_buffer[-1, :] = self.torque_efficiency * torque / self.model.actuator_gear[:, 0]
-        self.data.ctrl[:] = torque
 
     def set_PD(self,
                setpoint: np.ndarray,
