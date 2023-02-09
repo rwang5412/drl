@@ -29,6 +29,36 @@ class Actor:
         if self.learn_std:
             self.log_stds = nn.Linear(latent, action_dim)
 
+        # Params for nn-input normalization
+        self.welford_state_mean = torch.zeros(1)
+        self.welford_state_mean_diff = torch.ones(1)
+        self.welford_state_n = 1
+
+    def normalize_state(self, state, update_normalization_param=True):
+        """
+        Use Welford's algorithm to normalize a state, and optionally update the statistics
+        for normalizing states using the new state, online.
+        """
+
+        if self.welford_state_n == 1:
+            self.welford_state_mean = torch.zeros(state.size(-1)).to(state.device)
+            self.welford_state_mean_diff = torch.ones(state.size(-1)).to(state.device)
+
+        if update_normalization_param:
+            if len(state.size()) == 1:  # if we get a single state vector
+                state_old = self.welford_state_mean
+                self.welford_state_mean += (state - state_old) / self.welford_state_n
+                self.welford_state_mean_diff += (state - state_old) * (state - state_old)
+                self.welford_state_n += 1
+            else:
+                raise RuntimeError  # this really should not happen
+        return (state - self.welford_state_mean) / torch.sqrt(self.welford_state_mean_diff / self.welford_state_n)
+
+    def copy_normalizer_stats(self, net):
+        self.welford_state_mean      = net.welford_state_mean
+        self.welford_state_mean_diff = net.welford_state_mean_diff
+        self.welford_state_n         = net.welford_state_n
+
     def _get_distrbution_params(self, input_state, update_normalization_param):
         """Perform a complete forward pass of the model and output mean/std for policy
         forward in stochastic_forward()
@@ -46,7 +76,7 @@ class Actor:
         latent = self._base_forward(state)
         mu = self.means(latent)
         if self.learn_std:
-            std = torch.clamp(self.log_stds(latent), -2, 1).exp()
+            std = torch.clamp(self.log_stds(latent), -3, 0.5).exp()
         else:
             std = self.std
         return mu, std
@@ -66,9 +96,10 @@ class Actor:
         return log_prob
 
     def actor_forward(self, 
-                      state: torch.Tensor, 
-                      deterministic=True, 
-                      update_normalization_param=False):
+                state: torch.Tensor,
+                deterministic=True,
+                update_normalization_param=False,
+                return_log_prob=False):
         """Perform actor forward in either deterministic or stochastic way, ie, inference/training.
         This function is default to inference mode. 
 
@@ -76,20 +107,32 @@ class Actor:
             state (torch.Tensor): Input to actor.
             deterministic (bool, optional): inference mode. Defaults to True.
             update_normalization_param (bool, optional): Toggle to update params. Defaults to False.
+            return_log_prob (bool, optional): Toggle to return log probability. Defaults to False.
 
         Returns:
-            action with or without noise.
+            Actions (deterministic or stochastic), with optional log probability.
         """
         mu, std = self._get_distrbution_params(state, 
                                                update_normalization_param=update_normalization_param)
-        if not deterministic: # draw random samples for stochastic forward
+        if not deterministic or return_log_prob:
+            # draw random samples for stochastic forward for training purpose
             dist = torch.distributions.Normal(mu, std)
-            sample = dist.rsample()
+            stochastic_action = dist.rsample()
+        
+        # Toggle bounded output or not
         if self.bounded:
-            action = torch.tanh(mu) if deterministic else torch.tanh(sample)
+            action = torch.tanh(mu) if deterministic else torch.tanh(stochastic_action)
         else:
-            action = mu if deterministic else sample
-        return action
+            action = mu if deterministic else stochastic_action
+
+        # Return log probability
+        if return_log_prob:
+            log_prob = dist.log_prob(stochastic_action).sum(-1, keepdim=True)
+            if self.bounded:
+                log_prob -= torch.log((1 - torch.tanh(stochastic_action).pow(2)) + 1e-6)
+            return action, log_prob
+        else:
+            return action
 
 class FFActor(FFBase, Actor):
     """
@@ -111,9 +154,11 @@ class FFActor(FFBase, Actor):
                        learn_std=learn_std, 
                        std=std)
 
-    def forward(self, x, deterministic=True, update_norm=False):
+    def forward(self, x, deterministic=True, 
+                update_normalization_param=False, return_log_prob=False):
         return self.actor_forward(x, deterministic=deterministic, 
-                                  update_normalization_param=update_norm)
+                                  update_normalization_param=update_normalization_param,
+                                  return_log_prob=return_log_prob)
 
 class LSTMActor(LSTMBase, Actor):
     """
@@ -139,9 +184,11 @@ class LSTMActor(LSTMBase, Actor):
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, update_norm=False):
+    def forward(self, x, deterministic=True, 
+                update_normalization_param=False, return_log_prob=False):
         return self.actor_forward(x, deterministic=deterministic, 
-                                  update_normalization_param=update_norm)
+                                  update_normalization_param=update_normalization_param,
+                                  return_log_prob=return_log_prob)
 
 class MixActor(MixBase, Actor):
     """
@@ -179,9 +226,11 @@ class MixActor(MixBase, Actor):
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, update_norm=False):
+    def forward(self, x, deterministic=True, 
+                update_normalization_param=False, return_log_prob=False):
         return self.actor_forward(x, deterministic=deterministic, 
-                                  update_normalization_param=update_norm)
+                                  update_normalization_param=update_normalization_param,
+                                  return_log_prob=return_log_prob)
 
     def latent_space(self, x):
         return self._latent_space_forward(x)
@@ -210,6 +259,8 @@ class GRUActor(GRUBase, Actor):
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, update_norm=False):
+    def forward(self, x, deterministic=True, 
+                update_normalization_param=False, return_log_prob=False):
         return self.actor_forward(x, deterministic=deterministic, 
-                                  update_normalization_param=update_norm)
+                                  update_normalization_param=update_normalization_param,
+                                  return_log_prob=return_log_prob)

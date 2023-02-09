@@ -3,6 +3,7 @@ import torch
 from nn.actor import FFActor, LSTMActor, MixActor
 from nn.critic import FFCritic, LSTMCritic, MixCritic
 from nn.base import FFBase, LSTMBase, MixBase
+from util.colors import FAIL, ENDC, OKGREEN
 
 def test_nn():
     state_size = 50
@@ -38,22 +39,26 @@ def test_nn():
     
     ff_actor = FFActor(input_dim=state_size, action_dim=action_size, layers=ff_layers, 
                        bounded=False, learn_std=False, std=0.1)
-    action = ff_actor.forward(x, deterministic=False, update_norm=False)
+    action = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
     assert action.size(dim=0) == action_size, f"{ff_actor.__class__.__name__} output wrong size."
     
     # This essentially tests shared method for actors, regardless of actor type.
-    a1 = ff_actor.forward(x, deterministic=False, update_norm=False)
-    a2 = ff_actor.forward(x, deterministic=False, update_norm=False)
+    a1 = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
+    a2 = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
     assert not torch.equal(a1, a2), "Stochastic forward result in the same output!"
     log_prob = ff_actor.log_prob(state=x, action=torch.zeros((action_size)))
     assert not torch.isnan(log_prob), "Log prob is Nan!"
     assert torch.isreal(log_prob), "Log prob is not real number!"
-    
+    _, log_prob = ff_actor.forward(x, deterministic=False, update_normalization_param=False,
+                                   return_log_prob=True)
+    assert not torch.isnan(log_prob), "Log prob is Nan!"
+    assert torch.isreal(log_prob), "Log prob is not real number!"
+
     lstm_actor = LSTMActor(input_dim=state_size, action_dim=action_size, layers=lstm_layers,
                            bounded=False, learn_std=False, std=0.1)
-    action = lstm_actor.forward(x, deterministic=False, update_norm=False)
+    action = lstm_actor.forward(x, deterministic=False, update_normalization_param=False)
     assert action.size(dim=0) == action_size, f"{lstm_actor.__class__.__name__} output wrong size."
-    action = lstm_actor.forward(x_batch, deterministic=False, update_norm=False)
+    action = lstm_actor.forward(x_batch, deterministic=False, update_normalization_param=False)
     assert lstm_actor.forward(x_batch).size(dim=0) == num_traj, f"{lstm_actor.__class__.__name__} num traj output wrong size."
     assert lstm_actor.forward(x_batch).size(dim=1) == traj_length, f"{lstm_actor.__class__.__name__} traj length output wrong size."
     assert lstm_actor.forward(x_batch).size(dim=2) == action_size, f"{lstm_actor.__class__.__name__} output wrong size."
@@ -61,9 +66,10 @@ def test_nn():
     mix_actor = MixActor(input_dim=state_size, state_dim=40, nonstate_dim=10, action_dim=action_size,
                          lstm_layers=lstm_layers, ff_layers=ff_layers, bounded=True,
                          learn_std=False, std=0.1, nonstate_encoder_dim=10, nonstate_encoder_on=True)
-    action = mix_actor.forward(x, deterministic=False, update_norm=False)
+    action = mix_actor.forward(x, deterministic=False, update_normalization_param=False)
     assert action.size(dim=0) == action_size, f"{mix_actor.__class__.__name__} output wrong size."
-    action = lstm_actor.forward(x_batch, deterministic=False, update_norm=False)
+    action = lstm_actor.forward(x_batch, deterministic=False, update_normalization_param=False)
     assert mix_actor.forward(x_batch).size(dim=0) == num_traj, f"{mix_actor.__class__.__name__} num traj output wrong size."
     assert mix_actor.forward(x_batch).size(dim=1) == traj_length, f"{mix_actor.__class__.__name__} traj length output wrong size."
     assert mix_actor.forward(x_batch).size(dim=2) == action_size, f"{mix_actor.__class__.__name__} output wrong size."
+    print(f"{OKGREEN}Passed all NN tests! \u2713{ENDC}")
