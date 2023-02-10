@@ -28,7 +28,6 @@ def test_all_env():
             print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
             print(traceback.format_exc())
 
-
     for pair in child_env_list:
         try:
             test_child_env_step(test_env=pair[0], test_sim=pair[1])
