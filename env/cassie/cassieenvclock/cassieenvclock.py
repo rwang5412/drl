@@ -30,14 +30,13 @@ class CassieEnvClock(CassieEnv):
                          dynamics_randomization=dynamics_randomization)
 
         # Define env specifics
-        self.observation_space = None
-        self.action_space = None
+        self.observation_space = 42
+        self.action_space = 10
 
         # Clock variables
         self.clock_type = clock_type
 
         # Command variables
-        self.traj_idx = 0
         self.orient_add = 0
         self.x_velocity = 0
         self.y_velocity = 0
@@ -48,8 +47,6 @@ class CassieEnvClock(CassieEnv):
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
         self._cycle_time_bounds = [0.75, 1.5]
-
-        self.last_action = None
 
         # Load reward module
         self.reward_name = reward_name
@@ -99,8 +96,11 @@ class CassieEnvClock(CassieEnv):
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
+            
+        # Reset env counter variables
         self.traj_idx = 0
         self.orient_add = 0
+        self.last_action = None
         return self.get_state()
 
     def step(self, action: np.ndarray):
