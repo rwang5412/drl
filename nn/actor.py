@@ -6,16 +6,16 @@ import math as math
 from nn.base import FFBase, LSTMBase, GRUBase, MixBase
 
 class Actor:
-    def __init__(self, 
-                 latent: int, 
-                 action_dim: int, 
-                 bounded: bool, 
-                 learn_std: bool, 
+    def __init__(self,
+                 latent: int,
+                 action_dim: int,
+                 bounded: bool,
+                 learn_std: bool,
                  std: float):
         """The base class for actors. This class alone cannot be used for training, since it does
         not have complete model definition. normalize_state() and _base_forward() would be required
-        to loaded to perform complete forward pass. Thus, child classes need to inherit 
-        this class with any model class in base.py. 
+        to loaded to perform complete forward pass. Thus, child classes need to inherit
+        this class with any model class in base.py.
 
         Args:
             latent (int): Input size for last action layer.
@@ -44,7 +44,7 @@ class Actor:
             mu: Model output, ie, mean of the distribution
             std: Optionally trainable param for distribution std. Default is constant.
         """
-        state = self.normalize_state(input_state, 
+        state = self.normalize_state(input_state,
                                      update_normalization_param=update_normalization_param)
         latent = self._base_forward(state)
         mu = self.means(latent)
@@ -59,22 +59,22 @@ class Actor:
         """
         mu, sd = self._get_distrbution_params(state, update_normalization_param=False)
         return torch.distributions.Normal(mu, sd)
-    
+
     def log_prob(self, state, action):
         """Return the log probability of a distribution given state and action
         """
         log_prob = self.pdf(state=state).log_prob(action).sum(-1, keepdim=True)
-        if self.bounded: # 
+        if self.bounded: #
             log_prob -= torch.log((1 - torch.tanh(state).pow(2)) + 1e-6)
         return log_prob
 
-    def actor_forward(self, 
+    def actor_forward(self,
                 state: torch.Tensor,
                 deterministic=True,
                 update_normalization_param=False,
                 return_log_prob=False):
         """Perform actor forward in either deterministic or stochastic way, ie, inference/training.
-        This function is default to inference mode. 
+        This function is default to inference mode.
 
         Args:
             state (torch.Tensor): Input to actor.
@@ -85,13 +85,13 @@ class Actor:
         Returns:
             Actions (deterministic or stochastic), with optional log probability.
         """
-        mu, std = self._get_distrbution_params(state, 
+        mu, std = self._get_distrbution_params(state,
                                                update_normalization_param=update_normalization_param)
         if not deterministic or return_log_prob:
             # draw random samples for stochastic forward for training purpose
             dist = torch.distributions.Normal(mu, std)
             stochastic_action = dist.rsample()
-        
+
         # Toggle bounded output or not
         if self.bounded:
             action = torch.tanh(mu) if deterministic else torch.tanh(stochastic_action)
@@ -112,24 +112,25 @@ class FFActor(FFBase, Actor):
     A class inheriting from FF_Base and Actor
     which implements a feedforward stochastic policy.
     """
-    def __init__(self, 
-                 input_dim, 
-                 action_dim, 
-                 layers, 
-                 bounded, 
+    def __init__(self,
+                 input_dim,
+                 action_dim,
+                 layers,
+                 nonlinearity,
+                 bounded,
                  learn_std,
                  std):
-        FFBase.__init__(self, in_dim=input_dim, layers=layers)
-        Actor.__init__(self, 
-                       latent=layers[-1], 
-                       action_dim=action_dim, 
-                       bounded=bounded, 
-                       learn_std=learn_std, 
+        FFBase.__init__(self, in_dim=input_dim, layers=layers, nonlinearity=nonlinearity)
+        Actor.__init__(self,
+                       latent=layers[-1],
+                       action_dim=action_dim,
+                       bounded=bounded,
+                       learn_std=learn_std,
                        std=std)
 
-    def forward(self, x, deterministic=True, 
+    def forward(self, x, deterministic=True,
                 update_normalization_param=False, return_log_prob=False):
-        return self.actor_forward(x, deterministic=deterministic, 
+        return self.actor_forward(x, deterministic=deterministic,
                                   update_normalization_param=update_normalization_param,
                                   return_log_prob=return_log_prob)
 
@@ -138,28 +139,28 @@ class LSTMActor(LSTMBase, Actor):
     A class inheriting from LSTM_Base and Actor
     which implements a recurrent stochastic policy.
     """
-    def __init__(self, 
-                 input_dim, 
-                 action_dim, 
-                 layers, 
-                 bounded, 
+    def __init__(self,
+                 input_dim,
+                 action_dim,
+                 layers,
+                 bounded,
                  learn_std,
                  std):
 
         LSTMBase.__init__(self, input_dim, layers)
-        Actor.__init__(self, 
-                       latent=layers[-1], 
-                       action_dim=action_dim, 
-                       bounded=bounded, 
+        Actor.__init__(self,
+                       latent=layers[-1],
+                       action_dim=action_dim,
+                       bounded=bounded,
                        learn_std=learn_std,
                        std=std)
 
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, 
+    def forward(self, x, deterministic=True,
                 update_normalization_param=False, return_log_prob=False):
-        return self.actor_forward(x, deterministic=deterministic, 
+        return self.actor_forward(x, deterministic=deterministic,
                                   update_normalization_param=update_normalization_param,
                                   return_log_prob=return_log_prob)
 
@@ -168,40 +169,40 @@ class MixActor(MixBase, Actor):
     A class inheriting from Mix_Base and Actor
     which implements a recurrent + FF stochastic policy.
     """
-    def __init__(self, 
-                 input_dim, 
-                 state_dim, 
-                 nonstate_dim, 
-                 action_dim, 
-                 lstm_layers, 
+    def __init__(self,
+                 input_dim,
+                 state_dim,
+                 nonstate_dim,
+                 action_dim,
+                 lstm_layers,
                  ff_layers,
-                 bounded, 
+                 bounded,
                  learn_std,
                  std,
-                 nonstate_encoder_dim, 
+                 nonstate_encoder_dim,
                  nonstate_encoder_on):
 
         MixBase.__init__(self,
-                          in_dim=input_dim, 
-                          state_dim=state_dim, 
-                          nonstate_dim=nonstate_dim, 
-                          lstm_layers=lstm_layers, 
-                          ff_layers=ff_layers, 
+                          in_dim=input_dim,
+                          state_dim=state_dim,
+                          nonstate_dim=nonstate_dim,
+                          lstm_layers=lstm_layers,
+                          ff_layers=ff_layers,
                           nonstate_encoder_dim=nonstate_encoder_dim,
                           nonstate_encoder_on=nonstate_encoder_on)
-        Actor.__init__(self, 
-                       latent=ff_layers[-1], 
-                       action_dim=action_dim, 
-                       bounded=bounded, 
+        Actor.__init__(self,
+                       latent=ff_layers[-1],
+                       action_dim=action_dim,
+                       bounded=bounded,
                        learn_std=learn_std,
                        std=std)
 
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, 
+    def forward(self, x, deterministic=True,
                 update_normalization_param=False, return_log_prob=False):
-        return self.actor_forward(x, deterministic=deterministic, 
+        return self.actor_forward(x, deterministic=deterministic,
                                   update_normalization_param=update_normalization_param,
                                   return_log_prob=return_log_prob)
 
@@ -213,27 +214,27 @@ class GRUActor(GRUBase, Actor):
     A class inheriting from GRU_Base and Actor
     which implements a recurrent stochastic policy.
     """
-    def __init__(self, 
-                 input_dim, 
-                 action_dim, 
-                 layers, 
-                 bounded, 
+    def __init__(self,
+                 input_dim,
+                 action_dim,
+                 layers,
+                 bounded,
                  learn_std,
                  std):
 
         GRUBase.__init__(self, input_dim, layers)
-        Actor.__init__(self, 
-                       latent=layers[-1], 
-                       action_dim=action_dim, 
-                       bounded=bounded, 
+        Actor.__init__(self,
+                       latent=layers[-1],
+                       action_dim=action_dim,
+                       bounded=bounded,
                        learn_std=learn_std,
                        std=std)
 
         self.is_recurrent = True
         self.init_hidden_state()
 
-    def forward(self, x, deterministic=True, 
+    def forward(self, x, deterministic=True,
                 update_normalization_param=False, return_log_prob=False):
-        return self.actor_forward(x, deterministic=deterministic, 
+        return self.actor_forward(x, deterministic=deterministic,
                                   update_normalization_param=update_normalization_param,
                                   return_log_prob=return_log_prob)

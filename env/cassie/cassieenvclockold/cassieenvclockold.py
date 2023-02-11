@@ -32,6 +32,9 @@ class CassieEnvClockOld(CassieEnvClock):
                          dynamics_randomization=dynamics_randomization,
                          **kwargs)
 
+        # Define env specifics
+        self.observation_space = 38
+
         # self.reset()
 
     def reset(self):
