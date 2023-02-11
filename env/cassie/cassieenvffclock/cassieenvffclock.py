@@ -34,11 +34,14 @@ class CassieEnvFFClock(CassieEnvClock):
                          **kwargs)
 
         # Define env specifics
-        self.observation_space = 47
         self.sim.kp = np.array([80,  80,  88,  96,  50, 80,  80,  88,  96,  50])
         self.sim.kd = np.array([8.0, 8.0, 8.0, 9.6, 5.0, 8.0, 8.0, 8.0, 9.6, 5.0])
 
-        # self.reset()
+        self.reset()
+
+        # Define env specifics after reset
+        self.observation_space = len(self.get_state())
+        self.action_space = self.sim.num_actuators
 
     def reset(self):
         """Reset simulator and env variables.
@@ -104,6 +107,6 @@ class CassieEnvFFClock(CassieEnvClock):
 
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
-                              self.clock.sin_input_clock(),
+                              self.clock.input_sine_only_clock(),
                               [self.x_velocity]))
         return out

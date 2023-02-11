@@ -29,10 +29,6 @@ class CassieEnvClock(CassieEnv):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization)
 
-        # Define env specifics
-        self.observation_space = 42
-        self.action_space = 10
-
         # Clock variables
         self.clock_type = clock_type
 
@@ -72,7 +68,11 @@ class CassieEnvClock(CassieEnv):
             print(traceback.format_exc())
             exit(1)
 
-        # self.reset()
+        self.reset()
+
+        # Define env specifics after reset
+        self.observation_space = len(self.get_state())
+        self.action_space = self.sim.num_actuators
 
     def reset(self):
         """Reset simulator and env variables.
@@ -88,9 +88,9 @@ class CassieEnvClock(CassieEnv):
             self.y_velocity = 0
         else:
             self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
-        swing_ratios = [0.5, 0.5]#np.random.uniform(*self._swing_ratio_bounds, 2)
-        period_shifts = [0.0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
-        self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
+        swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
+        period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
+        self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         # Update clock
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
@@ -128,12 +128,8 @@ class CassieEnvClock(CassieEnv):
         return self._compute_done(self)
 
     def get_state(self):
-        # out = np.concatenate((self.get_robot_state(), [self.x_velocity, self.y_velocity],
-        #                       self.clock.get_swing_ratios(), self.clock.get_period_shifts(),
-        #                       self.clock.input_clock()))
-        out = np.concatenate((self.get_robot_state(),
-                              self.clock.get_swing_ratios(),
-                              [1.5, 0, 0],
+        out = np.concatenate((self.get_robot_state(), [self.x_velocity, self.y_velocity],
+                              self.clock.get_swing_ratios(), self.clock.get_period_shifts(),
                               self.clock.input_clock()))
         return out
 

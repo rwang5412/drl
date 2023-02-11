@@ -33,12 +33,17 @@ class PeriodicClock:
             self._phase -= self._cycle_time
 
     def input_clock(self):
-        clock = [np.sin(2 * np.pi * ((self._phase/self._cycle_time)+s)) for s in self._period_shifts]
-        return clock
-
-    def sin_input_clock(self):
+        """Clock represents absolute phase change on unit cycle.
+        """
         clock = [np.sin(2 * np.pi * (self._phase / self._cycle_time)),
                  np.cos(2 * np.pi * (self._phase / self._cycle_time))]
+        return clock
+
+    def input_sine_only_clock(self):
+        """Clock only in two sines functions, representing two seperate legs. This clock empirically
+        need LSTM to learn.
+        """
+        clock = [np.sin(2 * np.pi * ((self._phase/self._cycle_time)+s)) for s in self._period_shifts]
         return clock
 
     def linear_clock(self, percent_transition: float = 0.2):

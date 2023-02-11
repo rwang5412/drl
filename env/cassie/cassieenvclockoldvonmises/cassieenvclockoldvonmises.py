@@ -10,7 +10,7 @@ from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
 from importlib import import_module
 from util.colors import FAIL, WARNING, ENDC
 
-class CassieEnvClockOld(CassieEnvClock):
+class CassieEnvClockOldVonMises(CassieEnvClock):
 
     def __init__(self,
                  clock_type: str,
@@ -32,9 +32,17 @@ class CassieEnvClockOld(CassieEnvClock):
                          dynamics_randomization=dynamics_randomization,
                          **kwargs)
 
+        # Command randomization ranges
+        self._x_velocity_bounds = [0.5, 1.5]
+        self._y_velocity_bounds = [-0.2, 0.2]
+        self._swing_ratio_bounds = [0.4, 0.8]
+        self._cycle_time_bounds = [0.75, 1.2]
+        
         self.reset()
 
         # Define env specifics after reset
+        self.sim.kp = np.array([70,  70,  100,  100,  50, 70,  70,  100,  100,  50])
+        self.sim.kd = np.array([7.0, 7.0, 8.0,  8.0, 5.0, 7.0, 7.0, 8.0,  8.0, 5.0])
         self.observation_space = len(self.get_state())
         self.action_space = self.sim.num_actuators
 
@@ -52,9 +60,10 @@ class CassieEnvClockOld(CassieEnvClock):
             self.y_velocity = 0
         else:
             self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
-        swing_ratios = [0.5, 0.5]#np.random.uniform(*self._swing_ratio_bounds, 2)
-        period_shifts = [0.0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
-        self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
+        ratio = 0.5#np.random.uniform(*self._swing_ratio_bounds)
+        swing_ratios = [1 - ratio, ratio]
+        period_shifts = [0.0, 0.5]
+        self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         if 1 < self.x_velocity <= 3:
             phase_add *= 1 + 0.5*(self.x_velocity - 1)/2
@@ -73,6 +82,7 @@ class CassieEnvClockOld(CassieEnvClock):
 
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
-                              self.clock.input_clock(),
-                              [self.x_velocity]))
+                              self.clock.get_swing_ratios(),
+                              [self.x_velocity, 0, 0],
+                              self.clock.input_clock()))
         return out
