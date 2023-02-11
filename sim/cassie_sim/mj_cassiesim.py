@@ -14,8 +14,10 @@ class MjCassieSim(MujocoSim):
     """
     def __init__(self, model_name: str = "cassiemujoco/cassie.xml"):
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
-        # Number of sim steps before commanded torque is actually applied
-        self.torque_delay_cycles = 6
+        # Torque delay, i.e. size of the torque buffer. Note that "delay" of 1 corresponds to no
+        # delay. So torque_delay_cycles should be the number of sim steps before commanded torque is
+        # actually applied + 1
+        self.torque_delay_cycles = 6 + 1
         self.torque_efficiency = 1.0
 
         self.motor_position_inds = [7, 8, 9, 14, 20, 21, 22, 23, 28, 34]

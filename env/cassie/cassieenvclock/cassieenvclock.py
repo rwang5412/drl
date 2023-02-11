@@ -96,7 +96,7 @@ class CassieEnvClock(CassieEnv):
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
-            
+
         # Reset env counter variables
         self.traj_idx = 0
         self.orient_add = 0
@@ -131,8 +131,8 @@ class CassieEnvClock(CassieEnv):
         # out = np.concatenate((self.get_robot_state(), [self.x_velocity, self.y_velocity],
         #                       self.clock.get_swing_ratios(), self.clock.get_period_shifts(),
         #                       self.clock.input_clock()))
-        out = np.concatenate((self.get_robot_state(), 
-                              self.clock.get_swing_ratios(), 
+        out = np.concatenate((self.get_robot_state(),
+                              self.clock.get_swing_ratios(),
                               [1.5, 0, 0],
                               self.clock.input_clock()))
         return out
