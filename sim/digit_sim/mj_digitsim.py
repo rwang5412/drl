@@ -30,7 +30,7 @@ class MjDigitSim(MujocoSim):
         self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"] # force purpose
         self.hand_body_name = ["left-arm/elbow", "right-arm/elbow"]
 
-        self.num_actuators = self.model.nu
+        self.num_actuators = len(self.motor_position_inds)
         self.num_joints = len(self.joint_position_inds)
         self.reset_qpos = np.array([0, 0, 1,  1, 0 ,0 ,0,
                         3.33020155e-01, -2.66178730e-02, 1.92369587e-01,
