@@ -15,31 +15,9 @@ def is_variable_valid(x):
         if not math.isfinite(x):
             return False
         else:
-            return True        
+            return True
 
-    if isinstance(x, torch.Tensor):
-        for i in x:
-            if i is None:
-                print(f"is_variable_valid gets None input as {x}.")
-                return False
-            if isinstance(i, str):
-                print(f"is_variable_valid gets String as {x}.")
-                return False
-            if not torch.isfinite(i):
-                return False
-        return True
-    elif isinstance(x, numpy.ndarray):
-        for i in x:
-            if i is None:
-                print(f"is_variable_valid gets None input as {x}.")
-                return False
-            if isinstance(i, str):
-                print(f"is_variable_valid gets String as {x}.")
-                return False
-            if not numpy.isfinite(i):
-                return False
-        return True
-    elif isinstance(x, list):
+    if isinstance(x, torch.Tensor) or isinstance(x, numpy.ndarray) or isinstance(x, list):
         for i in x:
             if i is None:
                 print(f"is_variable_valid gets None input as {x}.")
@@ -53,6 +31,43 @@ def is_variable_valid(x):
     else:
         print(f"is_variable_valid gets not qualified input as {x}.")
         return False
+
+    # if isinstance(x, torch.Tensor):
+    #     for i in x:
+    #         if i is None:
+    #             print(f"is_variable_valid gets None input as {x}.")
+    #             return False
+    #         if isinstance(i, str):
+    #             print(f"is_variable_valid gets String as {x}.")
+    #             return False
+    #         if not torch.isfinite(i):
+    #             return False
+    #     return True
+    # elif isinstance(x, numpy.ndarray):
+    #     for i in x:
+    #         if i is None:
+    #             print(f"is_variable_valid gets None input as {x}.")
+    #             return False
+    #         if isinstance(i, str):
+    #             print(f"is_variable_valid gets String as {x}.")
+    #             return False
+    #         if not numpy.isfinite(i):
+    #             return False
+    #     return True
+    # elif isinstance(x, list):
+    #     for i in x:
+    #         if i is None:
+    #             print(f"is_variable_valid gets None input as {x}.")
+    #             return False
+    #         if isinstance(i, str):
+    #             print(f"is_variable_valid gets String as {x}.")
+    #             return False
+    #         if not math.isfinite(i):
+    #             return False
+    #     return True
+    # else:
+    #     print(f"is_variable_valid gets not qualified input as {x}.")
+    #     return False
 
 if __name__=='__main__':
     a = [None, 1, 2]
