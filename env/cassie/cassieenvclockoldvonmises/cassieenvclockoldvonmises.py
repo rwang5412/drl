@@ -35,8 +35,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Command randomization ranges
         self._x_velocity_bounds = [0.5, 1.5]
         self._y_velocity_bounds = [-0.2, 0.2]
-        self._swing_ratio_bounds = [0.4, 0.8]
-        self._cycle_time_bounds = [0.75, 1.2]
+        self._swing_ratio_bounds = [0.5, 0.65]
+        self._cycle_time_bounds = [0.75, 1.0]
         
         self.reset()
 
@@ -56,19 +56,12 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Randomize commands
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
-        if self.x_velocity > 2.0:
-            self.y_velocity = 0
-        else:
-            self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
-        ratio = 0.5#np.random.uniform(*self._swing_ratio_bounds)
+        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        ratio = np.random.uniform(*self._swing_ratio_bounds)
         swing_ratios = [1 - ratio, ratio]
         period_shifts = [0.0, 0.5]
         self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
-        if 1 < self.x_velocity <= 3:
-            phase_add *= 1 + 0.5*(self.x_velocity - 1)/2
-        elif self.x_velocity > 3:
-            phase_add *= 1.5
         # Update clock
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
@@ -84,5 +77,5 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         out = np.concatenate((self.get_robot_state(),
                               self.clock.get_swing_ratios(),
                               [self.x_velocity, 0, 0],
-                              self.clock.input_clock()))
+                              self.clock.input_sine_only_clock()))
         return out
