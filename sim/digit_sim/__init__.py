@@ -1,3 +1,3 @@
 from .digit_ar_sim import *
-from .DigitArSim import DigitArSim
-from .DigitMjSim import DigitMjSim
+from .ar_digitsim import ArDigitSim
+from .mj_digitsim import MjDigitSim

@@ -1,6 +1,6 @@
 import numpy as np
 
-class GenericSim:
+class GenericSim(object):
     """
     A base class to define the functions that interact with simulator.
     This class contains a set of getter/setter that unify generic naming conventions for different simulators
@@ -95,3 +95,15 @@ class GenericSim:
 
     def get_joint_dof_adr(self, name: str):
         raise NotImplementedError()
+
+    def get_body_pose(self, name: str, relative_to_body_name=False):
+        raise NotImplementedError
+
+    def get_body_velocity(self, name: str, local_frame=True):
+        raise NotImplementedError
+    
+    def get_body_acceleration(self, name: str, local_frame=True):
+        raise NotImplementedError
+
+    def get_body_contact_force(self, name: str):
+        raise NotImplementedError

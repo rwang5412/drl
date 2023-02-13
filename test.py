@@ -4,6 +4,18 @@ import os
 import pickle
 import sys
 
+import testing.test_sim as test_sim
+import testing.test_env as test_env
+
+from testing.test_ar_sim import (
+    test_ar_connect,
+    test_ar_api_goto,
+    test_ar_sim_forward,
+    test_ar_sim_llapi_walking_handover,
+    test_ar_sim_llapi_teststand
+)
+from testing.test_clock import test_all_clocks
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -37,4 +49,8 @@ if __name__ == "__main__":
         asyncio.run(test_ar_sim_forward())
         asyncio.run(test_ar_sim_llapi_teststand())
         asyncio.run(test_ar_sim_llapi_walking_handover())
-
+    if args.clock:
+        test_all_clocks()
+    if args.nn:
+        from testing.test_nn import test_nn
+        test_nn()
