@@ -29,10 +29,6 @@ class CassieEnvClock(CassieEnv):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization)
 
-        # Define env specifics
-        self.observation_space = None
-        self.action_space = None
-
         # Clock variables
         self.clock_type = clock_type
 
@@ -76,6 +72,10 @@ class CassieEnvClock(CassieEnv):
             exit(1)
 
         self.reset()
+
+        # Define env specifics
+        self.observation_space = len(self.get_state())
+        self.action_space = self.sim.num_actuators
 
     def reset(self):
         """Reset simulator and env variables.
@@ -134,7 +134,7 @@ class CassieEnvClock(CassieEnv):
         return out
 
     def get_action_mirror_indices(self):
-        raise NotImplementedError
+        return np.arange(self.action_space)
 
     def get_state_mirror_indices(self):
-        raise NotImplementedError
+        return np.arange(self.observation_space)

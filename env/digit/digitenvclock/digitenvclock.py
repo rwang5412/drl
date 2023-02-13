@@ -134,7 +134,7 @@ class DigitEnvClock(DigitEnv):
         return out
 
     def get_action_mirror_indices(self):
-        raise NotImplementedError
+        return np.arange(self.action_space)
 
     def get_state_mirror_indices(self):
-        raise NotImplementedError
+        return np.arange(self.observation_space)
