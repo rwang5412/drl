@@ -170,7 +170,7 @@ class LibCassieSim(GenericSim):
         return np.array(self.sim.qvel())[self.base_linear_velocity_inds]
 
     def get_base_orientation(self):
-        return np.array(self.sim.qvel())[self.base_orientation_inds]
+        return np.array(self.sim.qpos())[self.base_orientation_inds]
 
     def get_base_angular_velocity(self):
         return np.array(self.sim.qvel())[self.base_angular_velocity_inds]
