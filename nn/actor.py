@@ -69,10 +69,10 @@ class Actor:
         return log_prob
 
     def actor_forward(self,
-                      state,
-                      deterministic = True,
-                      update_normalization_param = False,
-                      return_log_prob = False):
+                state: torch.Tensor,
+                deterministic=True,
+                update_normalization_param=False,
+                return_log_prob=False):
         """Perform actor forward in either deterministic or stochastic way, ie, inference/training.
         This function is default to inference mode.
 
@@ -116,10 +116,11 @@ class FFActor(FFBase, Actor):
                  input_dim,
                  action_dim,
                  layers,
+                 nonlinearity,
                  bounded,
                  learn_std,
                  std):
-        FFBase.__init__(self, in_dim=input_dim, layers=layers)
+        FFBase.__init__(self, in_dim=input_dim, layers=layers, nonlinearity=nonlinearity)
         Actor.__init__(self,
                        latent=layers[-1],
                        action_dim=action_dim,

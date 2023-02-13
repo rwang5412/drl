@@ -1,6 +1,5 @@
 import json
 import numpy as np
-import os
 from pathlib import Path
 import traceback
 
@@ -29,18 +28,8 @@ class CassieEnvClock(CassieEnv):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization)
 
-        # Define env specifics
-        self.observation_space = None
-        self.action_space = None
-
         # Clock variables
         self.clock_type = clock_type
-
-        # Command variables
-        self.traj_idx = 0
-        self.orient_add = 0
-        self.x_velocity = 0
-        self.y_velocity = 0
 
         # Command randomization ranges
         self._x_velocity_bounds = [0.0, 3.0]
@@ -48,8 +37,6 @@ class CassieEnvClock(CassieEnv):
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
         self._cycle_time_bounds = [0.75, 1.5]
-
-        self.last_action = None
 
         # Load reward module
         self.reward_name = reward_name
@@ -77,6 +64,10 @@ class CassieEnvClock(CassieEnv):
 
         self.reset()
 
+        # Define env specifics after reset
+        self.observation_size = len(self.get_state())
+        self.action_size = self.sim.num_actuators
+
     def reset(self):
         """Reset simulator and env variables.
 
@@ -85,22 +76,23 @@ class CassieEnvClock(CassieEnv):
         """
         self.reset_simulation()
         # Randomize commands
-        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
-        if self.x_velocity > 2.0:
-            self.y_velocity = 0
-        else:
-            self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.orient_add = 0
+
+        # Update clock
+        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
         period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
         self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
-        # Update clock
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
+
+        # Reset env counter variables
         self.traj_idx = 0
-        self.orient_add = 0
+        self.last_action = None
         return self.get_state()
 
     def step(self, action: np.ndarray):
