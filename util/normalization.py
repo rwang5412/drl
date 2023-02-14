@@ -16,10 +16,11 @@ def train_normalizer(env_fn, policy, min_timesteps, max_traj_len=1000, noise=0.5
                 policy.init_hidden_state()
 
             while not done and timesteps < max_traj_len:
+                state = torch.Tensor(state)
                 if noise is None:
-                    action = policy.forward(state, update_norm=True, deterministic=False).numpy()
+                    action = policy.forward(state, update_normalization_param=True, deterministic=False).numpy()
                 else:
-                    action = policy.forward(state, update_norm=True).numpy() + np.random.normal(0, noise, size=policy.action_dim)
+                    action = policy.forward(state, update_normalization_param=True).numpy() + np.random.normal(0, noise, size=policy.action_dim)
                 state, _, done, _ = env.step(action)
                 timesteps += 1
                 total_t += 1
