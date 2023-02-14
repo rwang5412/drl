@@ -52,8 +52,8 @@ def test_all_env():
         for rew_pair in reward_list:
             try:
                 test_env_factory(pair[0], pair[1], rew_pair[0], rew_pair[1])
-                print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
-                      f"reward {rew_pair[1]}.")
+                print(f"{OKGREEN}Pass test with {pair[0].__name__} and {pair[1]}, clock " \
+                      f"{rew_pair[0]}, and reward {rew_pair[1]}.{ENDC}")
             except Exception:
                 print(f"{FAIL}{pair[0].__name__} with {pair[1]}, clock {rew_pair[0]}, and reward " \
                       f"{rew_pair[1]} failed test with error:{ENDC}")
