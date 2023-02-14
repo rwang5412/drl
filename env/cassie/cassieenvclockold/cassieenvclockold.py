@@ -29,8 +29,8 @@ class CassieEnvClockOld(CassieEnvClock):
         self.reset()
 
         # Define env specifics after reset
-        self.observation_space = len(self.get_state())
-        self.action_space = self.sim.num_actuators
+        self.observation_size = len(self.get_state())
+        self.action_size = self.sim.num_actuators
 
     def reset(self):
         """Reset simulator and env variables.

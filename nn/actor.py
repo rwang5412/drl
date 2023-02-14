@@ -64,8 +64,8 @@ class Actor:
         """Return the log probability of a distribution given state and action
         """
         log_prob = self.pdf(state=state).log_prob(action).sum(-1, keepdim=True)
-        if self.bounded: #
-            log_prob -= torch.log((1 - torch.tanh(state).pow(2)) + 1e-6)
+        if self.bounded: # SAC, Appendix C, https://arxiv.org/pdf/1801.01290.pdf
+            log_prob -= torch.log((1 - torch.tanh(state).pow(2)) + 1e-6).sum(-1, keepdim=True)
         return log_prob
 
     def actor_forward(self,
@@ -83,7 +83,7 @@ class Actor:
             return_log_prob (bool, optional): Toggle to return log probability. Defaults to False.
 
         Returns:
-            Actions (deterministic or stochastic), with optional log probability.
+            Actions (deterministic or stochastic), with optional return on log probability.
         """
         mu, std = self._get_distrbution_params(state,
                                                update_normalization_param=update_normalization_param)
@@ -100,9 +100,9 @@ class Actor:
 
         # Return log probability
         if return_log_prob:
-            log_prob = dist.log_prob(stochastic_action).sum(-1, keepdim=True)
+            log_prob = dist.log_prob(action).sum(-1, keepdim=True)
             if self.bounded:
-                log_prob -= torch.log((1 - torch.tanh(stochastic_action).pow(2)) + 1e-6)
+                log_prob -= torch.log((1 - torch.tanh(action).pow(2)) + 1e-6).sum(-1, keepdim=True)
             return action, log_prob
         else:
             return action
@@ -208,6 +208,21 @@ class MixActor(MixBase, Actor):
 
     def latent_space(self, x):
         return self._latent_space_forward(x)
+
+    def load_lstm_module(self, pretrained_actor, freeze_lstm = True):
+        """Load LSTM module for Mix Actor
+
+        Args:
+            pretrained_actor: Previously trained actor
+            freeze_lstm (bool, optional): Freeze the weights/bias in LSTM. Defaults to True.
+        """
+        for param_key in pretrained_actor.state_dict():
+            if "lstm" in param_key:
+                self.state_dict()[param_key].copy_(pretrained_actor.state_dict()[param_key])
+        if freeze_lstm:
+            for name, param in self.named_parameters():
+                if "lstm" in name:
+                    param.requires_grad = False
 
 class GRUActor(GRUBase, Actor):
     """

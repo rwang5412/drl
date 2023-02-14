@@ -37,8 +37,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Define env specifics after reset
         self.sim.kp = np.array([70,  70,  100,  100,  50, 70,  70,  100,  100,  50])
         self.sim.kd = np.array([7.0, 7.0, 8.0,  8.0, 5.0, 7.0, 7.0, 8.0,  8.0, 5.0])
-        self.observation_space = len(self.get_state())
-        self.action_space = self.sim.num_actuators
+        self.observation_size = len(self.get_state())
+        self.action_size = self.sim.num_actuators
 
     def reset(self):
         """Reset simulator and env variables.

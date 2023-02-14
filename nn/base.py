@@ -167,69 +167,31 @@ class MixBase(Net):
         """
         assert state_dim + nonstate_dim == in_dim, "State and Nonstate Dimension Mismatch"
         super(MixBase, self).__init__()
-        if nonstate_encoder_on: # use a FF encoder to encode commands
-            nonstate_ft_dim = nonstate_encoder_dim # single layer encoder
-            self.nonstate_encoder = create_layers(nn.Linear, input_dim=nonstate_dim, layer_sizes=[nonstate_ft_dim])
-        else:
-            nonstate_ft_dim = nonstate_dim
-        self.lstm = create_layers(nn.LSTMCell, input_dim=state_dim, layer_sizes=lstm_layers)
-        self.ff = create_layers(nn.Linear, input_dim=nonstate_ft_dim+lstm_layers[-1], layer_sizes=ff_layers)
-        self.latent_space = create_layers(nn.Linear, input_dim=lstm_layers[-1], layer_sizes=(lstm_layers[-1],16))
         self.nonlinearity = nonlinearity
         self.state_dim = state_dim
         self.nonstate_encoder_on = nonstate_encoder_on
 
+        # Construct model
+        if nonstate_encoder_on: # use a FF encoder to encode commands
+            nonstate_ft_dim = nonstate_encoder_dim # single layer encoder
+            self.nonstate_encoder = FFBase(in_dim=nonstate_dim, layers=[nonstate_encoder_dim,nonstate_encoder_dim])
+        else:
+            nonstate_ft_dim = nonstate_dim
+        self.lstm = LSTMBase(in_dim=state_dim, layers=lstm_layers)
+        self.ff = FFBase(in_dim=lstm_layers[-1]+nonstate_ft_dim, layers=ff_layers)
+        self.latent_space = FFBase(in_dim=lstm_layers[-1], layers=ff_layers)
+
     def init_hidden_state(self, batch_size=1):
-        self.hidden = [torch.zeros(batch_size, l.hidden_size).to(next(self.lstm.parameters()).device) for l in self.lstm]
-        self.cells  = [torch.zeros(batch_size, l.hidden_size).to(next(self.lstm.parameters()).device) for l in self.lstm]
+        self.lstm.init_hidden_state(batch_size=batch_size)
 
     def get_hidden_state(self):
-        hidden_numpy = [self.hidden[l].numpy() for l in range(len(self.lstm))]
-        cells_numpy = [self.cells[l].numpy() for l in range(len(self.lstm))]
-
-        return hidden_numpy, cells_numpy
+        return self.lstm.get_hidden_state()
 
     def set_hidden_state(self, hidden, cells):
-        self.hidden = torch.FloatTensor(hidden)
-        self.cells = torch.FloatTensor(cells)
-
-    def lstm_forward(self, x):
-        dims = len(x.size())
-
-        if dims == 3:  # if we get a batch of trajectories
-            self.init_hidden_state(batch_size=x.size(1))
-
-            y = []
-            for t, x_t in enumerate(x):
-                for idx, layer in enumerate(self.lstm):
-                    c, h = self.cells[idx], self.hidden[idx]
-                    self.hidden[idx], self.cells[idx] = layer(x_t, (h, c))
-                    x_t = self.hidden[idx]
-
-                y.append(x_t)
-            x = torch.stack([x_t for x_t in y])
-        else:
-            if dims == 1:  # if we get a single timestep (if not, assume we got a batch of single timesteps)
-                x = x.view(1, -1)
-
-            for idx, layer in enumerate(self.lstm):
-                h, c = self.hidden[idx], self.cells[idx]
-                self.hidden[idx], self.cells[idx] = layer(x, (h, c))
-                x = self.hidden[idx]
-
-            if dims == 1:
-                x = x.view(-1)
-        return x
-
-    def ff_forward(self, x):
-        for idx, layer in enumerate(self.ff):
-            x = self.nonlinearity(layer(x))
-        return x
+        self.lstm.set_hidden_state(hidden=hidden, cells=cells)
 
     def nonstate_encoder_forward(self, x):
-        for idx, layer in enumerate(self.nonstate_encoder):
-            x = self.nonlinearity(layer(x))
-        return x
+        return self.nonstate_encoder._base_forward(x)
 
     def _base_forward(self, x):
         size = x.size()
@@ -237,31 +199,26 @@ class MixBase(Net):
         if dims == 3: # for optimizaton with batch of trajectories
             state = x[:,:,:self.state_dim]
             nonstate = x[:,:,self.state_dim:]
-            lstm_feature = self.lstm_forward(state)
+            # lstm_feature = self.lstm_forward(state)
+            lstm_feature = self.lstm._base_forward(state)
             if self.nonstate_encoder_on:
                 nonstate = self.nonstate_encoder_forward(nonstate)
             ff_input = torch.cat((lstm_feature, nonstate), dim=2)
         elif dims == 1: # for model forward
             state = x[:self.state_dim]
             nonstate = x[self.state_dim:]
-            lstm_feature = self.lstm_forward(state)
+            # lstm_feature = self.lstm_forward(state)
+            lstm_feature = self.lstm._base_forward(state)
             if self.nonstate_encoder_on:
                 nonstate = self.nonstate_encoder_forward(nonstate)
             ff_input = torch.cat((lstm_feature, nonstate))
-        ff_feature = self.ff_forward(ff_input)
+        # ff_feature = self.ff_forward(ff_input)
+        ff_feature = self.ff._base_forward(ff_input)
         return ff_feature
 
     def _latent_space_forward(self, x):
-        size = x.size()
-        dims = len(size)
-        if dims == 3: # for optimizaton with batch of trajectories
-            state = x[:,:,:self.state_dim]
-            lstm_feature = self.lstm_forward(state)
-        elif dims == 1: # for model forward
-            state = x[:self.state_dim]
-            lstm_feature = self.lstm_forward(state)
-        for idx, layer in enumerate(self.latent_space):
-            x = self.nonlinearity(layer(lstm_feature))
+        lstm_feature = self.lstm._base_forward(x)
+        x = self.latent_space._base_forward(lstm_feature)
         return x
 
 class GRUBase(Net):
