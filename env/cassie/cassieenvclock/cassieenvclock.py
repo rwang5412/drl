@@ -8,6 +8,7 @@ from env.util.periodicclock import PeriodicClock
 from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
 from util.colors import FAIL, WARNING, ENDC
+from util.check_number import is_variable_valid
 
 class CassieEnvClock(CassieEnv):
 
@@ -123,6 +124,9 @@ class CassieEnvClock(CassieEnv):
         out = np.concatenate((self.get_robot_state(), [self.x_velocity, self.y_velocity],
                               self.clock.get_swing_ratios(), self.clock.get_period_shifts(),
                               self.clock.input_clock()))
+        if not is_variable_valid(out):
+            raise RuntimeError(f"States has Nan or Inf values. Training stopped.\n"
+                               f"get_state returns {out}")
         return out
 
     def get_action_mirror_indices(self):
