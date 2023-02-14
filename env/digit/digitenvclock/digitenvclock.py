@@ -130,7 +130,7 @@ class DigitEnvClock(DigitEnv):
         return out
 
     def get_action_mirror_indices(self):
-        return np.arange(self.action_space)
+        return np.arange(self.action_size)
 
     def get_state_mirror_indices(self):
-        return np.arange(self.observation_space)
+        return np.arange(self.observation_size)

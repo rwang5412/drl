@@ -768,6 +768,34 @@ class PPO(PPO_Worker):
         return eval_reward, np.mean(kls), np.mean(a_loss), np.mean(c_loss), np.mean(m_loss), \
                len(memory), (sample_rate, update_time), total_steps, avg_ep_len, avg_batch_reward
 
+def add_algo_args(parser):
+    parser.add_argument("--prenormalize_steps", default=100,           type=int)
+    parser.add_argument("--num_steps",          default=5000,          type=int)
+    parser.add_argument('--discount',           default=0.99,          type=float)          # the discount factor
+    parser.add_argument("--learn_stddev",       default=False,         action='store_true') # learn std_dev or keep it fixed
+    parser.add_argument('--std',                default=0.13,          type=float)          # the fixed exploration std
+    parser.add_argument("--a_lr",               default=1e-4,          type=float)          # adam learning rate for actor
+    parser.add_argument("--c_lr",               default=1e-4,          type=float)          # adam learning rate for critic
+    parser.add_argument("--eps",                default=1e-6,          type=float)          # adam eps
+    parser.add_argument("--kl",                 default=0.02,          type=float)          # kl abort threshold
+    parser.add_argument("--entropy_coeff",      default=0.0,           type=float)
+    parser.add_argument("--clip",               default=0.2,           type=float)          # Clipping parameter for PPO surrogate loss
+    parser.add_argument("--grad_clip",          default=0.05,          type=float)
+    parser.add_argument("--batch_size",         default=64,            type=int)            # batch size for policy update
+    parser.add_argument("--epochs",             default=3,             type=int)            # number of updates per iter
+    parser.add_argument("--mirror",             default=0,             type=float)
+    parser.add_argument("--do_prenorm",         default=False,         action='store_true') # Do pre-normalization or not
+
+    parser.add_argument("--layers",             default="256,256",     type=str)            # hidden layer sizes in policy
+    parser.add_argument("--arch",               default='ff')                               # either ff, lstm, or gru
+    parser.add_argument("--bounded",            default=False,         type=bool)
+
+    parser.add_argument("--workers",            default=2,             type=int)
+    parser.add_argument("--redis",              default=None,          type=str)
+    parser.add_argument("--previous",           default=None,          type=str)            # Dir of previously trained policy to start learning from
+
+    return parser
+
 
 def run_experiment(args):
     """
@@ -789,8 +817,8 @@ def run_experiment(args):
     # wrapper function for creating parallelized envs
     env_fn = env_factory(**vars(args))
 
-    obs_dim = env_fn().observation_space
-    action_dim = env_fn().action_space
+    obs_dim = env_fn().observation_size
+    action_dim = env_fn().action_size
 
     # Set seeds
     torch.manual_seed(args.seed)
@@ -807,13 +835,29 @@ def run_experiment(args):
         print("loaded model from {}".format(args.previous))
     else:
         if args.arch.lower() == 'lstm':
-            policy = LSTMActor(obs_dim, action_dim, std=std, bounded=False, layers=layers, learn_std=args.learn_stddev)
+            policy = LSTMActor(obs_dim,
+                               action_dim,
+                               std=std,
+                               bounded=False,
+                               layers=layers,
+                               learn_std=args.learn_stddev)
             critic = LSTMCritic(obs_dim, layers=layers)
         elif args.arch.lower() == 'gru':
-            policy = GRUActor(obs_dim, action_dim, std=std, bounded=False, layers=layers, learn_std=args.learn_stddev)
+            policy = GRUActor(obs_dim,
+                              action_dim,
+                              std=std,
+                              bounded=False,
+                              layers=layers,
+                              learn_std=args.learn_stddev)
             critic = GRUCritic(obs_dim, layers=layers)
         elif args.arch.lower() == 'ff':
-            policy = FFActor(obs_dim, action_dim, std=std, bounded=False, layers=layers, learn_std=args.learn_stddev)
+            policy = FFActor(obs_dim,
+                             action_dim,
+                             std=std,
+                             bounded=False,
+                             layers=layers,
+                             learn_std=args.learn_stddev,
+                             nonlinearity=torch.tanh)
             critic = FFCritic(obs_dim, layers=layers)
         else:
             raise RuntimeError

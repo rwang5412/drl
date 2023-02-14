@@ -9,7 +9,7 @@ from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
 from env.digit.digitenvclock.digitenvclock import DigitEnvClock
 from util.env_factory import env_factory
 from util.colors import FAIL, ENDC, OKGREEN
-
+from types import SimpleNamespace
 
 def test_all_env():
     base_env_sim_pair = [[CassieEnv, "mujoco"], [DigitEnv, "mujoco"],
@@ -121,18 +121,13 @@ def test_child_env_reward(test_env, test_sim, clock_type, reward):
             f"a reward greater than 1."
 
 def test_env_factory(test_env, test_sim, clock_type, reward):
-    if '--env' in sys.argv: # remove args from test.py root args
-        sys.argv.remove(sys.argv[1])
-    # Create new args
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--env-name', default=test_env.__name__)
-    parser.add_argument('--simulator-type', default=test_sim)
-    parser.add_argument('--clock-type', default=clock_type)
-    parser.add_argument('--reward-name', default=reward)
-    parser.add_argument('--policy-rate', default=50)
-    parser.add_argument('--dynamics-randomization', default=False)
-    parser.add_argument('--terrain', default=False)
-    args = parser.parse_args()
+    args = SimpleNamespace(env_name                 = test_env.__name__,
+                           simulator_type           = test_sim,
+                           clock_type               = clock_type,
+                           reward_name              = reward,
+                           policy_rate              = 50,
+                           dynamics_randomization   = False,
+                           terrain                  = False)
 
     # load callable env partial
     env_fn = env_factory(**vars(args))

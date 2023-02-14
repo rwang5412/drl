@@ -25,7 +25,15 @@ if __name__ == "__main__":
     parser.add_argument("--ar", default=False, action='store_true')
     parser.add_argument("--clock", default=False, action='store_true')
     parser.add_argument("--nn", default=False, action='store_true')
+    parser.add_argument("--all", default=False, action='store_true')
     args = parser.parse_args()
+
+    if args.all:
+        args.algo = True
+        args.env = True
+        args.sim = True
+        args.clock = True
+        args.nn = True
 
     if args.algo:
         pass

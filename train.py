@@ -5,7 +5,7 @@ import pickle
 import sys
 import torch
 
-from util.colors import BOLD, ORANGE, ENDC
+from util.colors import BOLD, ORANGE, FAIL, ENDC
 from util.env_factory import env_factory
 from util.log import create_logger
 
@@ -32,8 +32,6 @@ if __name__ == "__main__":
 
     """Environment"""
     parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
-    parser.add_argument("--phase_std",  default=0.1, type=float)
-    parser.add_argument("--task",       default='speed')
     parser.add_argument("--perception", default=False, action='store_true')
     parser.add_argument("--terrain",  default=False, action='store_true')
     parser.add_argument("--env-name",      default="CassieEnvClock", type=str)                     # environment to train on
@@ -54,38 +52,20 @@ if __name__ == "__main__":
     parser.add_argument("--traj_len",  default=300,        type=int)                  # max trajectory length for environment
     parser.add_argument("--timesteps", default=1e8,         type=float)                # timesteps to run experiment for
 
-    """
-        Utility for running Proximal Policy Optimization.
+    assert len(sys.argv) >= 2, \
+        f"{FAIL}Did not receive any arguments. Needs at least a \"algo\" argument. An example " \
+        f"usage is\n`python train.py ppo [optional args]`{ENDC}"
 
-    """
-    from algo.ppo import run_experiment
-    parser.add_argument("--prenormalize_steps", default=100,           type=int)
-    parser.add_argument("--num_steps",          default=5000,          type=int)
-    parser.add_argument('--discount',           default=0.99,          type=float)          # the discount factor
-    parser.add_argument("--learn_stddev",       default=False,         action='store_true') # learn std_dev or keep it fixed
-    parser.add_argument('--std',                default=0.13,          type=float)          # the fixed exploration std
-    parser.add_argument("--a_lr",               default=1e-4,          type=float)          # adam learning rate for actor
-    parser.add_argument("--c_lr",               default=1e-4,          type=float)          # adam learning rate for critic
-    parser.add_argument("--eps",                default=1e-6,          type=float)          # adam eps
-    parser.add_argument("--kl",                 default=0.02,          type=float)          # kl abort threshold
-    parser.add_argument("--entropy_coeff",      default=0.0,           type=float)
-    parser.add_argument("--clip",               default=0.2,           type=float)          # Clipping parameter for PPO surrogate loss
-    parser.add_argument("--grad_clip",          default=0.05,          type=float)
-    parser.add_argument("--batch_size",         default=64,            type=int)            # batch size for policy update
-    parser.add_argument("--epochs",             default=3,             type=int)            # number of updates per iter
-    parser.add_argument("--mirror",             default=0,             type=float)
-    parser.add_argument("--do_prenorm",         default=False,         action='store_true') # Do pre-normalization or not
+    algo = sys.argv[1]
+    sys.argv.remove(sys.argv[1])
 
+    if algo == 'ppo':
+        """
+            Utility for running Proximal Policy Optimization.
 
-    parser.add_argument("--layers",             default="256,256",     type=str)            # hidden layer sizes in policy
-    parser.add_argument("--arch",               default='ff')                               # either ff, lstm, or gru
-    parser.add_argument("--bounded",            default=False,         type=bool)
+        """
+        from algo.ppo import add_algo_args, run_experiment
 
-    parser.add_argument("--workers",            default=2,             type=int)
-    parser.add_argument("--redis",              default=None,          type=str)
-    parser.add_argument("--previous",           default=None,          type=str)            # Dir of previously trained policy to start learning from
-
-    args = parser.parse_args()
-
-
-    run_experiment(args)
+        parser = add_algo_args(parser)
+        args = parser.parse_args()
+        run_experiment(args)

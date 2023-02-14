@@ -31,17 +31,20 @@ def plot_clock(t, lr_swing_vals, title: str):
     plt.show()
 
 def test_all_clocks():
-    test_linear_walk_clock()
-    test_linear_run_clock()
-    test_linear_hop_clock()
-    test_linear_gallop_clock()
+    ### Disable plotting tests show plots don't show up in tests, but keep for debugs later ###
+    # test_linear_walk_clock()
+    # test_linear_run_clock()
+    # test_linear_hop_clock()
+    # test_linear_gallop_clock()
 
-    test_vonmises_walk_clock()
-    test_vonmises_run_clock()
-    test_vonmises_hop_clock()
-    test_vonmises_gallop_clock()
+    # test_vonmises_walk_clock()
+    # test_vonmises_run_clock()
+    # test_vonmises_hop_clock()
+    # test_vonmises_gallop_clock()
+
     test_vonmises_precompute()
     test_cassieclockenv()
+    test_digitclockenv()
 
 def test_linear_walk_clock():
     cycle_time = 1
@@ -165,7 +168,7 @@ def test_cassieclockenv():
     policy_rate = 50
     env = CassieEnvClock(cycle_time = cycle_time,
                          clock_type = clock_type,
-                         reward_name = "foo",
+                         reward_name = "locomotion_linear_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
@@ -178,7 +181,7 @@ def test_cassieclockenv():
     clock_type = "von_mises"
     env = CassieEnvClock(cycle_time = cycle_time,
                          clock_type = clock_type,
-                         reward_name = "foo",
+                         reward_name = "locomotion_vonmises_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
@@ -195,26 +198,26 @@ def test_digitclockenv():
     policy_rate = 50
     env = DigitEnvClock(cycle_time = cycle_time,
                          clock_type = clock_type,
-                         reward_name = "foo",
+                         reward_name = "locomotion_linear_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
                          dynamics_randomization = False)
     for i in range(int(env.cycle_time * policy_rate)):
-        env.step(np.zeros(10))
+        env.step(np.zeros(20))
     assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
         f"Failed DigitEnvClock linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
     clock_type = "von_mises"
     env = DigitEnvClock(cycle_time = cycle_time,
                          clock_type = clock_type,
-                         reward_name = "foo",
+                         reward_name = "locomotion_vonmises_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
                          dynamics_randomization = False)
     for i in range(int(env.cycle_time * policy_rate)):
-        env.step(np.zeros(10))
+        env.step(np.zeros(20))
     assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
         f"Failed DigitEnvClock von mises test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
