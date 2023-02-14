@@ -1,0 +1,104 @@
+import torch
+import numpy
+import math
+
+from colors import FAIL, ENDC, OKGREEN
+
+def is_variable_valid(x):
+    """Check if a given number has NaN, Inf, or None.
+    Datatype of x in list, tensor, ndarray, floating number
+    Returns: True if this number of array has the above values.
+    """
+    # Check if it's a single float
+    try:
+        iter(x)
+    except:
+        if x is None:
+            return False
+        if not math.isfinite(x):
+            return False
+        else:
+            return True
+
+    # Convert list to ndarray float type
+    try:
+        if isinstance(x, list):
+            x = numpy.array(x, dtype=float)
+    except:
+        print(f"{FAIL}is_variable_valid gets non-float number in {x}.{ENDC}")
+        return False
+
+    # Check by type
+    if isinstance(x, torch.Tensor):
+        for i in x:
+            if i is None:
+                print(f"{FAIL}is_variable_valid gets None input as {x}.{ENDC}")
+                return False
+            if isinstance(i, str):
+                print(f"{FAIL}is_variable_valid gets String as {x}.{ENDC}")
+                return False
+            if not torch.isfinite(i).all():
+                return False
+        return True
+    elif isinstance(x, numpy.ndarray):
+        for i in x:
+            if i is None:
+                print(f"{FAIL}is_variable_valid gets None input as {x}.{ENDC}")
+                return False
+            if isinstance(i, str):
+                print(f"{FAIL}is_variable_valid gets String as {x}.{ENDC}")
+                return False
+            if not numpy.isfinite(i).all():
+                return False
+        return True
+    else:
+        print(f"{FAIL}is_variable_valid gets not qualified input type of {type(x)} for {x}.{ENDC}")
+        return False
+
+if __name__=='__main__':
+    # Test cases for this utility function
+    a = [None, 1, 2]
+    np_arr = numpy.array(a, dtype=float)
+    tensor_arr = torch.from_numpy(np_arr)
+    assert is_variable_valid(a)==False, "Checking function wrong."
+    assert is_variable_valid(np_arr)==False, "Checking function wrong."
+    assert is_variable_valid(tensor_arr)==False, "Checking function wrong."
+
+    a = 1.0
+    np_arr = numpy.array(a, dtype=float)
+    tensor_arr = torch.from_numpy(np_arr)
+    assert is_variable_valid(a)==True, "Checking function wrong."
+    assert is_variable_valid(np_arr)==True, "Checking function wrong."
+    assert is_variable_valid(tensor_arr)==True, "Checking function wrong."
+
+    a = [1, float('Inf')]
+    np_arr = numpy.array(a, dtype=float)
+    tensor_arr = torch.from_numpy(np_arr)
+    assert is_variable_valid(a)==False, "Checking function wrong."
+    assert is_variable_valid(np_arr)==False, "Checking function wrong."
+    assert is_variable_valid(tensor_arr)==False, "Checking function wrong."
+
+    a = "qwer"
+    assert is_variable_valid(a)==False, "Checking function wrong."
+
+    a = ["qwer"]
+    assert is_variable_valid(a)==False, "Checking function wrong."
+
+    a = ["qwer", 1]
+    assert is_variable_valid(a)==False, "Checking function wrong."
+    
+    a = [[1,2,3],[1,2,3]]
+    np_arr = numpy.array(a, dtype=float)
+    tensor_arr = torch.from_numpy(np_arr)
+    assert is_variable_valid(a)==True, "Checking function wrong."
+    assert is_variable_valid(np_arr)==True, "Checking function wrong."
+    assert is_variable_valid(tensor_arr)==True, "Checking function wrong."
+
+    a = [[1,2,3],[1,2,None]]
+    np_arr = numpy.array(a, dtype=float)
+    tensor_arr = torch.from_numpy(np_arr)
+    assert is_variable_valid(a)==False, "Checking function wrong."
+    assert is_variable_valid(np_arr)==False, "Checking function wrong."
+    assert is_variable_valid(tensor_arr)==False, "Checking function wrong."
+
+    print(f"{OKGREEN}Passed all number check tests.{ENDC}")

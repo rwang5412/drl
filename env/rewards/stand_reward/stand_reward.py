@@ -1,5 +1,6 @@
 import numpy as np
-from env.util.quaternion import *
+from env.util.quaternion import quaternion_distance, euler2quat, quaternion_product
+from util.check_number import is_variable_valid
 
 def kernel(x):
   return np.exp(-x)
@@ -39,6 +40,9 @@ def compute_reward(self, action):
     ### Add up all reward components ###
     self.reward = 0
     for name in q:
+        if not is_variable_valid(q[name]):
+            raise RuntimeError(f"Reward {name} has Nan or Inf values as {q[name]}.\n"
+                               f"Training stopped.")
         self.reward += self.reward_weight[name]["weighting"] * \
                        kernel(self.reward_weight[name]["scaling"] * q[name])
 
