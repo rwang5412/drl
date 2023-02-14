@@ -6,8 +6,6 @@ import sys
 import torch
 
 from util.colors import OKGREEN, FAIL, ENDC
-from util.env_factory import env_factory
-from util.log import create_logger
 from types import SimpleNamespace
 
 

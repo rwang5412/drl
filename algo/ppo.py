@@ -804,9 +804,9 @@ def run_experiment(args):
     Args:
         args: argparse namespace
     """
+    from algo.util.normalization import train_normalizer
+    from algo.util.log import create_logger
     from util.env_factory import env_factory
-    from util.normalization import train_normalizer
-    from util.log import create_logger
 
     from nn.critic import FFCritic, LSTMCritic, GRUCritic
     from nn.actor import FFActor, LSTMActor, GRUActor
