@@ -121,16 +121,9 @@ def test_child_env_reward(test_env, test_sim, clock_type, reward):
             f"a reward greater than 1."
 
 def test_env_factory(test_env, test_sim, clock_type, reward):
-    args = SimpleNamespace(env_name                 = test_env.__name__,
-                           simulator_type           = test_sim,
-                           clock_type               = clock_type,
-                           reward_name              = reward,
-                           policy_rate              = 50,
-                           dynamics_randomization   = False,
-                           terrain                  = False)
-
+    args = SimpleNamespace()
     # load callable env partial
-    env_fn = env_factory(**vars(args))
+    env_fn = env_factory(test_env.__name__, args)
     env = env_fn()
     env.reset()
     sim_duration = []

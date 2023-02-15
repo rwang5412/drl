@@ -5,9 +5,10 @@ import pickle
 import sys
 import torch
 
+from algo.util.log import create_logger
 from util.colors import BOLD, ORANGE, FAIL, ENDC
 from util.env_factory import env_factory
-from util.log import create_logger
+
 
 def print_logo(subtitle=""):
     print()
@@ -31,14 +32,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     """Environment"""
-    parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
-    parser.add_argument("--perception", default=False, action='store_true')
-    parser.add_argument("--terrain",  default=False, action='store_true')
     parser.add_argument("--env-name",      default="CassieEnvClock", type=str)                     # environment to train on
-    parser.add_argument("--reward-name", default="locomotion_linear_clock_reward", type=str)  # reward to use. this is a required argument.
-    parser.add_argument("--simulator-type",   default="mujoco", type=str, help="Which simulatory to use")
-    parser.add_argument("--clock-type",   default="linear", type=str, help="Which clock to use")
-    parser.add_argument("--policy-rate",   default=50, type=int, help="Rate at which policy runs")
 
     """Logger / Saver"""
     parser.add_argument("--wandb",    default=False, action='store_true')              # use weights and biases for training
@@ -67,5 +61,6 @@ if __name__ == "__main__":
         from algo.ppo import add_algo_args, run_experiment
 
         parser = add_algo_args(parser)
-        args = parser.parse_args()
-        run_experiment(args)
+        # Assume that any extra arguments will be handled later by the env arg parser in env_factory
+        args, env_args = parser.parse_known_args()
+        run_experiment(args, env_args)

@@ -1,7 +1,9 @@
+import argparse
 import numpy as np
 
 from env.util.periodicclock import PeriodicClock
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
+from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 
 class CassieEnvClockOld(CassieEnvClock):
@@ -71,3 +73,28 @@ class CassieEnvClockOld(CassieEnvClock):
                               self.clock.input_clock(),
                               [self.x_velocity]))
         return out
+
+def add_env_args(parser):
+    if isinstance(parser, argparse.ArgumentParser):
+        parser.add_argument("--simulator-type",   default="mujoco", type=str, help="Which simulatory to \
+                            use (\"mujoco\" or \"libcassie\"")
+        parser.add_argument("--perception", default=False, action='store_true')
+        parser.add_argument("--terrain",  default=False, action='store_true')
+        parser.add_argument("--policy-rate",   default=50, type=int, help="Rate at which policy runs")
+        parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
+        parser.add_argument("--reward-name", default="locomotion_linear_clock_reward", type=str)  # reward to use. this is a required argument.
+        parser.add_argument("--clock-type",   default="linear", type=str, help="Which clock to use")
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+        parser.simulator_type           = "mujoco"
+        parser.perception               = False
+        parser.terrain                  = False
+        parser.policy_rate              = 50
+        parser.dynamics_randomization   = False
+        parser.reward_name              = "locomotion_linear_clock_reward"
+        parser.clock_type               = "linear"
+    else:
+        raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
+                           f"to add environment arguments. Input object should be either an " \
+                           f"ArgumentParser or a SimpleNamespace.{ENDC}")
+
+    return parser

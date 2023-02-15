@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 
 from env.genericenv import GenericEnv
@@ -8,6 +9,8 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
+from types import SimpleNamespace
+from util.colors import FAIL, ENDC
 
 class CassieEnv(GenericEnv):
     def __init__(self,
@@ -48,7 +51,7 @@ class CassieEnv(GenericEnv):
         self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
-        self.trackers = [self.update_tracker_grf, 
+        self.trackers = [self.update_tracker_grf,
                          self.update_tracker_velocity]
         self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
         self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
@@ -108,14 +111,14 @@ class CassieEnv(GenericEnv):
         """
         for foot in self.feet_grf_2khz_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_grf_2khz_avg[foot] = 0.0    
+                self.feet_grf_2khz_avg[foot] = 0.0
             self.feet_grf_2khz_avg[foot] += \
                 weighting * self.sim.get_body_contact_force(name=foot)
 
     def update_tracker_velocity(self, weighting: float, sim_step: int):
         for foot in self.feet_velocity_2khz_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_velocity_2khz_avg[foot] = 0.0    
+                self.feet_velocity_2khz_avg[foot] = 0.0
             self.feet_velocity_2khz_avg[foot] += \
                 weighting * self.sim.get_body_velocity(name=foot)
 
@@ -137,3 +140,25 @@ class CassieEnv(GenericEnv):
         elif len(orientation) == 4:
             new_orient = quaternion_product(iquaternion, orientation)
             return new_orient
+
+def add_env_args(parser):
+    if isinstance(parser, argparse.ArgumentParser):
+        parser.add_argument("--simulator-type",   default="mujoco", type=str, help="Which simulator "\
+                            "to use (\"mujoco\" or \"libcassie\"")
+        parser.add_argument("--perception", default=False, action='store_true')
+        parser.add_argument("--terrain",  default=False, action='store_true')
+        parser.add_argument("--policy-rate",   default=50, type=int, help="Rate at which policy runs")
+        parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+        parser.simulator_type           = "mujoco"
+        parser.perception               = False
+        parser.terrain                  = False
+        parser.policy_rate              = 50
+        parser.dynamics_randomization   = False
+    else:
+        raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
+                           f"to add environment arguments. Input object should be either an " \
+                           f"ArgumentParser or a SimpleNamespace.{ENDC}")
+
+    return parser
+

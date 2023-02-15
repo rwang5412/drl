@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 
 from env.genericenv import GenericEnv
@@ -8,6 +9,7 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
+from types import SimpleNamespace
 
 class DigitEnv(GenericEnv):
     def __init__(self,
@@ -44,14 +46,14 @@ class DigitEnv(GenericEnv):
 
         # Low-level control specifics
         self.reset_qpos = np.array([0, 0, 1,  1, 0 ,0 ,0,
-        3.33020155e-01, -2.66178730e-02, 1.92369587e-01, 
+        3.33020155e-01, -2.66178730e-02, 1.92369587e-01,
         9.93409734e-01, -1.04126145e-03, 1.82534311e-03, 1.14597921e-01,
-        2.28971047e-01, 1.48527831e-03, -2.31455693e-01, 4.55857916e-04, 
-        -1.29734322e-02,  
-        9.89327705e-01, 1.45524756e-01, 1.73630859e-03, 7.08678995e-03, 
+        2.28971047e-01, 1.48527831e-03, -2.31455693e-01, 4.55857916e-04,
+        -1.29734322e-02,
+        9.89327705e-01, 1.45524756e-01, 1.73630859e-03, 7.08678995e-03,
         -2.03852305e-02,
         9.88035432e-01, 1.53876629e-01, 6.59769560e-05, 1.03905844e-02,
-        -3.52778547e-03, -5.54992074e-02, 
+        -3.52778547e-03, -5.54992074e-02,
         -1.05542715e-01, 8.94852532e-01, -8.63756398e-03, 3.44780280e-01,
         -3.33020070e-01, 2.66195360e-02, -1.92382190e-01,
         9.93409659e-01, 1.04481446e-03, 1.82489637e-03, -1.14598546e-01,
@@ -63,7 +65,7 @@ class DigitEnv(GenericEnv):
         2.36874210e-03, 5.55559678e-02,
         1.05444698e-01, -8.94890429e-01, 8.85979401e-03, -3.44723293e-01
         ])
-        
+
         self.offset = self.reset_qpos[self.sim.motor_position_inds]
 
         self.kp = np.array([200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
@@ -72,7 +74,7 @@ class DigitEnv(GenericEnv):
                             10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
-        self.trackers = [self.update_tracker_grf, 
+        self.trackers = [self.update_tracker_grf,
                          self.update_tracker_velocity]
         self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
         self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
@@ -132,14 +134,14 @@ class DigitEnv(GenericEnv):
         """
         for foot in self.feet_grf_2khz_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_grf_2khz_avg[foot] = 0.0    
+                self.feet_grf_2khz_avg[foot] = 0.0
             self.feet_grf_2khz_avg[foot] += \
                 weighting * self.sim.get_body_contact_force(name=foot)
 
     def update_tracker_velocity(self, weighting: float, sim_step: int):
         for foot in self.feet_velocity_2khz_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_velocity_2khz_avg[foot] = 0.0    
+                self.feet_velocity_2khz_avg[foot] = 0.0
             self.feet_velocity_2khz_avg[foot] += \
                 weighting * self.sim.get_body_velocity(name=foot)
 
@@ -161,3 +163,28 @@ class DigitEnv(GenericEnv):
         elif len(orientation) == 4:
             new_orient = quaternion_product(iquaternion, orientation)
             return new_orient
+
+def add_env_args(parser):
+    if isinstance(parser, argparse.ArgumentParser):
+        parser.add_argument("--simulator-type",   default="mujoco", type=str, help="Which simulatory to \
+                            use (\"mujoco\" or \"libcassie\"")
+        parser.add_argument("--perception", default=False, action='store_true')
+        parser.add_argument("--terrain",  default=False, action='store_true')
+        parser.add_argument("--policy-rate",   default=50, type=int, help="Rate at which policy runs")
+        parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
+        parser.add_argument("--reward-name", default="locomotion_linear_clock_reward", type=str)  # reward to use. this is a required argument.
+        parser.add_argument("--clock-type",   default="linear", type=str, help="Which clock to use")
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+        parser.simulator_type           = "mujoco"
+        parser.perception               = False
+        parser.terrain                  = False
+        parser.policy_rate              = 50
+        parser.dynamics_randomization   = False
+        parser.reward_name              = "locomotion_linear_clock_reward"
+        parser.clock_type               = "linear"
+    else:
+        raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
+                           f"to add environment arguments. Input object should be either an " \
+                           f"ArgumentParser or a SimpleNamespace.{ENDC}")
+
+    return parser

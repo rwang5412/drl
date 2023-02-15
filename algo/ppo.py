@@ -1,17 +1,19 @@
 """Proximal Policy Optimization (clip objective)."""
+import argparse
+import numpy as np
 import os
 import ray
 import torch
 import torch.nn as nn
-import torch.optim as optim
 import torch.nn.functional as F
-import numpy as np
+import torch.optim as optim
 
+from copy import deepcopy
+from time import time, sleep
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from torch.distributions import kl_divergence
 from torch.nn.utils.rnn import pad_sequence
-from copy import deepcopy
-from time import time, sleep
+from types import SimpleNamespace
 
 from util.mirror import mirror_tensor
 
@@ -769,35 +771,61 @@ class PPO(PPO_Worker):
                len(memory), (sample_rate, update_time), total_steps, avg_ep_len, avg_batch_reward
 
 def add_algo_args(parser):
-    parser.add_argument("--prenormalize_steps", default=100,           type=int)
-    parser.add_argument("--num_steps",          default=5000,          type=int)
-    parser.add_argument('--discount',           default=0.99,          type=float)          # the discount factor
-    parser.add_argument("--learn_stddev",       default=False,         action='store_true') # learn std_dev or keep it fixed
-    parser.add_argument('--std',                default=0.13,          type=float)          # the fixed exploration std
-    parser.add_argument("--a_lr",               default=1e-4,          type=float)          # adam learning rate for actor
-    parser.add_argument("--c_lr",               default=1e-4,          type=float)          # adam learning rate for critic
-    parser.add_argument("--eps",                default=1e-6,          type=float)          # adam eps
-    parser.add_argument("--kl",                 default=0.02,          type=float)          # kl abort threshold
-    parser.add_argument("--entropy_coeff",      default=0.0,           type=float)
-    parser.add_argument("--clip",               default=0.2,           type=float)          # Clipping parameter for PPO surrogate loss
-    parser.add_argument("--grad_clip",          default=0.05,          type=float)
-    parser.add_argument("--batch_size",         default=64,            type=int)            # batch size for policy update
-    parser.add_argument("--epochs",             default=3,             type=int)            # number of updates per iter
-    parser.add_argument("--mirror",             default=0,             type=float)
-    parser.add_argument("--do_prenorm",         default=False,         action='store_true') # Do pre-normalization or not
+    if isinstance(parser, argparse.ArgumentParser):
+        parser.add_argument("--prenormalize_steps", default=100,           type=int)
+        parser.add_argument("--num_steps",          default=5000,          type=int)
+        parser.add_argument('--discount',           default=0.99,          type=float)          # the discount factor
+        parser.add_argument("--learn_stddev",       default=False,         action='store_true') # learn std_dev or keep it fixed
+        parser.add_argument('--std',                default=0.13,          type=float)          # the fixed exploration std
+        parser.add_argument("--a_lr",               default=1e-4,          type=float)          # adam learning rate for actor
+        parser.add_argument("--c_lr",               default=1e-4,          type=float)          # adam learning rate for critic
+        parser.add_argument("--eps",                default=1e-6,          type=float)          # adam eps
+        parser.add_argument("--kl",                 default=0.02,          type=float)          # kl abort threshold
+        parser.add_argument("--entropy_coeff",      default=0.0,           type=float)
+        parser.add_argument("--clip",               default=0.2,           type=float)          # Clipping parameter for PPO surrogate loss
+        parser.add_argument("--grad_clip",          default=0.05,          type=float)
+        parser.add_argument("--batch_size",         default=64,            type=int)            # batch size for policy update
+        parser.add_argument("--epochs",             default=3,             type=int)            # number of updates per iter
+        parser.add_argument("--mirror",             default=0,             type=float)
+        parser.add_argument("--do_prenorm",         default=False,         action='store_true') # Do pre-normalization or not
 
-    parser.add_argument("--layers",             default="256,256",     type=str)            # hidden layer sizes in policy
-    parser.add_argument("--arch",               default='ff')                               # either ff, lstm, or gru
-    parser.add_argument("--bounded",            default=False,         type=bool)
+        parser.add_argument("--layers",             default="256,256",     type=str)            # hidden layer sizes in policy
+        parser.add_argument("--arch",               default='ff')                               # either ff, lstm, or gru
+        parser.add_argument("--bounded",            default=False,         type=bool)
 
-    parser.add_argument("--workers",            default=2,             type=int)
-    parser.add_argument("--redis",              default=None,          type=str)
-    parser.add_argument("--previous",           default=None,          type=str)            # Dir of previously trained policy to start learning from
+        parser.add_argument("--workers",            default=2,             type=int)
+        parser.add_argument("--redis",              default=None,          type=str)
+        parser.add_argument("--previous",           default=None,          type=str)            # Dir of previously trained policy to start learning from
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+        parser.prenormalize_steps = 10
+        parser.num_steps          = 100
+        parser.discount           = 0.99
+        parser.learn_stddev       = False
+        parser.std                = 0.13
+        parser.a_lr               = 1e-4
+        parser.c_lr               = 1e-4
+        parser.eps                = 1e-6
+        parser.kl                 = 0.02
+        parser.entropy_coeff      = 0.0
+        parser.clip               = 0.2
+        parser.grad_clip          = 0.05
+        parser.batch_size         = 64
+        parser.epochs             = 3
+        parser.mirror             = 0
+        parser.do_prenorm         = False
+
+        parser.layers             = "256,256"
+        parser.arch               = 'ff'
+        parser.bounded            = False
+
+        parser.workers            = 2
+        parser.redis              = None
+        parser.previous           = None
 
     return parser
 
 
-def run_experiment(args):
+def run_experiment(args, env_args):
     """
     Function to run a PPO experiment.
 
@@ -815,7 +843,8 @@ def run_experiment(args):
     locale.setlocale(locale.LC_ALL, '')
 
     # wrapper function for creating parallelized envs
-    env_fn = env_factory(**vars(args))
+    # env_fn = env_factory(**vars(args))
+    env_fn = env_factory(args.env_name, env_args)
 
     obs_dim = env_fn().observation_size
     action_dim = env_fn().action_size
@@ -895,7 +924,7 @@ def run_experiment(args):
     print()
     print("Proximal Policy Optimization:")
     print("\tseed:               {}".format(args.seed))
-    print("\tenv name:                {}".format(args.env_name))
+    print("\tenv name:           {}".format(args.env_name))
     print("\tmirror:             {}".format(args.mirror))
     print("\ttimesteps:          {:n}".format(int(args.timesteps)))
     print("\titeration steps:    {:n}".format(int(args.num_steps)))
