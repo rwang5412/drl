@@ -107,7 +107,23 @@ class CassieEnvClockOldFF(CassieEnvClock):
                               [self.x_velocity]))
         return out
 
-def add_env_args(parser):
+def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
+    """
+    Function to add handling of arguments relevant to this environment construction. Handles both
+    the case where the input is an argument parser (in which case it will use `add_argument`) and
+    the case where the input is just a Namespace (in which it will just add to the namespace with
+    the default values) Note that arguments that already exist in the namespace will not be
+    overwritten. To add new arguments if needed, they can just be added to the `args` dictionary
+    which should map arguments to the tuple pair (default value, help string).
+
+    Args:
+        parser (argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace): The argument
+            parser or Namespace object to add arguments to
+
+    Returns:
+        argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace: Returns the same object
+            as the input but with added arguments.
+    """
     args = {
         "simulator_type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\""),
         "perception" : (False, "Whether to use perception or not (default is False)"),
