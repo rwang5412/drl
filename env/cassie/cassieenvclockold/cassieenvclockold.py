@@ -75,26 +75,26 @@ class CassieEnvClockOld(CassieEnvClock):
         return out
 
 def add_env_args(parser):
+    args = {
+        "simulator_type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\""),
+        "perception" : (False, "Whether to use perception or not (default is False)"),
+        "terrain" : (False, "What terrain to train with (default is flat terrain)"),
+        "policy_rate" : (50, "Rate at which policy runs in Hz"),
+        "dynamics_randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
+        "reward_name" : ("locomotion_linear_clock_reward", "Which reward to use"),
+        "clock_type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
+    }
     if isinstance(parser, argparse.ArgumentParser):
-        parser.add_argument("--simulator-type",   default="mujoco", type=str, help="Which simulatory to \
-                            use (\"mujoco\" or \"libcassie\"")
-        parser.add_argument("--perception", default=False, action='store_true')
-        parser.add_argument("--terrain",  default=False, action='store_true')
-        parser.add_argument("--policy-rate",   default=50, type=int, help="Rate at which policy runs")
-        parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
-        parser.add_argument("--reward-name", default="locomotion_linear_clock_reward", type=str)  # reward to use. this is a required argument.
-        parser.add_argument("--clock-type",   default="linear", type=str, help="Which clock to use")
+        for arg, (default, help_str) in args.items():
+            if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
+                parser.add_argument("--" + arg, default = default, action = "store_" + \
+                                    str(not default).lower(), help = help_str)
+            else:
+                parser.add_argument("--" + arg, default = default, type = type(default), help = help_str)
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
-        default_values = {"simulator_type"          : "mujoco",
-                          "perception"              : False,
-                          "terrain"                 : False,
-                          "policy_rate"             : 50,
-                          "dynamics_randomization"  : False,
-                          "reward_name"             : "locomotion_linear_clock_reward",
-                          "clock_type"              : "linear"}
-        for key, val in default_values.items():
-            if not hasattr(parser, key):
-                setattr(parser, key, val)
+        for arg, (default, help_str) in args.items():
+            if not hasattr(parser, arg):
+                setattr(parser, arg, default)
     else:
         raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
                            f"to add environment arguments. Input object should be either an " \

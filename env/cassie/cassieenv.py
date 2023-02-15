@@ -140,28 +140,3 @@ class CassieEnv(GenericEnv):
         elif len(orientation) == 4:
             new_orient = quaternion_product(iquaternion, orientation)
             return new_orient
-
-def add_env_args(parser):
-    if isinstance(parser, argparse.ArgumentParser):
-        parser.add_argument("--simulator-type",   default="mujoco", type=str, help="Which simulator "\
-                            "to use (\"mujoco\" or \"libcassie\"")
-        parser.add_argument("--perception", default=False, action='store_true')
-        parser.add_argument("--terrain",  default=False, action='store_true')
-        parser.add_argument("--policy-rate",   default=50, type=int, help="Rate at which policy runs")
-        parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
-    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
-        default_values = {"simulator_type"           : "mujoco",
-                          "perception"               : False,
-                          "terrain"                  : False,
-                          "policy_rate"              : 50,
-                          "dynamics_randomization"   : False}
-        for key, val in default_values.items():
-            if not hasattr(parser, key):
-                setattr(parser, key, val)
-    else:
-        raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
-                           f"to add environment arguments. Input object should be either an " \
-                           f"ArgumentParser or a SimpleNamespace.{ENDC}")
-
-    return parser
-
