@@ -797,30 +797,32 @@ def add_algo_args(parser):
         parser.add_argument("--redis",              default=None,          type=str)
         parser.add_argument("--previous",           default=None,          type=str)            # Dir of previously trained policy to start learning from
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
-        parser.prenormalize_steps = 10
-        parser.num_steps          = 100
-        parser.discount           = 0.99
-        parser.learn_stddev       = False
-        parser.std                = 0.13
-        parser.a_lr               = 1e-4
-        parser.c_lr               = 1e-4
-        parser.eps                = 1e-6
-        parser.kl                 = 0.02
-        parser.entropy_coeff      = 0.0
-        parser.clip               = 0.2
-        parser.grad_clip          = 0.05
-        parser.batch_size         = 64
-        parser.epochs             = 3
-        parser.mirror             = 0
-        parser.do_prenorm         = False
+        default_values = {"prenormalize_steps" : 10,
+                          "num_steps"          : 100,
+                          "discount"           : 0.99,
+                          "learn_stddev"       : False,
+                          "std"                : 0.13,
+                          "a_lr"               : 1e-4,
+                          "c_lr"               : 1e-4,
+                          "eps"                : 1e-6,
+                          "kl"                 : 0.02,
+                          "entropy_coeff"      : 0.0,
+                          "clip"               : 0.2,
+                          "grad_clip"          : 0.05,
+                          "batch_size"         : 64,
+                          "epochs"             : 3,
+                          "mirror"             : 0,
+                          "do_prenorm"         : False,
+                          "layers"             : "256,256",
+                          "arch"               : 'ff',
+                          "bounded"            : False,
+                          "workers"            : 2,
+                          "redis"              : None,
+                          "previous"           : None}
 
-        parser.layers             = "256,256"
-        parser.arch               = 'ff'
-        parser.bounded            = False
-
-        parser.workers            = 2
-        parser.redis              = None
-        parser.previous           = None
+        for key, val in default_values.items():
+            if not hasattr(parser, key):
+                setattr(parser, key, val)
 
     return parser
 

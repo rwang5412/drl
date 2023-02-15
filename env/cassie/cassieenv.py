@@ -150,11 +150,14 @@ def add_env_args(parser):
         parser.add_argument("--policy-rate",   default=50, type=int, help="Rate at which policy runs")
         parser.add_argument("--not_dyn_random", dest='dynamics_randomization', default=True, action='store_false')
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
-        parser.simulator_type           = "mujoco"
-        parser.perception               = False
-        parser.terrain                  = False
-        parser.policy_rate              = 50
-        parser.dynamics_randomization   = False
+        default_values = {"simulator_type"           : "mujoco",
+                          "perception"               : False,
+                          "terrain"                  : False,
+                          "policy_rate"              : 50,
+                          "dynamics_randomization"   : False}
+        for key, val in default_values.items():
+            if not hasattr(parser, key):
+                setattr(parser, key, val)
     else:
         raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
                            f"to add environment arguments. Input object should be either an " \

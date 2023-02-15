@@ -88,13 +88,16 @@ def add_env_args(parser):
         parser.add_argument("--reward-name", default="locomotion_linear_clock_reward", type=str)  # reward to use. this is a required argument.
         parser.add_argument("--clock-type",   default="linear", type=str, help="Which clock to use")
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
-        parser.simulator_type           = "mujoco"
-        parser.perception               = False
-        parser.terrain                  = False
-        parser.policy_rate              = 50
-        parser.dynamics_randomization   = False
-        parser.reward_name              = "locomotion_linear_clock_reward"
-        parser.clock_type               = "linear"
+        default_values = {"simulator_type"          : "mujoco",
+                          "perception"              : False,
+                          "terrain"                 : False,
+                          "policy_rate"             : 50,
+                          "dynamics_randomization"  : False,
+                          "reward_name"             : "locomotion_linear_clock_reward",
+                          "clock_type"              : "linear"}
+        for key, val in default_values.items():
+            if not hasattr(parser, key):
+                setattr(parser, key, val)
     else:
         raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
                            f"to add environment arguments. Input object should be either an " \
