@@ -65,19 +65,13 @@ class CassieEnvClock(CassieEnv):
         self.reset()
 
         # Define env specifics after reset
-        self.observation_space = len(self.get_state())
-        self.action_space = self.sim.num_actuators
-        # Below from old roadrunner
-        self.action_mirror_indices = [-5, -6, 7, 8, 9,
-                                      -0.1, -1, 2, 3, 4]
-        self.state_mirror_indices = [0.01, -1, 2, -3,      # pelvis orientation
-                                     -4, 5, -6,             # rotational vel
-                                     -12, -13, 14, 15, 16,  # left motor pos
-                                     -7,  -8,  9,  10,  11, # right motor pos
-                                     -22, -23, 24, 25, 26,  # left motor vel
-                                     -17, -18, 19, 20, 21,  # right motor vel 
-                                     29, 30, 27, 28,        # joint pos
-                                     33, 34, 31, 32, ]      # joint vel
+        self.observation_size = len(self.get_robot_state())
+        self.observation_size += 2 # XY velocity command
+        self.observation_size += 2 # swing ratio
+        self.observation_size += 2 # period shift
+        self.observation_size += 2 # input clock
+        self.action_size = self.sim.num_actuators
+        self.check_observation_action_size()
 
     def reset(self):
         """Reset simulator and env variables.
@@ -137,7 +131,16 @@ class CassieEnvClock(CassieEnv):
         return out
 
     def get_action_mirror_indices(self):
-        return self.action_mirror_indices
+        return self.motor_mirror_indices
 
     def get_state_mirror_indices(self):
-        raise self.state_mirror_indices
+        mirror_inds = self.robot_state_mirror_indices
+        # XY velocity command
+        mirror_inds += [len(mirror_inds), - (len(mirror_inds)+1)]
+        # swing ratio
+        mirror_inds += [len(mirror_inds)+1, len(mirror_inds)]
+        # period shift
+        mirror_inds += [len(mirror_inds)+1, len(mirror_inds)]
+        # input clock sin/cos
+        mirror_inds += [len(mirror_inds), len(mirror_inds)+1]
+        raise mirror_inds

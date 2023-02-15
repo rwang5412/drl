@@ -56,6 +56,18 @@ class CassieEnv(GenericEnv):
             self.feet_grf_2khz_avg[foot] = self.sim.get_body_contact_force(name=foot)
             self.feet_velocity_2khz_avg[foot] = self.sim.get_body_velocity(name=foot)
 
+        # Mirror indices
+        self.motor_mirror_indices = [-5, -6, 7, 8, 9,
+                                     -0.1, -1, 2, 3, 4]
+        self.robot_state_mirror_indices = [0.01, -1, 2, -3,      # pelvis orientation
+                                          -4, 5, -6,             # rotational vel
+                                          -12, -13, 14, 15, 16,  # left motor pos
+                                          -7,  -8,  9,  10,  11, # right motor pos
+                                          -22, -23, 24, 25, 26,  # left motor vel
+                                          -17, -18, 19, 20, 21,  # right motor vel 
+                                          29, 30, 27, 28,        # joint pos
+                                          33, 34, 31, 32, ]      # joint vel
+
     def reset_simulation(self):
         """Reset simulator.
         Depending on use cases, child class can override this as well.
@@ -84,7 +96,8 @@ class CassieEnv(GenericEnv):
                 tracker(weighting=1/simulator_repeat_steps, sim_step=sim_step)
 
     def get_robot_state(self):
-        """Get standard robot prioceptive states
+        """Get standard robot prorioceptive states. Sub-env can override this function to define its
+        own get_robot_state().
 
         Returns:
             robot_state (np.ndarray): robot state
@@ -137,3 +150,14 @@ class CassieEnv(GenericEnv):
         elif len(orientation) == 4:
             new_orient = quaternion_product(iquaternion, orientation)
             return new_orient
+
+    def check_observation_action_size(self):
+        """Check the size of observation/action/mirror.
+        """
+        assert self.observation_size == len(self.get_state()), \
+            f"Check observation size = {self.observation_size}," \
+            f"but get_state() returns with size {len(self.get_state())}"
+        assert len(self.get_state_mirror_indices()) == self.observation_size, \
+            "State mirror inds size mismatch with observation size."
+        assert len(self.get_action_mirror_indices()) == self.action_size, \
+            "Action mirror inds size mismatch with action size."
