@@ -78,7 +78,7 @@ class CassieEnvClockOld(CassieEnvClock):
     def get_observation_mirror_indices(self):
         mirror_inds = self.robot_state_mirror_indices
         # input clock sin/cos
-        mirror_inds += [len(mirror_inds), len(mirror_inds) + 1]
+        mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         # X velocity command
         mirror_inds += [len(mirror_inds)]
         return mirror_inds

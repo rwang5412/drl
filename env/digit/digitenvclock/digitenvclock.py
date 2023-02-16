@@ -147,7 +147,7 @@ class DigitEnvClock(DigitEnv):
         # swing ratio
         mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # period shift
-        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
+        mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         # input clock sin/cos
         mirror_inds += [len(mirror_inds), len(mirror_inds) + 1]
         return mirror_inds

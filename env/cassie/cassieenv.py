@@ -63,6 +63,7 @@ class CassieEnv(GenericEnv):
         # Readable string format listed in /testing/commmon.py
         self.motor_mirror_indices = [-5, -6, 7, 8, 9,
                                      -0.1, -1, 2, 3, 4]
+        # Proprioceptive state mirror inds should be synced up with get_robot_state()
         self.robot_state_mirror_indices = [0.01, -1, 2, -3,      # base orientation
                                           -4, 5, -6,             # base rotational vel
                                           -12, -13, 14, 15, 16,  # right motor pos

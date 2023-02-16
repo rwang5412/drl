@@ -63,24 +63,25 @@ class DigitEnv(GenericEnv):
         # Mirror indices
         # Readable string format listed in /testing/commmon.py
         # Digit's motor order is different between XML and Agility's header, here uses XML
-        self.motor_mirror_indices = [-10, -11, 12, 13, 14, 15, -16, 17, -18, 19, # right leg/arm
-                                     -0.1, -1, 2, 3, 4, 5, -6, 7, -8, 9          # left leg/arm
+        self.motor_mirror_indices = [-10, -11, -12, -13, -14, -15, -16, -17, -18, -19, # right leg/arm
+                                     -0.1, -1, -2, -3, -4, -5, -6, -7, -8, -9          # left leg/arm
                                      ]
-        self.robot_state_mirror_indices = [0.01, -1, 2, -3,          # base orientation
-                                          -4, 5, -6,                 # base rotational vel
-                                          -17, -18, 19, 20, 21, 22,  # right leg motor pos
-                                          -23, 24, -25, 26,          # right arm motor pos
-                                          -7,  -8,  9,  10,  11, 12, # left leg motor pos
-                                          -13, 14, -15, 16,          # left arm motor pos
-                                          -37, -38, 39, 40, 41, 42,  # right leg motor vel
-                                          -43, 44, -45, 46,          # right arm motor vel
-                                          -27, -28, 29, 30, 31, 32,  # left leg motor vel
-                                          -33, 34, -35, 36,          # left arm motor vel
-                                          51, 53, 54, 55, 56,        # right joint pos
-                                          47, 48, 49, 50, 51,        # left joint pos
-                                          57, 58, 59, 60, 61,        # right joint pos
-                                          62, 63, 64, 65, 66         # left joint vel
-                                          ]
+        # Proprioceptive state mirror inds should be synced up with get_robot_state()
+        self.robot_state_mirror_indices = [0.01, -1, 2, -3,           # base orientation
+                                        -4, 5, -6,                    # base rotational vel
+                                        -17, -18, -19, -20, -21, -22, # right leg motor pos
+                                        -23, -24, -25, -26,           # right arm motor pos
+                                        -7,  -8,  -9,  -10, -11, -12, # left leg motor pos
+                                        -13, -14, -15, -16,           # left arm motor pos
+                                        -37, -38, -39, -40, -41, -42, # right leg motor vel
+                                        -43, -44, -45, -46,           # right arm motor vel
+                                        -27, -28, -29, -30, -31, -32, # left leg motor vel
+                                        -33, -34, -35, -36,           # left arm motor vel
+                                        -52, -53, -54, -55, -56,      # right joint pos
+                                        -47, -48, -49, -50, -51,      # left joint pos
+                                        -62, -63, -64, -65, -66,      # right joint vel
+                                        -57, -58, -59, -60, -61,      # left joint vel
+                                        ]
 
     def reset_simulation(self):
         """Reset simulator.
