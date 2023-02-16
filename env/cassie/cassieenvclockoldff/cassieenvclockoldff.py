@@ -1,7 +1,9 @@
+import argparse
 import numpy as np
 
 from env.util.periodicclock import PeriodicClock
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
+from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 
 class CassieEnvClockOldFF(CassieEnvClock):
@@ -12,8 +14,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
                  simulator_type: str,
                  terrain: bool,
                  policy_rate: int,
-                 dynamics_randomization: bool,
-                 **kwargs):
+                 dynamics_randomization: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -23,8 +24,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
                          simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization,
-                         **kwargs)
+                         dynamics_randomization=dynamics_randomization)
 
         # Define env specifics
         self.sim.kp = np.array([80,  80,  88,  96,  50, 80,  80,  88,  96,  50])
@@ -44,7 +44,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
         """
         self.reset_simulation()
         # Randomize commands
-        self.x_velocity = 4.0#np.random.uniform(*self._x_velocity_bounds)
+        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
         if self.x_velocity > 2.0:
             self.y_velocity = 0
         else:
@@ -101,6 +101,49 @@ class CassieEnvClockOldFF(CassieEnvClock):
 
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
-                              self.clock.input_sine_only_clock(),
+                              self.clock.input_clock(),
                               [self.x_velocity]))
         return out
+
+def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
+    """
+    Function to add handling of arguments relevant to this environment construction. Handles both
+    the case where the input is an argument parser (in which case it will use `add_argument`) and
+    the case where the input is just a Namespace (in which it will just add to the namespace with
+    the default values) Note that arguments that already exist in the namespace will not be
+    overwritten. To add new arguments if needed, they can just be added to the `args` dictionary
+    which should map arguments to the tuple pair (default value, help string).
+
+    Args:
+        parser (argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace): The argument
+            parser or Namespace object to add arguments to
+
+    Returns:
+        argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace: Returns the same object
+            as the input but with added arguments.
+    """
+    args = {
+        "simulator_type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\""),
+        "terrain" : (False, "What terrain to train with (default is flat terrain)"),
+        "policy_rate" : (50, "Rate at which policy runs in Hz"),
+        "dynamics_randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
+        "reward_name" : ("locomotion_linear_clock_reward", "Which reward to use"),
+        "clock_type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
+    }
+    if isinstance(parser, argparse.ArgumentParser):
+        for arg, (default, help_str) in args.items():
+            if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
+                parser.add_argument("--" + arg, default = default, action = "store_" + \
+                                    str(not default).lower(), help = help_str)
+            else:
+                parser.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+        for arg, (default, help_str) in args.items():
+            if not hasattr(parser, arg):
+                setattr(parser, arg, default)
+    else:
+        raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
+                           f"to add environment arguments. Input object should be either an " \
+                           f"ArgumentParser or a SimpleNamespace.{ENDC}")
+
+    return parser

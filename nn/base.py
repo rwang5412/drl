@@ -4,7 +4,7 @@ import torch.nn as nn
 def normc_fn(m):
     """
     This function multiplies the weights of a pytorch linear layer by a small
-    number so that outputs early in training are close to zero, which means 
+    number so that outputs early in training are close to zero, which means
     that gradients are larger in magnitude. This means a richer gradient signal
     is propagated back and speeds up learning (probably).
     """
@@ -49,7 +49,7 @@ class Net(nn.Module):
     def _base_forward(self, x):
         raise NotImplementedError
 
-    def normalize_state(self, state, update_normalization_param=True):
+    def normalize_state(self, state: torch.Tensor, update_normalization_param=True):
         """
         Use Welford's algorithm to normalize a state, and optionally update the statistics
         for normalizing states using the new state, online.
@@ -139,14 +139,14 @@ class LSTMBase(Net):
         return x
 
 class MixBase(Net):
-    def __init__(self, 
-                 in_dim, 
-                 state_dim, 
-                 nonstate_dim, 
-                 lstm_layers, 
-                 ff_layers, 
-                 nonstate_encoder_dim, 
-                 nonlinearity=torch.nn.functional.relu, 
+    def __init__(self,
+                 in_dim,
+                 state_dim,
+                 nonstate_dim,
+                 lstm_layers,
+                 ff_layers,
+                 nonstate_encoder_dim,
+                 nonlinearity=torch.nn.functional.relu,
                  nonstate_encoder_on=True):
         """
         Base class for mixing LSTM and FF for actor.
@@ -161,7 +161,7 @@ class MixBase(Net):
             lstm_layers (_type_): LSTM layers
             ff_layers (_type_): FF2 layers
             nonstate_encoder_dim (_type_): Layer for FF1
-            nonlinearity (_type_, optional): Activation for FF1 and FF2. 
+            nonlinearity (_type_, optional): Activation for FF1 and FF2.
                                              Defaults to torch.nn.functional.relu.
             nonstate_encoder_on (bool, optional): Use FF1 or not. Defaults to True.
         """

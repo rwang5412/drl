@@ -47,7 +47,7 @@ def test_actor_module(actor_partial):
 
     if actor_partial == FFActor:
         ff_actor = FFActor(input_dim=state_size, action_dim=action_size, layers=ff_layers,
-                           bounded=False, learn_std=False, std=0.1)
+                           bounded=False, learn_std=False, std=0.1, nonlinearity=torch.tanh)
         action = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
         assert action.size(dim=0) == action_size, f"{ff_actor.__class__.__name__} output wrong size."
         test_actor_forward(ff_actor)
@@ -143,11 +143,11 @@ def test_nn():
     for m in base_modules:
         test_base_module(m)
     print(f"{OKGREEN}Passed all NN base tests! \u2713{ENDC}")
-    
+
     for a in actor_modules:
         test_actor_module(a)
     print(f"{OKGREEN}Passed all NN actor tests! \u2713{ENDC}")
-    
+
     for c in critic_modules:
         test_critic_module(c)
     print(f"{OKGREEN}Passed all NN critic tests! \u2713{ENDC}")

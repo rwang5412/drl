@@ -2,7 +2,7 @@ import torch
 import numpy
 import math
 
-from colors import FAIL, ENDC, OKGREEN
+from util.colors import FAIL, ENDC, OKGREEN
 
 def is_variable_valid(x):
     """Check if a given number has NaN, Inf, or None.
@@ -86,7 +86,7 @@ if __name__=='__main__':
 
     a = ["qwer", 1]
     assert is_variable_valid(a)==False, "Checking function wrong."
-    
+
     a = [[1,2,3],[1,2,3]]
     np_arr = numpy.array(a, dtype=float)
     tensor_arr = torch.from_numpy(np_arr)

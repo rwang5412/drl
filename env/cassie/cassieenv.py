@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 
 from env.genericenv import GenericEnv
@@ -8,6 +9,7 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
+from util.colors import FAIL, ENDC
 
 class CassieEnv(GenericEnv):
     def __init__(self,
@@ -48,7 +50,7 @@ class CassieEnv(GenericEnv):
         self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
-        self.trackers = [self.update_tracker_grf, 
+        self.trackers = [self.update_tracker_grf,
                          self.update_tracker_velocity]
         self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
         self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
@@ -108,14 +110,14 @@ class CassieEnv(GenericEnv):
         """
         for foot in self.feet_grf_2khz_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_grf_2khz_avg[foot] = 0.0    
+                self.feet_grf_2khz_avg[foot] = 0.0
             self.feet_grf_2khz_avg[foot] += \
                 weighting * self.sim.get_body_contact_force(name=foot)
 
     def update_tracker_velocity(self, weighting: float, sim_step: int):
         for foot in self.feet_velocity_2khz_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_velocity_2khz_avg[foot] = 0.0    
+                self.feet_velocity_2khz_avg[foot] = 0.0
             self.feet_velocity_2khz_avg[foot] += \
                 weighting * self.sim.get_body_velocity(name=foot)
 
