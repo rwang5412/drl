@@ -1,3 +1,4 @@
+import argparse
 import json
 import numpy as np
 from pathlib import Path
@@ -7,6 +8,7 @@ from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
 from env.digit.digitenv import DigitEnv
 from importlib import import_module
+from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 from util.check_number import is_variable_valid
 
@@ -18,8 +20,7 @@ class DigitEnvClock(DigitEnv):
                  simulator_type: str,
                  terrain: bool,
                  policy_rate: int,
-                 dynamics_randomization: bool,
-                 **kwargs):
+                 dynamics_randomization: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -150,3 +151,46 @@ class DigitEnvClock(DigitEnv):
         # input clock sin/cos
         mirror_inds += [len(mirror_inds), len(mirror_inds) + 1]
         return mirror_inds
+
+def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
+    """
+    Function to add handling of arguments relevant to this environment construction. Handles both
+    the case where the input is an argument parser (in which case it will use `add_argument`) and
+    the case where the input is just a Namespace (in which it will just add to the namespace with
+    the default values) Note that arguments that already exist in the namespace will not be
+    overwritten. To add new arguments if needed, they can just be added to the `args` dictionary
+    which should map arguments to the tuple pair (default value, help string).
+
+    Args:
+        parser (argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace): The argument
+            parser or Namespace object to add arguments to
+
+    Returns:
+        argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace: Returns the same object
+            as the input but with added arguments.
+    """
+    args = {
+        "simulator_type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\""),
+        "terrain" : (False, "What terrain to train with (default is flat terrain)"),
+        "policy_rate" : (50, "Rate at which policy runs in Hz"),
+        "dynamics_randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
+        "reward_name" : ("locomotion_linear_clock_reward", "Which reward to use"),
+        "clock_type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
+    }
+    if isinstance(parser, argparse.ArgumentParser):
+        for arg, (default, help_str) in args.items():
+            if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
+                parser.add_argument("--" + arg, default = default, action = "store_" + \
+                                    str(not default).lower(), help = help_str)
+            else:
+                parser.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+        for arg, (default, help_str) in args.items():
+            if not hasattr(parser, arg):
+                setattr(parser, arg, default)
+    else:
+        raise RuntimeError(f"{FAIL}Environment add_env_args got invalid object type when trying " \
+                           f"to add environment arguments. Input object should be either an " \
+                           f"ArgumentParser or a SimpleNamespace.{ENDC}")
+
+    return parser

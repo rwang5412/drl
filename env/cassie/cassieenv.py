@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 
 from env.genericenv import GenericEnv
@@ -8,6 +9,7 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
+from util.colors import FAIL, ENDC
 
 class CassieEnv(GenericEnv):
     def __init__(self,

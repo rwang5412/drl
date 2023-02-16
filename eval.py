@@ -22,16 +22,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default="./pretrained_models/lstm_speed_vonmises_fixedwalk_dx05to15.pt")
     parser.add_argument('--env-name', default="CassieEnvClockOldVonMises")
-    parser.add_argument('--simulator-type', default="mujoco")
-    parser.add_argument('--clock-type', default="von_mises")
-    parser.add_argument('--reward-name', default="locomotion_vonmises_clock_reward")
-    parser.add_argument('--policy-rate', default=40)
-    parser.add_argument('--dynamics-randomization', default=False)
-    parser.add_argument('--terrain', default=False)
-    args = parser.parse_args()
+    args, env_args = parser.parse_known_args()
 
     # Make temp env to get input/output dimensions
-    temp_env = env_factory(**vars(args))()
+    args, env_args = parser.parse_known_args()
+    temp_env = env_factory(args.env_name, env_args)()
 
     actor_model_dict = torch.load(args.path, map_location='cpu')
     remove_keys = ["env_name", "calculate_norm"]
@@ -42,15 +37,15 @@ if __name__ == "__main__":
         actor_model_dict["learn_std"] = False if actor_model_dict['fixed_std'] is not None else True
         actor_model_dict.pop("fixed_std")
     if actor_model_dict["is_recurrent"]:
-        actor = LSTMActor(input_dim=temp_env.observation_space,
-                          action_dim=temp_env.action_space,
+        actor = LSTMActor(input_dim=temp_env.observation_size,
+                          action_dim=temp_env.action_size,
                           layers=[128,128],
                           bounded=False,
                           learn_std=False,
                           std=0.1)
     else:
-        actor = FFActor(input_dim=temp_env.observation_space,
-                        action_dim=temp_env.action_space,
+        actor = FFActor(input_dim=temp_env.observation_size,
+                        action_dim=temp_env.action_size,
                         layers=[256,256],
                         bounded=False,
                         learn_std=False,
@@ -82,6 +77,6 @@ if __name__ == "__main__":
     actor.training = False
 
     if evaluation_type == 'simple':
-        simple_eval(actor=actor, args=args)
+        simple_eval(actor=actor, env_name=args.env_name, args=env_args)
     else:
         raise RuntimeError(f"This evaluation type {evaluation_type} has not been implemented.")
