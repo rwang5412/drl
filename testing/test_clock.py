@@ -166,8 +166,7 @@ def test_cassieclockenv():
     cycle_time = 1.0
     clock_type = "linear"
     policy_rate = 50
-    env = CassieEnvClock(cycle_time = cycle_time,
-                         clock_type = clock_type,
+    env = CassieEnvClock(clock_type = clock_type,
                          reward_name = "locomotion_linear_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,
@@ -179,8 +178,7 @@ def test_cassieclockenv():
         f"Failed CassieClockEnv linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
     clock_type = "von_mises"
-    env = CassieEnvClock(cycle_time = cycle_time,
-                         clock_type = clock_type,
+    env = CassieEnvClock(clock_type = clock_type,
                          reward_name = "locomotion_vonmises_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,
@@ -196,8 +194,7 @@ def test_digitclockenv():
     cycle_time = 1.0
     clock_type = "linear"
     policy_rate = 50
-    env = DigitEnvClock(cycle_time = cycle_time,
-                         clock_type = clock_type,
+    env = DigitEnvClock(clock_type = clock_type,
                          reward_name = "locomotion_linear_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,
@@ -209,8 +206,7 @@ def test_digitclockenv():
         f"Failed DigitEnvClock linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
     clock_type = "von_mises"
-    env = DigitEnvClock(cycle_time = cycle_time,
-                         clock_type = clock_type,
+    env = DigitEnvClock(clock_type = clock_type,
                          reward_name = "locomotion_vonmises_clock_reward",
                          simulator_type = "mujoco",
                          terrain = False,

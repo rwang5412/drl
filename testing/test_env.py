@@ -81,8 +81,7 @@ def test_base_env_step(test_env, test_sim):
 def test_child_env_step(test_env, test_sim):
     """Test if child env is stepping based on specified policy rate.
     """
-    env = test_env(cycle_time = 1.0,
-                   simulator_type=test_sim,
+    env = test_env(simulator_type=test_sim,
                    policy_rate=50,
                    dynamics_randomization=False,
                    terrain=False,
@@ -103,8 +102,7 @@ def test_child_env_step(test_env, test_sim):
 def test_child_env_reward(test_env, test_sim, clock_type, reward):
     """Test if child env with reward to make sure doesn't crash.
     """
-    env = test_env(cycle_time = 1.0,
-                   simulator_type=test_sim,
+    env = test_env(simulator_type=test_sim,
                    policy_rate=50,
                    dynamics_randomization=False,
                    terrain=False,
