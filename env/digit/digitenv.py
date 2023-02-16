@@ -9,7 +9,6 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
-from types import SimpleNamespace
 
 class DigitEnv(GenericEnv):
     def __init__(self,

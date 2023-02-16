@@ -20,8 +20,7 @@ class DigitEnvClock(DigitEnv):
                  simulator_type: str,
                  terrain: bool,
                  policy_rate: int,
-                 dynamics_randomization: bool,
-                 **kwargs):
+                 dynamics_randomization: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -156,7 +155,6 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
     """
     args = {
         "simulator_type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\""),
-        "perception" : (False, "Whether to use perception or not (default is False)"),
         "terrain" : (False, "What terrain to train with (default is flat terrain)"),
         "policy_rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics_randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),

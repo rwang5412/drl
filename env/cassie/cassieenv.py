@@ -9,7 +9,6 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
-from types import SimpleNamespace
 from util.colors import FAIL, ENDC
 
 class CassieEnv(GenericEnv):
