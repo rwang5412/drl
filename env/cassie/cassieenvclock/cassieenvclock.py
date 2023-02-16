@@ -126,8 +126,10 @@ class CassieEnvClock(CassieEnv):
         return self._compute_done(self)
 
     def get_state(self):
-        out = np.concatenate((self.get_robot_state(), [self.x_velocity, self.y_velocity],
-                              self.clock.get_swing_ratios(), self.clock.get_period_shifts(),
+        out = np.concatenate((self.get_robot_state(),
+                              [self.x_velocity, self.y_velocity],
+                              self.clock.get_swing_ratios(),
+                              self.clock.get_period_shifts(),
                               self.clock.input_clock()))
         if not is_variable_valid(out):
             raise RuntimeError(f"States has Nan or Inf values. Training stopped.\n"
@@ -137,14 +139,14 @@ class CassieEnvClock(CassieEnv):
     def get_action_mirror_indices(self):
         return self.motor_mirror_indices
 
-    def get_state_mirror_indices(self):
+    def get_observation_mirror_indices(self):
         mirror_inds = self.robot_state_mirror_indices
         # XY velocity command
-        mirror_inds += [len(mirror_inds), - (len(mirror_inds)+1)]
+        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1)]
         # swing ratio
-        mirror_inds += [len(mirror_inds)+1, len(mirror_inds)]
+        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # period shift
-        mirror_inds += [len(mirror_inds)+1, len(mirror_inds)]
+        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # input clock sin/cos
-        mirror_inds += [len(mirror_inds), len(mirror_inds)+1]
-        raise mirror_inds
+        mirror_inds += [len(mirror_inds), len(mirror_inds) + 1]
+        return mirror_inds
