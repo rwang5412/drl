@@ -24,8 +24,7 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
                          simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization,
-                         **kwargs)
+                         dynamics_randomization=dynamics_randomization)
 
         # Command randomization ranges
         self._x_velocity_bounds = [0.5, 1.5]

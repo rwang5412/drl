@@ -24,8 +24,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
                          simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization,
-                         **kwargs)
+                         dynamics_randomization=dynamics_randomization)
 
         # Define env specifics
         self.sim.kp = np.array([80,  80,  88,  96,  50, 80,  80,  88,  96,  50])
@@ -45,7 +44,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
         """
         self.reset_simulation()
         # Randomize commands
-        self.x_velocity = 4.0#np.random.uniform(*self._x_velocity_bounds)
+        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
         if self.x_velocity > 2.0:
             self.y_velocity = 0
         else:
@@ -102,7 +101,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
 
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
-                              self.clock.input_sine_only_clock(),
+                              self.clock.input_clock(),
                               [self.x_velocity]))
         return out
 

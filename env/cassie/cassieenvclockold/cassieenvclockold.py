@@ -24,8 +24,7 @@ class CassieEnvClockOld(CassieEnvClock):
                          simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization,
-                         **kwargs)
+                         dynamics_randomization=dynamics_randomization)
 
         self.reset()
 
