@@ -68,8 +68,8 @@ def test_mirror():
                                 ]
 
     # print(digit_state)
-    mirror_vec = [-47, -48, -49, -50, -51]
-    mirror_to_vec = [52, 53, 54, 55, 56]
+    mirror_vec = [-17, -18, -19, -20, -21, -22]
+    mirror_to_vec = [7,  8,  9,  10, 11, 12]
     # Need to make every entry of this list to negative to get matched, even if they are in saggital plane.
     mirrored_s = mirror_tensor(torch.tensor(digit_state), mirror_vec)
 
