@@ -58,7 +58,10 @@ def test_mirror():
                                 ]
     
     print(digit_state)
+    # Need to make every entry of this list to negative to get matched, even if they are in saggital plane.
     digit_mirrored_left_motor_pos = mirror_tensor(torch.tensor(digit_state), [-13, 14, -15, 16])
+    
+    # Get actual positions
     digit_right_motor_pos = np.take(digit_state, [23, 24, 25, 26])
     print(digit_mirrored_left_motor_pos)
     print(digit_right_motor_pos)
