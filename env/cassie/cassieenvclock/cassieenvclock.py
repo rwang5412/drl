@@ -147,9 +147,9 @@ class CassieEnvClock(CassieEnv):
         # swing ratio
         mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # period shift
-        mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
+        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # input clock sin/cos
-        mirror_inds += [len(mirror_inds), len(mirror_inds) + 1]
+        mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         return mirror_inds
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):

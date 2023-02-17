@@ -59,7 +59,7 @@ class CassieEnv(GenericEnv):
             self.feet_grf_2khz_avg[foot] = self.sim.get_body_contact_force(name=foot)
             self.feet_velocity_2khz_avg[foot] = self.sim.get_body_velocity(name=foot)
 
-        # Mirror indices
+        # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
         self.motor_mirror_indices = [-5, -6, 7, 8, 9,
                                      -0.1, -1, 2, 3, 4]

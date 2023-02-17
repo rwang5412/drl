@@ -10,9 +10,16 @@ of mirror inds for Digit/Cassie on robot proprioceptive state.
 The test is meant for base env classes, with get_robot_state() and robot_state_mirror_indices.
 The test mirrors the state once, then check if the mirrored states are correct.
 
-If anyone wants change the oroginal definition of get_robot_state() and robot_state_mirror_indices,
+If anyone wants change the original definition of get_robot_state() and robot_state_mirror_indices,
 make sure you throughly test with this file.
+
+Also, Cassie and Digit's joint frames are defined in different way when considering mirror. See the
+pictures in README.
 """
+
+def compare_inds(inds1, inds2, name):
+    assert np.array_equiv(inds1, inds2), \
+        f"{name} mirror inds have duplicate values \ninds1 = {inds1}\ninds2={inds2}."
 
 def test_mirror():
     cassie = CassieEnv(simulator_type='mujoco',
@@ -25,17 +32,32 @@ def test_mirror():
                     policy_rate=50,
                     dynamics_randomization=True)
 
-    # Check if any mirror ind array has duplicate values by mistake
-    assert len(np.unique(np.abs(cassie.robot_state_mirror_indices))) == len(cassie.get_robot_state()), \
-        f"Cassie state mirror inds have duplicate values {np.sort(np.abs(cassie.robot_state_mirror_indices))}."
-    assert len(np.unique(np.abs(cassie.motor_mirror_indices))) == cassie.sim.num_actuators, \
-        f"Cassie motor mirror inds have duplicate values {np.sort(np.abs(cassie.motor_mirror_indices))}."
+    """
+    Check if any mirror ind array has duplicate values by mistake
+    """
+    # Cassie state
+    inds_from_mirror = np.sort(np.floor(np.abs(cassie.robot_state_mirror_indices)))
+    inds_from_getstate = np.arange(len(cassie.get_robot_state()))
+    compare_inds(inds_from_mirror, inds_from_getstate, "Cassie state")
 
-    assert len(np.unique(np.abs(digit.robot_state_mirror_indices))) == len(digit.get_robot_state()), \
-        f"Digit state mirror inds have duplicate values {np.sort(np.abs(digit.robot_state_mirror_indices))}."
-    assert len(np.unique(np.abs(digit.motor_mirror_indices))) == digit.sim.num_actuators, \
-        f"Digit motor mirror inds have duplicate values {np.sort(np.abs(digit.motor_mirror_indices))}."
+    # Cassie action
+    inds_from_mirror = np.sort(np.floor(np.abs(cassie.motor_mirror_indices)))
+    inds_from_getstate = np.arange(cassie.sim.num_actuators)
+    compare_inds(inds_from_mirror, inds_from_getstate, "Cassie action")
 
+    # Digit state
+    inds_from_mirror = np.sort(np.floor(np.abs(digit.robot_state_mirror_indices)))
+    inds_from_getstate = np.arange(len(digit.get_robot_state()))
+    compare_inds(inds_from_mirror, inds_from_getstate, "Digit state")
+
+    # Digit action
+    inds_from_mirror = np.sort(np.floor(np.abs(digit.motor_mirror_indices)))
+    inds_from_getstate = np.arange(digit.sim.num_actuators)
+    compare_inds(inds_from_mirror, inds_from_getstate, "Digit action")
+
+    """
+    Check mirror inds are applied properly
+    """
     cassie.reset_simulation()
     digit.reset_simulation()
 
@@ -55,7 +77,7 @@ def test_mirror():
     assert np.linalg.norm(cassie_mirrored_left_motor_pos - cassie_right_motor_pos) < 1e-6, \
         "Mirror incorrect"
 
-    # Because of Digit model definition, we need to make every entry of this list to negative 
+    # Because of Digit model definition, we need to make every entry of this list to negative
     # to get matched, even if they are in saggital plane.
     digit_state_mirror_indices = [0.01, -1, 2, -3,            # base orientation
                                 -4, 5, -6,                    # base rotational vel
