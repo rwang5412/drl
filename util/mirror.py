@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 def mirror_tensor(t, indices):
     """
@@ -21,8 +20,9 @@ def mirror_tensor(t, indices):
         t (tensor): tensor to be mirrored
         indices (list): List to use a mirror indices
     """
-    sign = torch.sign(torch.tensor(indices))
-    indices = torch.tensor(indices).long().abs()
+    if type(indices) is list:
+        indices = torch.Tensor(indices)
+    sign = torch.sign(indices)
+    indices = indices.long().abs()
     mirror_t = sign * torch.index_select(t, -1, indices)
-
     return mirror_t

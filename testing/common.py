@@ -53,7 +53,8 @@ MOTOR_POSITION_SET['pos3'] = [
 0.3, -0.0943845, 0.0, 0.3633,
 ]
 
-# Readable strings for motor and joint definitions. These are also used for Mujoco testing.
+# Readable strings for motor and joint definitions. These are also used for Mujoco.
+# The order of each list is aligned with XML not hardware header file.
 DIGIT_MOTOR_NAME = [
   'left-leg/hip-roll', 'left-leg/hip-yaw', 'left-leg/hip-pitch', 'left-leg/knee', 
   'left-leg/toe-a', 'left-leg/toe-b',
