@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     """Logger / Saver"""
     parser.add_argument("--wandb",    default=False, action='store_true')              # use weights and biases for training
-    parser.add_argument("--wandb_project_name",    default="roadrunner")              # use weights and biases for training
+    parser.add_argument("--wandb_project_name",    default="roadrunner_refactor")              # use weights and biases for training
     parser.add_argument("--logdir",   default="./trained_models/", type=str)
     parser.add_argument("--run_name", default=None)                                                 # run name
 

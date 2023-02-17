@@ -804,9 +804,7 @@ def run_experiment(args, env_args):
 
     algo = PPO(policy, critic, env_fn, args)
 
-    # wandb init before tensorboard. create a tensorboard logging object
-    if args.wandb:
-        wandb.init(group = args.run_name, project=args.wandb_project_name, config=args, sync_tensorboard=True)
+    # create a tensorboard logging object
     logger = create_logger(args)
     args.save_actor_path = os.path.join(logger.dir, 'actor.pt')
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
