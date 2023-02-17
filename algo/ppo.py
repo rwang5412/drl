@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import os
 import ray
+import wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -393,6 +394,18 @@ class PPO_Optim(PPO_Worker):
         else:
             mirror_loss = torch.zeros(1)
 
+        if not (torch.isfinite(states).all() and torch.isfinite(actions).all() \
+                and torch.isfinite(returns).all() and torch.isfinite(advantages).all() \
+                and torch.isfinite(log_probs).all() and torch.isfinite(old_log_probs).all()):
+            torch.save({"states": states,
+                        "actions": actions,
+                        "returns": returns,
+                        "advantages": advantages,
+                        "log_probs": log_probs,
+                        "old_log_probs": old_log_probs}, "training_error.pt")
+            raise RuntimeError(f"Optimization experiences non-finite values, please check locally"
+                               f" saved file at training_error.pt for further diagonose.")
+
         self.actor_optim.zero_grad()
         self.critic_optim.zero_grad()
 
@@ -523,119 +536,6 @@ class PPO_Sampler(PPO_Worker):
                 traj_lens += [traj_len]
 
         return np.mean(ep_returns), np.mean(traj_lens)
-
-# TODO: Not sure if can just inherit PPO_Sampler, is it ok to inherit ray class? How does that work? Need to test.
-@ray.remote
-class PPO_Sampler_TS(PPO_Worker):
-    """
-    Worker for sampling experience for PPO
-
-    Args:
-        actor: actor pytorch network
-        critic: critic pytorch network
-        env_fn: environment constructor function
-        gamma: discount factor
-
-
-    Attributes:
-        env: instance of environment
-        gamma: discount factor
-        dynamics_randomization: if dynamics_randomization is enabled in environment
-    """
-    def __init__(self, actor, critic, env_fn, gamma):
-        self.gamma  = gamma
-        self.env    = env_fn()
-
-        if hasattr(self.env, 'dynamics_randomization'):
-            self.dynamics_randomization = self.env.dynamics_randomization
-        else:
-            self.dynamics_randomization = False
-
-        PPO_Worker.__init__(self, actor, critic)
-
-    def collect_experience(self, max_traj_len, min_steps):
-        """
-        Function to sample experience
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            min_steps: minimum total steps to sample
-        """
-        torch.set_num_threads(1)
-        with torch.no_grad():
-            start = time()
-
-            num_steps = 0
-            memory = Buffer(self.gamma)
-            actor  = self.actor
-            critic = self.critic
-
-            while num_steps < min_steps:
-                self.env.dynamics_randomization = self.dynamics_randomization
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                value = 0
-                traj_len = 0
-
-                if hasattr(actor, 'init_hidden_state'):
-                    actor.init_hidden_state()
-
-                if hasattr(critic, 'init_hidden_state'):
-                    critic.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    state = torch.Tensor(state)
-                    action = actor(state, deterministic=True)
-                    value = critic(state)
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-                    reward = np.array([reward])
-                    memory.push(state.numpy(), action.numpy(), reward, value.numpy())
-                    state = next_state
-
-                    traj_len += 1
-                    num_steps += 1
-
-                value = (not done) * critic(torch.Tensor(state)).numpy()
-                memory.end_trajectory(terminal_value=value)
-
-        return memory
-
-    def evaluate(self, trajs=1, max_traj_len=400):
-        """
-        Function to evaluate
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            trajs: minimum trajectories to evaluate for
-        """
-        with torch.no_grad():
-            ep_returns = []
-            traj_lens = []
-            for traj in range(trajs):
-                self.env.dynamics_randomization = False
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                traj_len = 0
-                ep_return = 0
-
-                if hasattr(self.actor, 'init_hidden_state'):
-                    self.actor.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    action = self.actor(state, deterministic=True)
-
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-
-                    state = torch.Tensor(next_state)
-                    ep_return += reward
-                    traj_len += 1
-                ep_returns += [ep_return]
-                traj_lens += [traj_len]
-
-        return np.mean(ep_returns), np.mean(traj_lens)
-
 
 class PPO(PPO_Worker):
     """
@@ -773,7 +673,7 @@ class PPO(PPO_Worker):
 def add_algo_args(parser):
     if isinstance(parser, argparse.ArgumentParser):
         parser.add_argument("--prenormalize_steps", default=100,           type=int)
-        parser.add_argument("--num_steps",          default=5000,          type=int)
+        parser.add_argument("--num_steps",          default=500,          type=int)
         parser.add_argument('--discount',           default=0.99,          type=float)          # the discount factor
         parser.add_argument("--learn_stddev",       default=False,         action='store_true') # learn std_dev or keep it fixed
         parser.add_argument('--std',                default=0.13,          type=float)          # the fixed exploration std
@@ -784,8 +684,8 @@ def add_algo_args(parser):
         parser.add_argument("--entropy_coeff",      default=0.0,           type=float)
         parser.add_argument("--clip",               default=0.2,           type=float)          # Clipping parameter for PPO surrogate loss
         parser.add_argument("--grad_clip",          default=0.05,          type=float)
-        parser.add_argument("--batch_size",         default=64,            type=int)            # batch size for policy update
-        parser.add_argument("--epochs",             default=3,             type=int)            # number of updates per iter
+        parser.add_argument("--batch_size",         default=16,            type=int)            # batch size for policy update
+        parser.add_argument("--epochs",             default=1,             type=int)            # number of updates per iter
         parser.add_argument("--mirror",             default=0,             type=float)
         parser.add_argument("--do_prenorm",         default=False,         action='store_true') # Do pre-normalization or not
 
@@ -793,7 +693,7 @@ def add_algo_args(parser):
         parser.add_argument("--arch",               default='ff')                               # either ff, lstm, or gru
         parser.add_argument("--bounded",            default=False,         type=bool)
 
-        parser.add_argument("--workers",            default=2,             type=int)
+        parser.add_argument("--workers",            default=10,             type=int)
         parser.add_argument("--redis",              default=None,          type=str)
         parser.add_argument("--previous",           default=None,          type=str)            # Dir of previously trained policy to start learning from
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
@@ -908,7 +808,6 @@ def run_experiment(args, env_args):
     critic.train(True)
 
     if args.wandb:
-        import wandb
         wandb.init(group = args.run_name, project=args.wandb_project_name, config=args, sync_tensorboard=True)
 
     algo = PPO(policy, critic, env_fn, args)
@@ -995,4 +894,4 @@ def run_experiment(args, env_args):
     print(f"Finished ({timesteps} of {args.timesteps}).")
 
     if args.wandb:
-        wandb.join()
+        wandb.finish()

@@ -64,3 +64,11 @@ if __name__ == "__main__":
         # Assume that any extra arguments will be handled later by the env arg parser in env_factory
         args, env_args = parser.parse_known_args()
         run_experiment(args, env_args)
+
+    elif algo == 'diagnose':
+        """
+            Utility for diagonise training errors.
+        """
+        from util.check_number import unpack_training_error
+
+        unpack_training_error('training_error.pt')
