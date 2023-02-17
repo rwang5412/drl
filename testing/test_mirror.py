@@ -4,10 +4,14 @@ from env.cassie.cassieenv import CassieEnv
 from env.digit.digitenv import DigitEnv
 from util.mirror import mirror_tensor
 
-"""This file tests if the mirror inds (from hand written one) are correct when creating a new set
+"""
+This file tests if the mirror inds (from hand written one) are correct when creating a new set
 of mirror inds for Digit/Cassie on robot proprioceptive state.
 The test is meant for base env classes, with get_robot_state() and robot_state_mirror_indices.
 The test mirrors the state once, then check if the mirrored states are correct.
+
+If anyone wants change the oroginal definition of get_robot_state() and robot_state_mirror_indices,
+make sure you throughly test with this file.
 """
 
 def test_mirror():
@@ -51,6 +55,8 @@ def test_mirror():
     assert np.linalg.norm(cassie_mirrored_left_motor_pos - cassie_right_motor_pos) < 1e-6, \
         "Mirror incorrect"
 
+    # Because of Digit model definition, we need to make every entry of this list to negative 
+    # to get matched, even if they are in saggital plane.
     digit_state_mirror_indices = [0.01, -1, 2, -3,            # base orientation
                                 -4, 5, -6,                    # base rotational vel
                                 -17, -18, -19, -20, -21, -22, # right leg motor pos
@@ -67,10 +73,10 @@ def test_mirror():
                                 -57, -58, -59, -60, -61,      # left joint vel
                                 ]
 
-    # print(digit_state)
+    # If anyone tests with a new set of get_robot_state and mirror inds, make sure to pick out the
+    # sub-list and all the possible combinations of mirroring and test below.
     mirror_vec = [-17, -18, -19, -20, -21, -22, -23, -24, -25, -26]
     mirror_to_vec = [7,  8,  9,  10, 11, 12, 13, 14, 15, 16]
-    # Need to make every entry of this list to negative to get matched, even if they are in saggital plane.
     mirrored_s = mirror_tensor(torch.tensor(digit_state), mirror_vec)
 
     # Get actual positions
