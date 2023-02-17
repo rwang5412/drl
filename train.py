@@ -41,7 +41,6 @@ if __name__ == "__main__":
     parser.add_argument("--run_name", default=None)                                                 # run name
 
     """All RL algorithms"""
-    parser.add_argument("--nolog",     action='store_true')                            # store log data or not.
     parser.add_argument("--seed",      default=0,           type=int)                  # random seed for reproducibility
     parser.add_argument("--traj_len",  default=300,        type=int)                  # max trajectory length for environment
     parser.add_argument("--timesteps", default=1e8,         type=float)                # timesteps to run experiment for

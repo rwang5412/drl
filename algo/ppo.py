@@ -798,29 +798,21 @@ def run_experiment(args, env_args):
             print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
             train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
             critic.copy_normalizer_stats(policy)
-        else:
-            policy.obs_mean = torch.zeros(obs_dim)
-            policy.obs_std = torch.ones(obs_dim)
-            critic.obs_mean = policy.obs_mean
-            critic.obs_std = policy.obs_std
 
     policy.train(True)
     critic.train(True)
 
-    if args.wandb:
-        wandb.init(group = args.run_name, project=args.wandb_project_name, config=args, sync_tensorboard=True)
-
     algo = PPO(policy, critic, env_fn, args)
 
-    # create a tensorboard logging object
-    if not args.nolog:
-        logger = create_logger(args)
-    else:
-        logger = None
-
-    if not args.nolog:
-        args.save_actor = os.path.join(logger.dir, 'actor.pt')
-        args.save_critic = os.path.join(logger.dir, 'critic.pt')
+    # wandb init before tensorboard. create a tensorboard logging object
+    if args.wandb:
+        wandb.init(group = args.run_name, project=args.wandb_project_name, config=args, sync_tensorboard=True)
+    logger = create_logger(args)
+    args.save_actor_path = os.path.join(logger.dir, 'actor.pt')
+    args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
+    # create actor/critic dict tp include model_state_dict and other class attributes
+    actor_dict = {}
+    critic_dict = {}
 
     print()
     print("Proximal Policy Optimization:")
@@ -857,24 +849,30 @@ def run_experiment(args, env_args):
 
         print(f"timesteps {timesteps:n}")
 
-        if not args.nolog and (best_reward is None or eval_reward > best_reward):
-            print(f"\t(best policy so far! saving to {args.save_actor})")
+        if best_reward is None or eval_reward > best_reward:
+            print(f"\t(best policy so far! saving to {args.save_actor_path})")
             best_reward = eval_reward
-            if args.save_actor is not None:
-                torch.save(algo.actor, args.save_actor)
-
-            if args.save_critic is not None:
-                torch.save(algo.critic, args.save_critic)
+            for key, value in policy.__dict__.items():
+                actor_dict[key] = value
+            for key, value in critic.__dict__.items():
+                critic_dict[key] = value
+            torch.save(actor_dict | {'model_state_dict': policy.state_dict()},
+                    args.save_actor_path)
+            torch.save(critic_dict | {'model_state_dict': critic.state_dict()},
+                    args.save_critic_path)
 
         if itr % 500 == 0:
             past500_reward = -1
         if eval_reward > past500_reward:
             past500_reward = eval_reward
-            if not args.nolog and args.save_actor is not None:
-                torch.save(algo.actor, args.save_actor[:-4] + "_past500.pt")
-
-            if not args.nolog and args.save_critic is not None:
-                torch.save(algo.critic, args.save_critic[:-4] + "_past500.pt")
+            for key, value in policy.__dict__.items():
+                actor_dict[key] = value
+            for key, value in critic.__dict__.items():
+                critic_dict[key] = value
+            torch.save(actor_dict | {'model_state_dict': policy.state_dict()},
+                       args.save_actor_path[:-4] + "_past500.pt")
+            torch.save(critic_dict | {'model_state_dict': critic.state_dict()},
+                       args.save_critic_path[:-4] + "_past500.pt")
 
         if logger is not None:
             logger.add_scalar("Test/Return", eval_reward, itr)
