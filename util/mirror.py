@@ -24,4 +24,5 @@ def mirror_tensor(t, indices):
         indices = torch.Tensor(indices)
     sign = torch.sign(indices)
     indices = indices.long().abs()
-    return sign * torch.index_select(t, -1, indices)
+    mirror_t = sign * torch.index_select(t, -1, indices)
+    return mirror_t
