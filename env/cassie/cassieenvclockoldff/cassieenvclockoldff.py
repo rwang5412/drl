@@ -33,8 +33,11 @@ class CassieEnvClockOldFF(CassieEnvClock):
         self.reset()
 
         # Define env specifics after reset
-        self.observation_size = len(self.get_state())
+        self.observation_size = len(self.get_robot_state())
+        self.observation_size += 1 # Xvelocity command
+        self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
+        self.check_observation_action_size()
 
     def reset(self):
         """Reset simulator and env variables.
@@ -104,6 +107,14 @@ class CassieEnvClockOldFF(CassieEnvClock):
                               self.clock.input_clock(),
                               [self.x_velocity]))
         return out
+
+    def get_observation_mirror_indices(self):
+        mirror_inds = self.robot_state_feet_mirror_indices
+        # input clock sin
+        mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
+        # X velocity command
+        mirror_inds += [len(mirror_inds)]
+        return mirror_inds
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """

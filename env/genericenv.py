@@ -2,15 +2,13 @@
 class GenericEnv(object):
 
     """
-    Define generic environment functions that are needed for RL. Should define (not implement) all of the functions that ppo.py sampling uses.
+    Define generic environment functions that are needed for RL. Should define (not implement) all 
+    of the functions that sampling uses.
     """
 
-    def __init__(self,
-                 policy_rate: int,
-                 dynamics_randomization: bool):
-
-        self.dynamics_randomization = dynamics_randomization
-        self.default_policy_rate = policy_rate
+    def __init__(self):
+        self.observation_size = None
+        self.action_size = None
 
     def reset_simulation(self):
         raise NotImplementedError
@@ -28,4 +26,10 @@ class GenericEnv(object):
         raise NotImplementedError
 
     def compute_reward(self):
+        raise NotImplementedError
+    
+    def get_action_mirror_indices(self):
+        raise NotImplementedError
+
+    def get_observation_mirror_indices(self):
         raise NotImplementedError
