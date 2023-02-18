@@ -70,4 +70,4 @@ if __name__ == "__main__":
         """
         from util.check_number import unpack_training_error
 
-        unpack_training_error('training_error.pt')
+        unpack_training_error('trained_models/CassieEnvClock/283a36-seed0/training_error.pt')

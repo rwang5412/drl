@@ -57,8 +57,10 @@ def is_variable_valid(x):
 
 def unpack_training_error(file_path):
     data = torch.load(file_path)
-    for key, values in data.items():
-        if not torch.isfinite(values).all():
+    for key, value in data.items():
+        if not isinstance(value, torch.Tensor):
+            print(f"{key} is not tensor, but other type. Need to check further.")
+        elif not torch.isfinite(value).all():
             print(f"{key} has non finite values! Check the calculation in optimization!")
 
 if __name__=='__main__':
