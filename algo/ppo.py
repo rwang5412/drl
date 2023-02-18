@@ -231,7 +231,7 @@ class PPO(AlgoWorker):
         self.state_mirror_indices = self.env.get_state_mirror_indices() if hasattr(self.env, 'get_state_mirror_indices') else None
         self.action_mirror_indices = self.env.get_action_mirror_indices() if hasattr(self.env, 'get_action_mirror_indices') else None
 
-        self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount) for _ in range(args.workers)]
+        self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount, i) for i in range(args.workers)]
         self.optim   = PPOOptim.remote(actor, critic, **vars(args))
 
     def do_iteration(self, num_steps, max_traj_len, epochs, kl_thresh=0.02, verbose=True, batch_size=64, mirror=False):
@@ -260,23 +260,40 @@ class PPO(AlgoWorker):
         if verbose:
             print("\t{:5.4f}s to copy policy params to workers.".format(time() - start))
 
-        eval_buffers = ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, do_eval=True) for w in self.workers])
+        eval_buffers, _, _ = zip(*ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, do_eval=True) for w in self.workers]))
         eval_memory = reduce(add, eval_buffers)
         eval_reward = np.mean(eval_memory.rewards)
         avg_ep_len = np.mean(eval_memory.ep_lens)
 
+        # Sampling for optimization
         start   = time()
-        buffers = ray.get([w.collect_experience.remote(max_traj_len, steps) for w in self.workers])
-        memory = reduce(add, buffers)
-        # Delete buffers to free up memory? Might not be necessary
-        del buffers
+        sampled_steps = 0
+        avg_efficiency = 0
+        num_traj = 0
+        memory = None
+        sample_jobs = [w.sample_traj.remote(max_traj_len) for w in self.workers]
+        while sampled_steps < num_steps:
+            done_id, remain_id = ray.wait(sample_jobs, num_returns = 1)
+            buf, efficiency, id = ray.get(done_id)[0]
+            if memory is None:
+                memory = buf
+            else:
+                memory += buf
+            num_traj += 1
+            sampled_steps += len(buf)
+            avg_efficiency += (efficiency - avg_efficiency) / num_traj
+            sample_jobs[id] = w.sample_traj.remote(max_traj_len)
+        map(ray.cancel, sample_jobs)
 
         total_steps = len(memory)
         avg_batch_reward = np.mean(memory.ep_returns)
         elapsed     = time() - start
         sample_rate = (total_steps/1000)/elapsed
+        ideal_efficiency = avg_efficiency * len(self.workers)
         if verbose:
             print(f"\t{elapsed:3.2f}s to collect {total_steps:6n} timesteps | {sample_rate:3.2}k/s.")
+            print(f"\tIdealized efficiency {ideal_efficiency/1000:3.2f}k/s \t | Time lost to " \
+                  f"overhead {elapsed-total_steps/ideal_efficiency:.2f}s")
 
         if self.mirror > 0 and self.state_mirror_indices is not None and self.action_mirror_indices is not None:
             state_mirror_indices = self.state_mirror_indices

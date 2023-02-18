@@ -228,9 +228,10 @@ class AlgoSampler(AlgoWorker):
         gamma: discount factor
         dynamics_randomization: if dynamics_randomization is enabled in environment
     """
-    def __init__(self, actor, critic, env_fn, gamma):
+    def __init__(self, actor, critic, env_fn, gamma, worker_id: int):
         self.gamma  = gamma
         self.env    = env_fn()
+        self.worker_id = worker_id
 
         if hasattr(self.env, 'dynamics_randomization'):
             self.dynamics_randomization = self.env.dynamics_randomization
@@ -238,53 +239,6 @@ class AlgoSampler(AlgoWorker):
             self.dynamics_randomization = False
 
         AlgoWorker.__init__(self, actor, critic)
-
-    def collect_experience(self, max_traj_len, min_steps):
-        """
-        Function to sample experience
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            min_steps: minimum total steps to sample
-        """
-        torch.set_num_threads(1)
-        with torch.no_grad():
-            num_steps = 0
-            memory = Buffer(self.gamma)
-
-            while num_steps < min_steps:
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                value = 0
-                traj_len = 0
-
-                if hasattr(self.actor, 'init_hidden_state'):
-                    self.actor.init_hidden_state()
-
-                if hasattr(self.critic, 'init_hidden_state'):
-                    self.critic.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    state = torch.Tensor(state)
-                    action = self.actor(state, deterministic=False)
-                    value = self.critic(state)
-
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-
-                    reward = np.array([reward])
-
-                    memory.push(state.numpy(), action.numpy(), reward, value.numpy())
-
-                    state = next_state
-
-                    traj_len += 1
-                    num_steps += 1
-
-                value = (not done) * self.critic(torch.Tensor(state)).numpy()
-                memory.end_trajectory(terminal_value=value)
-
-        return memory
 
     def sample_traj(self, max_traj_len: int = 300, do_eval: bool = False):
         """
@@ -294,6 +248,7 @@ class AlgoSampler(AlgoWorker):
             max_traj_len: maximum trajectory length of an episode
             min_steps: minimum total steps to sample
         """
+        start_t = time()
         torch.set_num_threads(1)
         memory = Buffer(self.gamma)
         with torch.no_grad():
@@ -324,4 +279,4 @@ class AlgoSampler(AlgoWorker):
             value = (not done) * self.critic(torch.Tensor(state)).numpy()
             memory.end_trajectory(terminal_value=value)
 
-        return memory
+        return memory, traj_len / (time() - start_t), self.worker_id

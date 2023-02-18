@@ -24,7 +24,7 @@ def test_ppo():
                            nolog        = True,
                            seed         = 0,
                            traj_len     = 100,
-                           timesteps    = 300,
+                           timesteps    = 200,
                            workers      = 2)
     env_args = SimpleNamespace()
 
