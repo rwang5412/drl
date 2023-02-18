@@ -271,7 +271,7 @@ class AlgoSampler(AlgoWorker):
                 else:
                     value = self.critic(state)[0].numpy()
                 next_state, reward, done, _ = self.env.step(action.numpy())
-                # print("value", value.numpy(), type(value.numpy()))
+
                 memory.push(state.numpy(), action.numpy(), reward, value)
                 state = next_state
                 traj_len += 1

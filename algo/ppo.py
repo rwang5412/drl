@@ -248,6 +248,7 @@ class PPO(AlgoWorker):
             verbose (bool): verbose logging output
         """
         start = time()
+        times = {}
         actor_param_id  = ray.put(list(self.actor.parameters()))
         critic_param_id = ray.put(list(self.critic.parameters()))
         norm_id = ray.put([self.actor.welford_state_mean, self.actor.welford_state_mean_diff, self.actor.welford_state_n])
@@ -290,10 +291,14 @@ class PPO(AlgoWorker):
         elapsed     = time() - start
         sample_rate = (total_steps/1000)/elapsed
         ideal_efficiency = avg_efficiency * len(self.workers)
+        times["Sample Time"] = elapsed
+        times["Sample Rate"] = sample_rate
+        times["Ideal Sample Rate"] = ideal_efficiency / 1000
+        times["Overhead Loss"] = elapsed-total_steps/ideal_efficiency
         if verbose:
             print(f"\t{elapsed:3.2f}s to collect {total_steps:6n} timesteps | {sample_rate:3.2}k/s.")
-            print(f"\tIdealized efficiency {ideal_efficiency/1000:3.2f}k/s \t | Time lost to " \
-                  f"overhead {elapsed-total_steps/ideal_efficiency:.2f}s")
+            print(f"\tIdealized efficiency {times['Ideal Sample Rate']:3.2f}k/s \t | Time lost to " \
+                  f"overhead {times['Overhead Loss']:.2f}s")
 
         if self.mirror > 0 and self.state_mirror_indices is not None and self.action_mirror_indices is not None:
             state_mirror_indices = self.state_mirror_indices
@@ -302,10 +307,7 @@ class PPO(AlgoWorker):
             state_mirror_indices = None
             action_mirror_indices = None
 
-        start  = time()
-        done   = False
-
-        update_time = time()
+        start = time()
         self.optim.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id)
         losses = ray.get(self.optim.optimize.remote(ray.put(memory),
                                                     epochs=epochs,
@@ -317,66 +319,50 @@ class PPO(AlgoWorker):
         actor_params, critic_params = ray.get(self.optim.retrieve_parameters.remote())
         a_loss, c_loss, m_loss, kls = losses
         self.sync_policy(actor_params, critic_params)
-        update_time = time() - update_time
+        times["Optimize Time"] = time() - start
         sleep(0.25)
         if verbose:
-            print(f"\t{update_time:3.2f}s to update policy.")
+            print(f"\t{times['Optimize Time']:3.2f}s to update policy.")
         return eval_reward, np.mean(kls), np.mean(a_loss), np.mean(c_loss), np.mean(m_loss), \
-               len(memory), (sample_rate, update_time), total_steps, avg_ep_len, avg_batch_reward
+               len(memory), times, total_steps, avg_ep_len, avg_batch_reward
 
 def add_algo_args(parser):
+    default_values = {
+        "prenormalize_steps" : (100, "Number of steps to use in prenormlization"),
+        "num_steps"          : (5000, "Number of steps to sample each iteration"),
+        "discount"           : (0.99, "Discount factor when calculating returns"),
+        "learn_stddev"       : (False, "Whether to learn action std dev or not"),
+        "std"                : (0.13, "Action noise std dev"),
+        "a_lr"               : (1e-4, "Actor policy learning rate"),
+        "c_lr"               : (1e-4, "Critic learning rate"),
+        "eps"                : (1e-6, "Adam optimizer eps value"),
+        "kl"                 : (0.02, "KL divergence threshold"),
+        "entropy_coeff"      : (0.0, "Coefficient of entropy loss in optimization"),
+        "clip"               : (0.2, "Log prob clamping value (1 +- clip)"),
+        "grad_clip"          : (0.05, "Gradient clip value (maximum allowed gradient norm)"),
+        "batch_size"         : (64, "Minibatch size to use during optimization"),
+        "epochs"             : (3, "Number of epochs to optimize for each iteration"),
+        "mirror"             : (0, "Mirror loss coefficient"),
+        "do_prenorm"         : (False, "Whether to do prenormalization or not"),
+        "layers"             : ("256,256", "Hidden layer size for actor and critic"),
+        "arch"               : ('ff', "Actor/critic NN architecture"),
+        "bounded"            : (False, "Whether or not actor policy has bounded output"),
+        "workers"            : (2, "Number of parallel workers to use for sampling"),
+        "redis"              : (None, "Ray redis address"),
+        "previous"           : (None, "Previous model to bootstrap from")
+    }
     if isinstance(parser, argparse.ArgumentParser):
-        parser.add_argument("--prenormalize_steps", default=100,           type=int)
-        parser.add_argument("--num_steps",          default=5000,          type=int)
-        parser.add_argument('--discount',           default=0.99,          type=float)          # the discount factor
-        parser.add_argument("--learn_stddev",       default=False,         action='store_true') # learn std_dev or keep it fixed
-        parser.add_argument('--std',                default=0.13,          type=float)          # the fixed exploration std
-        parser.add_argument("--a_lr",               default=1e-4,          type=float)          # adam learning rate for actor
-        parser.add_argument("--c_lr",               default=1e-4,          type=float)          # adam learning rate for critic
-        parser.add_argument("--eps",                default=1e-6,          type=float)          # adam eps
-        parser.add_argument("--kl",                 default=0.02,          type=float)          # kl abort threshold
-        parser.add_argument("--entropy_coeff",      default=0.0,           type=float)
-        parser.add_argument("--clip",               default=0.2,           type=float)          # Clipping parameter for PPO surrogate loss
-        parser.add_argument("--grad_clip",          default=0.05,          type=float)
-        parser.add_argument("--batch_size",         default=64,            type=int)            # batch size for policy update
-        parser.add_argument("--epochs",             default=3,             type=int)            # number of updates per iter
-        parser.add_argument("--mirror",             default=0,             type=float)
-        parser.add_argument("--do_prenorm",         default=False,         action='store_true') # Do pre-normalization or not
+        for arg, (default, help_str) in default_values.items():
+            if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
+                parser.add_argument("--" + arg, default = default, action = "store_" + \
+                                    str(not default).lower(), help = help_str)
+            else:
+                parser.add_argument("--" + arg, default = default, type = type(default), help = help_str)
 
-        parser.add_argument("--layers",             default="256,256",     type=str)            # hidden layer sizes in policy
-        parser.add_argument("--arch",               default='ff')                               # either ff, lstm, or gru
-        parser.add_argument("--bounded",            default=False,         type=bool)
-
-        parser.add_argument("--workers",            default=2,             type=int)
-        parser.add_argument("--redis",              default=None,          type=str)
-        parser.add_argument("--previous",           default=None,          type=str)            # Dir of previously trained policy to start learning from
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
-        default_values = {"prenormalize_steps" : 10,
-                          "num_steps"          : 100,
-                          "discount"           : 0.99,
-                          "learn_stddev"       : False,
-                          "std"                : 0.13,
-                          "a_lr"               : 1e-4,
-                          "c_lr"               : 1e-4,
-                          "eps"                : 1e-6,
-                          "kl"                 : 0.02,
-                          "entropy_coeff"      : 0.0,
-                          "clip"               : 0.2,
-                          "grad_clip"          : 0.05,
-                          "batch_size"         : 64,
-                          "epochs"             : 3,
-                          "mirror"             : 0,
-                          "do_prenorm"         : False,
-                          "layers"             : "256,256",
-                          "arch"               : 'ff',
-                          "bounded"            : False,
-                          "workers"            : 2,
-                          "redis"              : None,
-                          "previous"           : None}
-
-        for key, val in default_values.items():
-            if not hasattr(parser, key):
-                setattr(parser, key, val)
+        for arg, (default, help_str) in default_values.items():
+            if not hasattr(parser, arg):
+                setattr(parser, arg, default)
 
     return parser
 
@@ -399,7 +385,6 @@ def run_experiment(args, env_args):
     locale.setlocale(locale.LC_ALL, '')
 
     # wrapper function for creating parallelized envs
-    # env_fn = env_factory(**vars(args))
     env_fn = env_factory(args.env_name, env_args)
 
     obs_dim = env_fn().observation_size
@@ -502,7 +487,8 @@ def run_experiment(args, env_args):
     best_reward = None
     past500_reward = -1
     while timesteps < args.timesteps:
-        eval_reward, kl, a_loss, c_loss, m_loss, steps, times, total_steps, avg_ep_len, avg_batch_reward = algo.do_iteration(args.num_steps, args.traj_len, args.epochs, batch_size=args.batch_size, kl_thresh=args.kl, mirror=args.mirror)
+        eval_reward, kl, a_loss, c_loss, m_loss, steps, times, total_steps, avg_ep_len, avg_batch_reward = \
+            algo.do_iteration(args.num_steps, args.traj_len, args.epochs, batch_size=args.batch_size, kl_thresh=args.kl, mirror=args.mirror)
 
         timesteps += steps
         print(f"iter {itr:4d} | return: {eval_reward:5.2f} | KL {kl:5.4f} | Actor loss {a_loss:5.4f}" \
@@ -542,8 +528,8 @@ def run_experiment(args, env_args):
             logger.add_scalar("Misc/Mirror Loss", m_loss, itr)
             logger.add_scalar("Misc/Timesteps", total_steps, itr)
 
-            logger.add_scalar("Misc/Sample Times", times[0], itr)
-            logger.add_scalar("Misc/Optimize Times", times[1], itr)
+            for time, val in times.items():
+                logger.add_scalar("Misc/" + time, val, itr)
 
         itr += 1
     print(f"Finished ({timesteps} of {args.timesteps}).")

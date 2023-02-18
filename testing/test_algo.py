@@ -25,6 +25,7 @@ def test_ppo():
                            seed         = 0,
                            traj_len     = 100,
                            timesteps    = 200,
+                           num_steps    = 100,
                            workers      = 2)
     env_args = SimpleNamespace()
 
