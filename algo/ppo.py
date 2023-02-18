@@ -9,6 +9,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from copy import deepcopy
+from functools import reduce
+from operator import add
 from time import time, sleep
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from torch.distributions import kl_divergence
@@ -258,17 +260,14 @@ class PPO(AlgoWorker):
         if verbose:
             print("\t{:5.4f}s to copy policy params to workers.".format(time() - start))
 
-        eval_rewards, eval_lens = zip(*ray.get([w.evaluate.remote(trajs=1, max_traj_len=max_traj_len) for w in self.workers]))
-        eval_reward = np.mean(eval_rewards)
-        avg_ep_len = np.mean(eval_lens)
-
-        torch.set_num_threads(1)
+        eval_buffers = ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, do_eval=True) for w in self.workers])
+        eval_memory = reduce(add, eval_buffers)
+        eval_reward = np.mean(eval_memory.rewards)
+        avg_ep_len = np.mean(eval_memory.ep_lens)
 
         start   = time()
         buffers = ray.get([w.collect_experience.remote(max_traj_len, steps) for w in self.workers])
-        memory = buffers[0]
-        for i in range(1, len(buffers)):
-            memory += buffers[i]
+        memory = reduce(add, buffers)
         # Delete buffers to free up memory? Might not be necessary
         del buffers
 

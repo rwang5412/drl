@@ -286,7 +286,7 @@ class AlgoSampler(AlgoWorker):
 
         return memory
 
-    def sample_traj(self, max_traj_len: int = 300, eval: bool = False):
+    def sample_traj(self, max_traj_len: int = 300, do_eval: bool = False):
         """
         Function to sample experience
 
@@ -309,49 +309,19 @@ class AlgoSampler(AlgoWorker):
 
             while not done and traj_len < max_traj_len:
                 state = torch.Tensor(state)
-                action = self.actor(state, deterministic=False)
-                value = self.critic(state)
+                action = self.actor(state, deterministic=do_eval)
+                if do_eval:
+                    # If is evaluation, don't need critic value
+                    value = 0.0
+                else:
+                    value = self.critic(state)[0].numpy()
                 next_state, reward, done, _ = self.env.step(action.numpy())
-                memory.push(state.numpy(), action.numpy(), reward, value[0].numpy())
+                # print("value", value.numpy(), type(value.numpy()))
+                memory.push(state.numpy(), action.numpy(), reward, value)
                 state = next_state
                 traj_len += 1
 
-            value = (not done) * critic(torch.Tensor(state)).numpy()
+            value = (not done) * self.critic(torch.Tensor(state)).numpy()
             memory.end_trajectory(terminal_value=value)
 
         return memory
-
-    def evaluate(self, trajs=1, max_traj_len=400):
-        """
-        Function to evaluate
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            trajs: minimum trajectories to evaluate for
-        """
-        with torch.no_grad():
-            ep_returns = []
-            traj_lens = []
-            for traj in range(trajs):
-                self.env.dynamics_randomization = False
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                traj_len = 0
-                ep_return = 0
-
-                if hasattr(self.actor, 'init_hidden_state'):
-                    self.actor.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    action = self.actor(state, deterministic=True)
-
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-
-                    state = torch.Tensor(next_state)
-                    ep_return += reward
-                    traj_len += 1
-                ep_returns += [ep_return]
-                traj_lens += [traj_len]
-
-        return np.mean(ep_returns), np.mean(traj_lens)
