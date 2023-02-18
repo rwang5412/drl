@@ -15,250 +15,13 @@ from torch.distributions import kl_divergence
 from torch.nn.utils.rnn import pad_sequence
 from types import SimpleNamespace
 
+from algo.util.sampling import Buffer, AlgoSampler
+from algo.util.worker import AlgoWorker
 from util.mirror import mirror_tensor
 
-class Buffer:
-    """
-    Generic Buffer class to hold samples for PPO.
-    Note: that it is assumed that trajectories are stored
-    consecutively, next to each other. The list traj_idx stores the indices where individual
-    trajectories are started.
-
-    Args:
-        discount (float): Discount factor
-
-    Attributes:
-        states (list): List of stored sampled observation states
-        actions (list): List of stored sampled actions
-        rewards (list): List of stored sampled rewards
-        values (list): List of stored sampled values
-        returns (list): List of stored computed returns
-        advantages (list): List of stored computed advantages
-        ep_returns (list): List of trajectories returns (summed rewards over whole trajectory)
-        ep_lens (list): List of trajectory lengths
-        size (int): Number of currently stored states
-        traj_idx (list): List of indices where individual trajectories start
-        buffer_read (bool): Whether or not the buffer is ready to be used for optimization.
-    """
-    def __init__(self, discount=0.99):
-        self.discount = discount
-        self.clear()
-
-    def __len__(self):
-        return len(self.states)
-
-    def clear(self):
-        """
-        Clear out/reset all buffer values. Should always be called before starting new sampling iteration
-        """
-        self.states     = []
-        self.actions    = []
-        self.rewards    = []
-        self.values     = []
-        self.returns    = []
-        self.advantages = []
-
-        self.ep_returns = []
-        self.ep_lens = []
-
-        self.size = 0
-
-        self.traj_idx = [0]
-        self.buffer_ready = False
-
-    def push(self, state, action, reward, value, done=False):
-        """
-        Store new PPO state (state, action, reward, value, termination)
-
-        Args:
-            state (numpy vector):  observation
-            action (numpy vector): policy action
-            reward (numpy vector): reward
-            value (numpy vector): value function value
-            return (numpy vector): return
-            done (bool): last mdp tuple in rollout
-        """
-        self.states  += [state]
-        self.actions += [action]
-        self.rewards += [reward]
-        self.values  += [value]
-
-        self.size += 1
-
-    def end_trajectory(self, terminal_value=0):
-        """
-        Finish a stored trajectory, i.e. calculate return for each step by adding a termination
-        value to the last state and backing up return based on discount factor.
-
-        Args:
-            terminal_value (float): Estimated value at the final state in the trajectory. Used to
-                                    back up and calculate returns for the whole trajectory
-        """
-        self.traj_idx += [self.size]
-        rewards = self.rewards[self.traj_idx[-2]:self.traj_idx[-1]]
-
-        returns = []
-
-        R = terminal_value
-        for reward in reversed(rewards):
-            R = self.discount * R + reward
-            returns.insert(0, R)
-
-        self.returns += returns
-
-        self.ep_returns += [np.sum(rewards)]
-        self.ep_lens    += [len(rewards)]
-
-    def _finish_buffer(self, state_mirror_idx):
-        """
-        Get a buffer ready for optimization by turning each list into torch Tensor. Also calculate
-        mirror states and normalized advantages. Must be called before sampling from the buffer for
-        optimization. While make "buffer_ready" variable true.
-
-        Args:
-            mirror (function pointer): Pointer to the state mirroring function that while mirror
-                                       observation states
-        """
-        with torch.no_grad():
-            self.states  = torch.Tensor(np.array(self.states))
-            self.actions = torch.Tensor(np.array(self.actions))
-            self.rewards = torch.Tensor(np.array(self.rewards))
-            self.returns = torch.Tensor(np.array(self.returns))
-            self.values  = torch.Tensor(np.array(self.values))
-
-            # Mirror states in needed
-            if state_mirror_idx is not None:
-                self.mirror_states = mirror_tensor(self.states, state_mirror_idx)
-
-            # Calculate and normalize advantages
-            a = self.returns - self.values
-            a = (a - a.mean()) / (a.std() + 1e-4)
-            self.advantages = a
-            self.buffer_ready = True
-
-    def sample(self, batch_size=64, recurrent=False, mirror_state_idx=None):
-        """
-        Returns a randomly sampled batch from the buffer to be used for optimization. If "recurrent"
-        is true, will return a random batch of trajectories to be used for backprop through time.
-        Otherwise will return randomly selected states from the buffer.
-
-        Args:
-            batch_size (int): Size of the batch. If recurrent is True then the number of
-                              trajectories to return. Otherwise is the number of states to return.
-            recurrent (bool): Whether to return a recurrent batch (trajectories) or not
-            mirror (function pointer): Pointer to the state mirroring function. If is None, the no
-                                       mirroring will be done.
-        """
-        if not self.buffer_ready:
-            self._finish_buffer(mirror_state_idx)
-
-        if recurrent:
-            random_indices = SubsetRandomSampler(range(len(self.traj_idx)-1))
-            sampler = BatchSampler(random_indices, batch_size, drop_last=False)
-
-            for traj_indices in sampler:
-                states     = [self.states[self.traj_idx[i]:self.traj_idx[i+1]]     for i in traj_indices]
-                actions    = [self.actions[self.traj_idx[i]:self.traj_idx[i+1]]    for i in traj_indices]
-                returns    = [self.returns[self.traj_idx[i]:self.traj_idx[i+1]]    for i in traj_indices]
-                advantages = [self.advantages[self.traj_idx[i]:self.traj_idx[i+1]] for i in traj_indices]
-                traj_mask  = [torch.ones_like(r) for r in returns]
-
-                states     = pad_sequence(states,     batch_first=False)
-                actions    = pad_sequence(actions,    batch_first=False)
-                returns    = pad_sequence(returns,    batch_first=False)
-                advantages = pad_sequence(advantages, batch_first=False)
-                traj_mask  = pad_sequence(traj_mask,  batch_first=False)
-
-                if mirror_state_idx is None:
-                    yield states, actions, returns, advantages, traj_mask
-                else:
-                    mirror_states = [self.mirror_states[self.traj_idx[i]:self.traj_idx[i+1]] for i in traj_indices]
-                    mirror_states = pad_sequence(mirror_states, batch_first=False)
-                    yield states, mirror_states, actions, returns, advantages, traj_mask
-
-        else:
-            random_indices = SubsetRandomSampler(range(self.size))
-            sampler = BatchSampler(random_indices, batch_size, drop_last=True)
-
-            for i, idxs in enumerate(sampler):
-                states     = self.states[idxs]
-                actions    = self.actions[idxs]
-                returns    = self.returns[idxs]
-                advantages = self.advantages[idxs]
-
-                if mirror_state_idx is None:
-                    yield states, actions, returns, advantages, 1
-                else:
-                    mirror_states = self.mirror_states[idxs]
-                    yield states, mirror_states, actions, returns, advantages, 1
-
-def merge_buffers(buffers):
-    """
-    Function to merge a list of buffers into a single Buffer object. Used for merging buffers
-    received from multiple remote workers into a simple Buffer object to sample from.
-
-    Args:
-        buffers (list): List of Buffer objects to merge
-
-    Returns:
-        A single Buffer object
-    """
-    memory = Buffer()
-
-    for b in buffers:
-        offset = len(memory)
-
-        memory.states  += b.states
-        memory.actions += b.actions
-        memory.rewards += b.rewards
-        memory.values  += b.values
-        memory.returns += b.returns
-
-        memory.ep_returns += b.ep_returns
-        memory.ep_lens    += b.ep_lens
-
-        memory.traj_idx += [offset + i for i in b.traj_idx[1:]]
-        memory.size     += b.size
-
-    return memory
-
-class PPO_Worker:
-    """
-        Generic template for a worker (sampler or optimizer) for PPO
-
-        Args:
-            actor: actor pytorch network
-            critic: critic pytorch network
-
-        Attributes:
-            actor: actor pytorch network
-            critic: critic pytorch network
-    """
-    def __init__(self, actor, critic):
-        self.actor = deepcopy(actor)
-        self.critic = deepcopy(critic)
-
-    def sync_policy(self, new_actor_params, new_critic_params, input_norm=None):
-        """
-        Function to sync the actor and critic parameters with new parameters.
-
-        Args:
-            new_actor_params (torch dictionary): New actor parameters to copy over
-            new_critic_params (torch dictionary): New critic parameters to copy over
-            input_norm (int): Running counter of states for normalization
-        """
-        for p, new_p in zip(self.actor.parameters(), new_actor_params):
-            p.data.copy_(new_p)
-
-        for p, new_p in zip(self.critic.parameters(), new_critic_params):
-            p.data.copy_(new_p)
-
-        if input_norm is not None:
-            self.actor.welford_state_mean, self.actor.welford_state_mean_diff, self.actor.welford_state_n = input_norm
-            self.critic.copy_normalizer_stats(self.actor)
 
 @ray.remote
-class PPO_Optim(PPO_Worker):
+class PPOOptim(AlgoWorker):
     """
         Worker for doing optimization step of PPO.
 
@@ -288,7 +51,7 @@ class PPO_Optim(PPO_Worker):
                  mirror=0,
                  clip=0.2,
                  **kwargs):
-        PPO_Worker.__init__(self, actor, critic)
+        AlgoWorker.__init__(self, actor, critic)
         self.old_actor = deepcopy(actor)
         self.actor_optim   = optim.Adam(self.actor.parameters(), lr=a_lr, eps=eps)
         self.critic_optim  = optim.Adam(self.critic.parameters(), lr=c_lr, eps=eps)
@@ -409,235 +172,8 @@ class PPO_Optim(PPO_Worker):
 
           return kl, ((actor_loss + entropy_penalty).item(), critic_loss.item(), mirror_loss.item())
 
-@ray.remote
-class PPO_Sampler(PPO_Worker):
-    """
-    Worker for sampling experience for PPO
 
-    Args:
-        actor: actor pytorch network
-        critic: critic pytorch network
-        env_fn: environment constructor function
-        gamma: discount factor
-
-
-    Attributes:
-        env: instance of environment
-        gamma: discount factor
-        dynamics_randomization: if dynamics_randomization is enabled in environment
-    """
-    def __init__(self, actor, critic, env_fn, gamma):
-        self.gamma  = gamma
-        self.env    = env_fn()
-
-        if hasattr(self.env, 'dynamics_randomization'):
-            self.dynamics_randomization = self.env.dynamics_randomization
-        else:
-            self.dynamics_randomization = False
-
-        PPO_Worker.__init__(self, actor, critic)
-
-    def collect_experience(self, max_traj_len, min_steps):
-        """
-        Function to sample experience
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            min_steps: minimum total steps to sample
-        """
-        torch.set_num_threads(1)
-        with torch.no_grad():
-            start = time()
-
-            num_steps = 0
-            memory = Buffer(self.gamma)
-            actor  = self.actor
-            critic = self.critic
-
-            while num_steps < min_steps:
-                self.env.dynamics_randomization = self.dynamics_randomization
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                value = 0
-                traj_len = 0
-
-                if hasattr(actor, 'init_hidden_state'):
-                    actor.init_hidden_state()
-
-                if hasattr(critic, 'init_hidden_state'):
-                    critic.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    state = torch.Tensor(state)
-                    action = actor(state, deterministic=False)
-                    value = critic(state)
-
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-
-                    reward = np.array([reward])
-
-                    memory.push(state.numpy(), action.numpy(), reward, value.numpy())
-
-                    state = next_state
-
-                    traj_len += 1
-                    num_steps += 1
-
-                value = (not done) * critic(torch.Tensor(state)).numpy()
-                memory.end_trajectory(terminal_value=value)
-
-        return memory
-
-    def evaluate(self, trajs=1, max_traj_len=400):
-        """
-        Function to evaluate
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            trajs: minimum trajectories to evaluate for
-        """
-        with torch.no_grad():
-            ep_returns = []
-            traj_lens = []
-            for traj in range(trajs):
-                self.env.dynamics_randomization = False
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                traj_len = 0
-                ep_return = 0
-
-                if hasattr(self.actor, 'init_hidden_state'):
-                    self.actor.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    action = self.actor(state, deterministic=True)
-
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-
-                    state = torch.Tensor(next_state)
-                    ep_return += reward
-                    traj_len += 1
-                ep_returns += [ep_return]
-                traj_lens += [traj_len]
-
-        return np.mean(ep_returns), np.mean(traj_lens)
-
-# TODO: Not sure if can just inherit PPO_Sampler, is it ok to inherit ray class? How does that work? Need to test.
-@ray.remote
-class PPO_Sampler_TS(PPO_Worker):
-    """
-    Worker for sampling experience for PPO
-
-    Args:
-        actor: actor pytorch network
-        critic: critic pytorch network
-        env_fn: environment constructor function
-        gamma: discount factor
-
-
-    Attributes:
-        env: instance of environment
-        gamma: discount factor
-        dynamics_randomization: if dynamics_randomization is enabled in environment
-    """
-    def __init__(self, actor, critic, env_fn, gamma):
-        self.gamma  = gamma
-        self.env    = env_fn()
-
-        if hasattr(self.env, 'dynamics_randomization'):
-            self.dynamics_randomization = self.env.dynamics_randomization
-        else:
-            self.dynamics_randomization = False
-
-        PPO_Worker.__init__(self, actor, critic)
-
-    def collect_experience(self, max_traj_len, min_steps):
-        """
-        Function to sample experience
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            min_steps: minimum total steps to sample
-        """
-        torch.set_num_threads(1)
-        with torch.no_grad():
-            start = time()
-
-            num_steps = 0
-            memory = Buffer(self.gamma)
-            actor  = self.actor
-            critic = self.critic
-
-            while num_steps < min_steps:
-                self.env.dynamics_randomization = self.dynamics_randomization
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                value = 0
-                traj_len = 0
-
-                if hasattr(actor, 'init_hidden_state'):
-                    actor.init_hidden_state()
-
-                if hasattr(critic, 'init_hidden_state'):
-                    critic.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    state = torch.Tensor(state)
-                    action = actor(state, deterministic=True)
-                    value = critic(state)
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-                    reward = np.array([reward])
-                    memory.push(state.numpy(), action.numpy(), reward, value.numpy())
-                    state = next_state
-
-                    traj_len += 1
-                    num_steps += 1
-
-                value = (not done) * critic(torch.Tensor(state)).numpy()
-                memory.end_trajectory(terminal_value=value)
-
-        return memory
-
-    def evaluate(self, trajs=1, max_traj_len=400):
-        """
-        Function to evaluate
-
-        Args:
-            max_traj_len: maximum trajectory length of an episode
-            trajs: minimum trajectories to evaluate for
-        """
-        with torch.no_grad():
-            ep_returns = []
-            traj_lens = []
-            for traj in range(trajs):
-                self.env.dynamics_randomization = False
-                state = torch.Tensor(self.env.reset())
-
-                done = False
-                traj_len = 0
-                ep_return = 0
-
-                if hasattr(self.actor, 'init_hidden_state'):
-                    self.actor.init_hidden_state()
-
-                while not done and traj_len < max_traj_len:
-                    action = self.actor(state, deterministic=True)
-
-                    next_state, reward, done, _ = self.env.step(action.numpy())
-
-                    state = torch.Tensor(next_state)
-                    ep_return += reward
-                    traj_len += 1
-                ep_returns += [ep_return]
-                traj_lens += [traj_len]
-
-        return np.mean(ep_returns), np.mean(traj_lens)
-
-
-class PPO(PPO_Worker):
+class PPO(AlgoWorker):
     """
     Worker for sampling experience for PPO
 
@@ -670,7 +206,7 @@ class PPO(PPO_Worker):
         self.actor = actor
 
         self.critic = critic
-        PPO_Worker.__init__(self, actor, critic)
+        AlgoWorker.__init__(self, actor, critic)
 
         if actor.is_recurrent or critic.is_recurrent:
             self.recurrent = True
@@ -693,8 +229,8 @@ class PPO(PPO_Worker):
         self.state_mirror_indices = self.env.get_state_mirror_indices() if hasattr(self.env, 'get_state_mirror_indices') else None
         self.action_mirror_indices = self.env.get_action_mirror_indices() if hasattr(self.env, 'get_action_mirror_indices') else None
 
-        self.workers = [PPO_Sampler.remote(actor, critic, env_fn, args.discount) for _ in range(args.workers)]
-        self.optim   = PPO_Optim.remote(actor, critic, **vars(args))
+        self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount) for _ in range(args.workers)]
+        self.optim   = PPOOptim.remote(actor, critic, **vars(args))
 
     def do_iteration(self, num_steps, max_traj_len, epochs, kl_thresh=0.02, verbose=True, batch_size=64, mirror=False):
         """
@@ -730,7 +266,9 @@ class PPO(PPO_Worker):
 
         start   = time()
         buffers = ray.get([w.collect_experience.remote(max_traj_len, steps) for w in self.workers])
-        memory  = merge_buffers(buffers)
+        memory = buffers[0]
+        for i in range(1, len(buffers)):
+            memory += buffers[i]
         # Delete buffers to free up memory? Might not be necessary
         del buffers
 
