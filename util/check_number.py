@@ -2,7 +2,7 @@ import torch
 import numpy
 import math
 
-from util.colors import FAIL, ENDC, OKGREEN
+from .colors import FAIL, ENDC, OKGREEN
 
 def is_variable_valid(x):
     """Check if a given number has NaN, Inf, or None.

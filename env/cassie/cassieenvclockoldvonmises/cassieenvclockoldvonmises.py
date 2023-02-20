@@ -37,8 +37,14 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Define env specifics after reset
         self.sim.kp = np.array([70,  70,  100,  100,  50, 70,  70,  100,  100,  50])
         self.sim.kd = np.array([7.0, 7.0, 8.0,  8.0, 5.0, 7.0, 7.0, 8.0,  8.0, 5.0])
-        self.observation_size = len(self.get_state())
+
+        # Define env specifics after reset
+        self.observation_size = len(self.get_robot_state())
+        self.observation_size += 3 # XYYaw velocity command
+        self.observation_size += 2 # swing ratio
+        self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
+        self.check_observation_action_size()
 
     def reset(self):
         """Reset simulator and env variables.
@@ -71,9 +77,19 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
                               self.clock.get_swing_ratios(),
-                              [self.x_velocity, 0, 0],
+                              [self.x_velocity, self.y_velocity, self.orient_add],
                               self.clock.input_sine_only_clock()))
         return out
+
+    def get_observation_mirror_indices(self):
+        mirror_inds = self.robot_state_mirror_indices
+        # swing ratio
+        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
+        # XY Yaw velocity command
+        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1), - (len(mirror_inds) + 2)]
+        # input clock sin
+        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
+        return mirror_inds
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """
