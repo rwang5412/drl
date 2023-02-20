@@ -34,7 +34,7 @@ def simple_eval(actor, env_name, args, episode_length_max=300):
             if not env.sim.viewer_paused():
                 state = torch.Tensor(state).float()
                 if actor is None:
-                    action = np.random.uniform(-0.2, 0.2, env.action_space)
+                    action = np.random.uniform(-0.2, 0.2, env.action_size)
                 else:
                     action = actor(state).numpy()
                 state, reward, done, _ = env.step(action)

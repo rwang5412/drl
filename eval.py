@@ -20,8 +20,8 @@ if __name__ == "__main__":
     These parsers Env + NN will be removed and replaced by loading args from dict.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', default="./pretrained_models/lstm_speed_vonmises_fixedwalk_dx05to15.pt")
-    parser.add_argument('--env-name', default="CassieEnvClockOldVonMises")
+    parser.add_argument('--path', default=None, type=str)
+    parser.add_argument('--env-name', default="CassieEnvClock", type=str)
     args, env_args = parser.parse_known_args()
 
     # Make temp env to get input/output dimensions
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     if actor_model_dict["is_recurrent"]:
         actor = LSTMActor(input_dim=temp_env.observation_size,
                           action_dim=temp_env.action_size,
-                          layers=[128,128],
+                          layers=[64,64],
                           bounded=False,
                           learn_std=False,
                           std=0.1)
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     for key, val in actor_model_dict.items():
         if key == "model_state_dict":
             actor.load_state_dict(val)
-        elif hasattr(actor, key):
+        elif hasattr(actor, key) and key[0] != '_':
             setattr(actor, key, val)
         else:
             print(

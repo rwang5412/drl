@@ -753,9 +753,7 @@ def run_experiment(args, env_args):
     locale.setlocale(locale.LC_ALL, '')
 
     # wrapper function for creating parallelized envs
-    # env_fn = env_factory(**vars(args))
     env_fn = env_factory(args.env_name, env_args)
-
     obs_dim = env_fn().observation_size
     action_dim = env_fn().action_size
 
@@ -763,10 +761,9 @@ def run_experiment(args, env_args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
+    # NN loading
     std = torch.ones(action_dim)*args.std
-
     layers = [int(x) for x in args.layers.split(',')]
-
     if hasattr(args, "previous") and args.previous is not None:
         # TODO: copy optimizer states also???
         policy = torch.load(os.path.join(args.previous, "actor.pt"))
@@ -799,7 +796,7 @@ def run_experiment(args, env_args):
                              nonlinearity=torch.tanh)
             critic = FFCritic(obs_dim, layers=layers)
         else:
-            raise RuntimeError
+            raise RuntimeError(f"Archetecture {args.arch} is not included, check the entry point.")
 
         # Prenormalization
         if args.do_prenorm:
@@ -819,6 +816,7 @@ def run_experiment(args, env_args):
     actor_dict = {}
     critic_dict = {}
 
+    # Algo init
     algo = PPO(policy, critic, env_fn, args)
 
     print()
