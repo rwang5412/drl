@@ -39,7 +39,7 @@ class Buffer:
         self.clear()
 
     def __len__(self):
-        return len(self.states)
+        return self.size
 
     def clear(self):
         """

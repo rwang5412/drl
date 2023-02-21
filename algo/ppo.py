@@ -89,7 +89,9 @@ class PPOOptim(AlgoWorker):
         state_mirror_indices =  state_mirror_indices if self.mirror > 0 else None
         for epoch in range(epochs):
             epoch_start = time()
-            for batch in memory.sample(batch_size=batch_size, recurrent=recurrent, mirror_state_idx=state_mirror_indices):
+            for batch in memory.sample(batch_size=batch_size,
+                                       recurrent=recurrent,
+                                       mirror_state_idx=state_mirror_indices):
 
                 if state_mirror_indices is not None:
                     states, mirror_states, actions, returns, advantages, mask = batch
@@ -111,7 +113,8 @@ class PPOOptim(AlgoWorker):
                 m_loss += [losses[2]]
 
                 if max(kls) > kl_thresh:
-                    print(f"\t\tbatch had kl of {max(kls)} (threshold {kl_thresh}), stopping optimization early.")
+                    print(f"\t\tbatch had kl of {max(kls)} (threshold {kl_thresh}), stopping " \
+                          f"optimization early.")
                     done = True
                     break
 
@@ -130,7 +133,14 @@ class PPOOptim(AlgoWorker):
         """
         return list(self.actor.parameters()), list(self.critic.parameters())
 
-    def _update_policy(self, states, actions, returns, advantages, mask, mirror_states=None, mirror_action_idx=None):
+    def _update_policy(self,
+                       states,
+                       actions,
+                       returns,
+                       advantages,
+                       mask,
+                       mirror_states=None,
+                       mirror_action_idx=None):
         with torch.no_grad():
             old_pdf       = self.old_actor.pdf(states)
             old_log_probs = old_pdf.log_prob(actions).sum(-1, keepdim=True)
@@ -228,13 +238,25 @@ class PPO(AlgoWorker):
             else:
                 ray.init(num_cpus=args.workers)
 
-        self.state_mirror_indices = self.env.get_state_mirror_indices() if hasattr(self.env, 'get_state_mirror_indices') else None
-        self.action_mirror_indices = self.env.get_action_mirror_indices() if hasattr(self.env, 'get_action_mirror_indices') else None
+        self.state_mirror_indices = None
+        self.action_mirror_indices = None
+        if hasattr(self.env, 'get_state_mirror_indices'):
+            self.state_mirror_indices = self.env.get_state_mirror_indices()
+        if hasattr(self.env, 'get_action_mirror_indices'):
+            self.action_mirror_indices = self.env.get_action_mirror_indices()
 
-        self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount, i) for i in range(args.workers)]
+        self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount, i) for i in \
+                        range(args.workers)]
         self.optim   = PPOOptim.remote(actor, critic, **vars(args))
 
-    def do_iteration(self, num_steps, max_traj_len, epochs, kl_thresh=0.02, verbose=True, batch_size=64, mirror=False):
+    def do_iteration(self,
+                     num_steps,
+                     max_traj_len,
+                     epochs,
+                     kl_thresh=0.02,
+                     verbose=True,
+                     batch_size=64,
+                     mirror=False):
         """
         Function to do a single iteration of PPO
 
@@ -247,11 +269,12 @@ class PPO(AlgoWorker):
             kl_thresh (float): threshold for max kl divergence
             verbose (bool): verbose logging output
         """
-        start = time()
+        copy_start = time()
         times = {}
         actor_param_id  = ray.put(list(self.actor.parameters()))
         critic_param_id = ray.put(list(self.critic.parameters()))
-        norm_id = ray.put([self.actor.welford_state_mean, self.actor.welford_state_mean_diff, self.actor.welford_state_n])
+        norm_id = ray.put([self.actor.welford_state_mean, self.actor.welford_state_mean_diff, \
+                           self.actor.welford_state_n])
 
         steps = max(num_steps // len(self.workers), max_traj_len)
 
@@ -259,16 +282,17 @@ class PPO(AlgoWorker):
             w.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id)
 
         if verbose:
-            print("\t{:5.4f}s to copy policy params to workers.".format(time() - start))
+            print("\t{:5.4f}s to copy policy params to workers.".format(time() - copy_start))
         torch.set_num_threads(1)
 
-        eval_buffers, _, _ = zip(*ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, do_eval=True) for w in self.workers]))
+        eval_buffers, _, _ = zip(*ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, \
+                                           do_eval=True) for w in self.workers]))
         eval_memory = reduce(add, eval_buffers)
         eval_reward = np.mean(eval_memory.rewards)
         avg_ep_len = np.mean(eval_memory.ep_lens)
 
         # Sampling for optimization
-        start = time()
+        sampling_start = time()
         sampled_steps = 0
         avg_efficiency = 0
         num_traj = 0
@@ -290,26 +314,28 @@ class PPO(AlgoWorker):
 
         total_steps = len(memory)
         avg_batch_reward = np.mean(memory.ep_returns)
-        elapsed     = time() - start
-        sample_rate = (total_steps/1000)/elapsed
+        sampling_elapsed = time() - sampling_start
+        sample_rate = (total_steps / 1000) / sampling_elapsed
         ideal_efficiency = avg_efficiency * len(self.workers)
-        times["Sample Time"] = elapsed
+        times["Sample Time"] = sampling_elapsed
         times["Sample Rate"] = sample_rate
         times["Ideal Sample Rate"] = ideal_efficiency / 1000
-        times["Overhead Loss"] = elapsed-total_steps/ideal_efficiency
+        times["Overhead Loss"] = sampling_elapsed - total_steps / ideal_efficiency
         if verbose:
-            print(f"\t{elapsed:3.2f}s to collect {total_steps:6n} timesteps | {sample_rate:3.2}k/s.")
+            print(f"\t{sampling_elapsed:3.2f}s to collect {total_steps:6n} timesteps | " \
+                  f"{sample_rate:3.2}k/s.")
             print(f"\tIdealized efficiency {times['Ideal Sample Rate']:3.2f}k/s \t | Time lost to " \
                   f"overhead {times['Overhead Loss']:.2f}s")
 
-        if self.mirror > 0 and self.state_mirror_indices is not None and self.action_mirror_indices is not None:
+        if self.mirror > 0 and self.state_mirror_indices is not None and \
+           self.action_mirror_indices is not None:
             state_mirror_indices = self.state_mirror_indices
             action_mirror_indices = self.action_mirror_indices
         else:
             state_mirror_indices = None
             action_mirror_indices = None
 
-        start = time()
+        optim_start = time()
         self.optim.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id)
         losses = ray.get(self.optim.optimize.remote(memory,
                                                     epochs=epochs,
@@ -321,7 +347,7 @@ class PPO(AlgoWorker):
         actor_params, critic_params = ray.get(self.optim.retrieve_parameters.remote())
         a_loss, c_loss, m_loss, kls = losses
         self.sync_policy(actor_params, critic_params)
-        times["Optimize Time"] = time() - start
+        times["Optimize Time"] = time() - optim_start
         if verbose:
             print(f"\t{times['Optimize Time']:3.2f}s to update policy.")
         return eval_reward, np.mean(kls), np.mean(a_loss), np.mean(c_loss), np.mean(m_loss), \
@@ -449,7 +475,10 @@ def run_experiment(args, env_args):
 
     if args.wandb:
         import wandb
-        wandb.init(group = args.run_name, project=args.wandb_project_name, config=args, sync_tensorboard=True)
+        wandb.init(group = args.run_name,
+                   project=args.wandb_project_name,
+                   config=args,
+                   sync_tensorboard=True)
 
     algo = PPO(policy, critic, env_fn, args)
 
