@@ -63,8 +63,8 @@ class Buffer:
     def push(self,
              state: np.ndarray,
              action: np.ndarray,
-             reward: float,
-             value: float,
+             reward: np.ndarray,
+             value: np.ndarray,
              done: bool = False):
         """
         Store new PPO state (state, action, reward, value, termination)
@@ -269,8 +269,9 @@ class AlgoSampler(AlgoWorker):
                     # If is evaluation, don't need critic value
                     value = 0.0
                 else:
-                    value = self.critic(state)[0].numpy()
+                    value = self.critic(state).numpy()
                 next_state, reward, done, _ = self.env.step(action.numpy())
+                reward = np.array([reward])
 
                 memory.push(state.numpy(), action.numpy(), reward, value)
                 state = next_state

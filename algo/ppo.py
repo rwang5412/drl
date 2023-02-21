@@ -260,6 +260,7 @@ class PPO(AlgoWorker):
 
         if verbose:
             print("\t{:5.4f}s to copy policy params to workers.".format(time() - start))
+        torch.set_num_threads(1)
 
         eval_buffers, _, _ = zip(*ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, do_eval=True) for w in self.workers]))
         eval_memory = reduce(add, eval_buffers)
@@ -267,7 +268,7 @@ class PPO(AlgoWorker):
         avg_ep_len = np.mean(eval_memory.ep_lens)
 
         # Sampling for optimization
-        start   = time()
+        start = time()
         sampled_steps = 0
         avg_efficiency = 0
         num_traj = 0
@@ -275,7 +276,7 @@ class PPO(AlgoWorker):
         sample_jobs = [w.sample_traj.remote(max_traj_len) for w in self.workers]
         while sampled_steps < num_steps:
             done_id, remain_id = ray.wait(sample_jobs, num_returns = 1)
-            buf, efficiency, id = ray.get(done_id)[0]
+            buf, efficiency, work_id = ray.get(done_id)[0]
             if memory is None:
                 memory = buf
             else:
@@ -283,8 +284,9 @@ class PPO(AlgoWorker):
             num_traj += 1
             sampled_steps += len(buf)
             avg_efficiency += (efficiency - avg_efficiency) / num_traj
-            sample_jobs[id] = w.sample_traj.remote(max_traj_len)
-        map(ray.cancel, sample_jobs)
+            sample_jobs[work_id] = self.workers[work_id].sample_traj.remote(max_traj_len)
+
+        map(ray.cancel, sample_jobs) # Cancel leftover unneeded jobs
 
         total_steps = len(memory)
         avg_batch_reward = np.mean(memory.ep_returns)
@@ -309,7 +311,7 @@ class PPO(AlgoWorker):
 
         start = time()
         self.optim.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id)
-        losses = ray.get(self.optim.optimize.remote(ray.put(memory),
+        losses = ray.get(self.optim.optimize.remote(memory,
                                                     epochs=epochs,
                                                     batch_size=batch_size,
                                                     recurrent=self.recurrent,
