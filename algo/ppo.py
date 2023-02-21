@@ -322,7 +322,6 @@ class PPO(AlgoWorker):
         a_loss, c_loss, m_loss, kls = losses
         self.sync_policy(actor_params, critic_params)
         times["Optimize Time"] = time() - start
-        sleep(0.25)
         if verbose:
             print(f"\t{times['Optimize Time']:3.2f}s to update policy.")
         return eval_reward, np.mean(kls), np.mean(a_loss), np.mean(c_loss), np.mean(m_loss), \
