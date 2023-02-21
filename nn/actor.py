@@ -113,14 +113,23 @@ class FFActor(FFBase, Actor):
     which implements a feedforward stochastic policy.
     """
     def __init__(self,
-                 input_dim,
+                 obs_dim,
                  action_dim,
                  layers,
                  nonlinearity,
                  bounded,
                  learn_std,
                  std):
-        FFBase.__init__(self, in_dim=input_dim, layers=layers, nonlinearity=nonlinearity)
+        
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.layers = layers
+        self.nonlinearity = nonlinearity
+        self.bounded = bounded
+        self.learn_std = learn_std
+        self.std = std
+
+        FFBase.__init__(self, in_dim=obs_dim, layers=layers, nonlinearity=nonlinearity)
         Actor.__init__(self,
                        latent=layers[-1],
                        action_dim=action_dim,
@@ -140,14 +149,21 @@ class LSTMActor(LSTMBase, Actor):
     which implements a recurrent stochastic policy.
     """
     def __init__(self,
-                 input_dim,
+                 obs_dim,
                  action_dim,
                  layers,
                  bounded,
                  learn_std,
                  std):
 
-        LSTMBase.__init__(self, input_dim, layers)
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.layers = layers
+        self.bounded = bounded
+        self.learn_std = learn_std
+        self.std = std
+
+        LSTMBase.__init__(self, obs_dim, layers)
         Actor.__init__(self,
                        latent=layers[-1],
                        action_dim=action_dim,
@@ -170,7 +186,7 @@ class MixActor(MixBase, Actor):
     which implements a recurrent + FF stochastic policy.
     """
     def __init__(self,
-                 input_dim,
+                 obs_dim,
                  state_dim,
                  nonstate_dim,
                  action_dim,
@@ -182,8 +198,20 @@ class MixActor(MixBase, Actor):
                  nonstate_encoder_dim,
                  nonstate_encoder_on):
 
+        self.obs_dim = obs_dim
+        self.state_dim = state_dim
+        self.nonstate_dim = nonstate_dim
+        self.action_dim = action_dim
+        self.lstm_layers = lstm_layers
+        self.ff_layers = ff_layers
+        self.bounded = bounded
+        self.learn_std = learn_std
+        self.std = std
+        self.nonstate_encoder_dim = nonstate_encoder_dim
+        self.nonstate_encoder_on = nonstate_encoder_on
+
         MixBase.__init__(self,
-                          in_dim=input_dim,
+                          in_dim=obs_dim,
                           state_dim=state_dim,
                           nonstate_dim=nonstate_dim,
                           lstm_layers=lstm_layers,
@@ -230,14 +258,21 @@ class GRUActor(GRUBase, Actor):
     which implements a recurrent stochastic policy.
     """
     def __init__(self,
-                 input_dim,
+                 obs_dim,
                  action_dim,
                  layers,
                  bounded,
                  learn_std,
                  std):
 
-        GRUBase.__init__(self, input_dim, layers)
+        self.obs_dim = obs_dim
+        self.action_dim = action_dim
+        self.layers = layers
+        self.bounded = bounded
+        self.learn_std = learn_std
+        self.std = std
+
+        GRUBase.__init__(self, obs_dim, layers)
         Actor.__init__(self,
                        latent=layers[-1],
                        action_dim=action_dim,

@@ -29,6 +29,7 @@ if __name__ == "__main__":
     temp_env = env_factory(args.env_name, env_args)()
 
     actor_model_dict = torch.load(args.path, map_location='cpu')
+    print(actor_model_dict.keys())
     remove_keys = ["env_name", "calculate_norm"]
     for key in remove_keys:
         if key in actor_model_dict.keys():

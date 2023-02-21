@@ -755,57 +755,58 @@ def run_experiment(args, env_args):
     import locale
     locale.setlocale(locale.LC_ALL, '')
 
-    # wrapper function for creating parallelized envs
-    env_fn = env_factory(args.env_name, env_args)
-    obs_dim = env_fn().observation_size
-    action_dim = env_fn().action_size
-
     # Set seeds
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # NN loading
-    std = torch.ones(action_dim)*args.std
-    layers = [int(x) for x in args.layers.split(',')]
-    if hasattr(args, "previous") and args.previous is not None:
-        # TODO: copy optimizer states also???
-        policy = torch.load(os.path.join(args.previous, "actor.pt"))
-        critic = torch.load(os.path.join(args.previous, "critic.pt"))
-        print("loaded model from {}".format(args.previous))
-    else:
-        if args.arch.lower() == 'lstm':
-            policy = LSTMActor(obs_dim,
-                               action_dim,
-                               std=std,
-                               bounded=False,
-                               layers=layers,
-                               learn_std=args.learn_stddev)
-            critic = LSTMCritic(obs_dim, layers=layers)
-        elif args.arch.lower() == 'gru':
-            policy = GRUActor(obs_dim,
-                              action_dim,
-                              std=std,
-                              bounded=False,
-                              layers=layers,
-                              learn_std=args.learn_stddev)
-            critic = GRUCritic(obs_dim, layers=layers)
-        elif args.arch.lower() == 'ff':
-            policy = FFActor(obs_dim,
-                             action_dim,
-                             std=std,
-                             bounded=False,
-                             layers=layers,
-                             learn_std=args.learn_stddev,
-                             nonlinearity=torch.tanh)
-            critic = FFCritic(obs_dim, layers=layers)
-        else:
-            raise RuntimeError(f"Archetecture {args.arch} is not included, check the entry point.")
+    # wrapper function for creating parallelized envs
+    env_fn = env_factory(args.env_name, env_args)
 
-        # Prenormalization
-        if args.do_prenorm:
-            print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
-            train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
-            critic.copy_normalizer_stats(policy)
+    # Load NN from args or save checkpoint
+    # Due to various shape of NN class, use if/else check for visibility
+    if hasattr(args, "previous") and args.previous is not None:
+        actor_dict = torch.load(os.path.join(args.previous, "actor.pt"), map_location='cpu')
+        critic_dict = torch.load(os.path.join(args.previous, "critic.pt"), map_location='cpu')
+        args = argparse.Namespace(**actor_dict)
+    else:
+        args.obs_dim = env_fn().observation_size
+        args.action_dim = env_fn().action_size
+        args.std = torch.ones(args.action_dim)*args.std
+        args.layers = [int(x) for x in args.layers.split(',')]
+
+    if args.arch == 'lstm':
+        policy = LSTMActor(args.obs_dim,
+                            args.action_dim,
+                            std=args.std,
+                            bounded=args.bounded,
+                            layers=args.layers,
+                            learn_std=args.learn_stddev)
+        critic = LSTMCritic(args.obs_dim, layers=args.layers)
+    elif args.arch == 'gru':
+        policy = GRUActor(args.obs_dim,
+                        args.action_dim,
+                        std=args.std,
+                        bounded=args.bounded,
+                        layers=args.layers,
+                        learn_std=args.learn_stddev)
+        critic = GRUCritic(args.obs_dim, layers=args.layers)
+    elif args.arch == 'ff':
+        policy = FFActor(args.obs_dim,
+                        args.action_dim,
+                        std=args.std,
+                        bounded=args.bounded,
+                        layers=args.layers,
+                        learn_std=args.learn_stddev,
+                        nonlinearity=torch.tanh)
+        critic = FFCritic(args.obs_dim, layers=args.layers)
+    else:
+        raise RuntimeError(f"Arch {args.arch} is not included, check the entry point.")
+
+    # Prenormalization only on new training
+    if args.do_prenorm and args.previous is None:
+        print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
+        train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
+        critic.copy_normalizer_stats(policy)
 
     policy.train(True)
     critic.train(True)
@@ -816,8 +817,8 @@ def run_experiment(args, env_args):
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
     args.save_path = logger.dir
     # create actor/critic dict tp include model_state_dict and other class attributes
-    actor_dict = {}
-    critic_dict = {}
+    actor_dict = {'name': policy._get_name()}
+    critic_dict = {'name': critic._get_name()}
 
     # Algo init
     algo = PPO(policy, critic, env_fn, args)
@@ -859,8 +860,9 @@ def run_experiment(args, env_args):
 
         # Savhing checkpoints for best reward
         if best_reward is None or eval_reward > best_reward:
-            print(f"\t(best policy so far! saving to {args.save_actor_path})")
+            print(f"\t(best policy so far! saving checkpoint to {args.save_actor_path})")
             best_reward = eval_reward
+            # Loop thru keys to make sure get any updates from actor/critic
             for key in vars(algo.actor):
                 actor_dict[key] = getattr(algo.actor, key)
             for key in vars(algo.critic):
@@ -870,6 +872,8 @@ def run_experiment(args, env_args):
             torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
                     args.save_critic_path)
 
+        if itr > 5:
+            exit()
         # Intermitent saving
         if itr % 500 == 0:
             past500_reward = -1
