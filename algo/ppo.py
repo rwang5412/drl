@@ -300,13 +300,15 @@ class PPO_Optim(PPO_Worker):
         self.clip = clip
         self.save_path = save_path
 
-    def optimize(self, memory, epochs=4,
-                               batch_size=32,
-                               kl_thresh=0.02,
-                               recurrent=False,
-                               state_mirror_indices=None,
-                               action_mirror_indices=None,
-                               verbose=False):
+    def optimize(self, 
+                 memory, 
+                 epochs=4,
+                 batch_size=32,
+                 kl_thresh=0.02,
+                 recurrent=False,
+                 state_mirror_indices=None,
+                 action_mirror_indices=None,
+                 verbose=False):
         """
         Does a single optimization step given buffer info
 
@@ -664,6 +666,7 @@ class PPO(PPO_Worker):
         losses = ray.get(self.optim.optimize.remote(ray.put(memory),
                                                     epochs=epochs,
                                                     batch_size=batch_size,
+                                                    kl_thresh=kl_thresh,
                                                     recurrent=self.recurrent,
                                                     state_mirror_indices=state_mirror_indices,
                                                     action_mirror_indices=action_mirror_indices,
@@ -854,29 +857,31 @@ def run_experiment(args, env_args):
 
         print(f"timesteps {timesteps:n}")
 
+        # Savhing checkpoints for best reward
         if best_reward is None or eval_reward > best_reward:
             print(f"\t(best policy so far! saving to {args.save_actor_path})")
             best_reward = eval_reward
-            for key, value in policy.__dict__.items():
-                actor_dict[key] = value
-            for key, value in critic.__dict__.items():
-                critic_dict[key] = value
-            torch.save(actor_dict | {'model_state_dict': policy.state_dict()},
+            for key in vars(algo.actor):
+                actor_dict[key] = getattr(algo.actor, key)
+            for key in vars(algo.critic):
+                critic_dict[key] = getattr(algo.critic, key)
+            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
                     args.save_actor_path)
-            torch.save(critic_dict | {'model_state_dict': critic.state_dict()},
+            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
                     args.save_critic_path)
 
+        # Intermitent saving
         if itr % 500 == 0:
             past500_reward = -1
         if eval_reward > past500_reward:
             past500_reward = eval_reward
-            for key, value in policy.__dict__.items():
-                actor_dict[key] = value
-            for key, value in critic.__dict__.items():
-                critic_dict[key] = value
-            torch.save(actor_dict | {'model_state_dict': policy.state_dict()},
+            for key in vars(algo.actor):
+                actor_dict[key] = getattr(algo.actor, key)
+            for key in vars(algo.critic):
+                critic_dict[key] = getattr(algo.critic, key)
+            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
                        args.save_actor_path[:-3] + "_past500.pt")
-            torch.save(critic_dict | {'model_state_dict': critic.state_dict()},
+            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
                        args.save_critic_path[:-3] + "_past500.pt")
 
         if logger is not None:
