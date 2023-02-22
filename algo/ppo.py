@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import os
 import ray
+import wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -52,6 +53,7 @@ class PPOOptim(AlgoWorker):
                  grad_clip=0.01,
                  mirror=0,
                  clip=0.2,
+                 save_path=None,
                  **kwargs):
         AlgoWorker.__init__(self, actor, critic)
         self.old_actor = deepcopy(actor)
@@ -61,14 +63,17 @@ class PPOOptim(AlgoWorker):
         self.grad_clip = grad_clip
         self.mirror    = mirror
         self.clip = clip
+        self.save_path = save_path
 
-    def optimize(self, memory, epochs=4,
-                               batch_size=32,
-                               kl_thresh=0.02,
-                               recurrent=False,
-                               state_mirror_indices=None,
-                               action_mirror_indices=None,
-                               verbose=False):
+    def optimize(self,
+                 memory,
+                 epochs=4,
+                 batch_size=32,
+                 kl_thresh=0.02,
+                 recurrent=False,
+                 state_mirror_indices=None,
+                 action_mirror_indices=None,
+                 verbose=False):
         """
         Does a single optimization step given buffer info
 
@@ -168,6 +173,25 @@ class PPOOptim(AlgoWorker):
         else:
             mirror_loss = torch.zeros(1)
 
+        if not (torch.isfinite(states).all() and torch.isfinite(actions).all() \
+                and torch.isfinite(returns).all() and torch.isfinite(advantages).all() \
+                and torch.isfinite(log_probs).all() and torch.isfinite(old_log_probs).all() \
+                and torch.isfinite(actor_loss).all() and torch.isfinite(critic_loss).all() \
+                and torch.isfinite(mirror_loss).all()):
+            torch.save({"states": states,
+                        "actions": actions,
+                        "returns": returns,
+                        "advantages": advantages,
+                        "log_probs": log_probs,
+                        "old_log_probs": old_log_probs,
+                        "actor_loss": actor_loss,
+                        "critic_loss": critic_loss,
+                        "mirror_loss": mirror_loss,
+                        "pdf": pdf,
+                        "old pdf": old_pdf}, os.path.join(self.save_path, "training_error.pt"))
+            raise RuntimeError(f"Optimization experiences non-finite values, please check locally"
+                               f" saved file at training_error.pt for further diagonose.")
+
         self.actor_optim.zero_grad()
         self.critic_optim.zero_grad()
 
@@ -216,7 +240,6 @@ class PPO(AlgoWorker):
     def __init__(self, actor, critic, env_fn, args):
 
         self.actor = actor
-
         self.critic = critic
         AlgoWorker.__init__(self, actor, critic)
 
@@ -340,6 +363,7 @@ class PPO(AlgoWorker):
         losses = ray.get(self.optim.optimize.remote(memory,
                                                     epochs=epochs,
                                                     batch_size=batch_size,
+                                                    kl_thresh=kl_thresh,
                                                     recurrent=self.recurrent,
                                                     state_mirror_indices=state_mirror_indices,
                                                     action_mirror_indices=action_mirror_indices,
@@ -413,7 +437,6 @@ def run_experiment(args, env_args):
 
     # wrapper function for creating parallelized envs
     env_fn = env_factory(args.env_name, env_args)
-
     obs_dim = env_fn().observation_size
     action_dim = env_fn().action_size
 
@@ -421,10 +444,9 @@ def run_experiment(args, env_args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
+    # NN loading
     std = torch.ones(action_dim)*args.std
-
     layers = [int(x) for x in args.layers.split(',')]
-
     if hasattr(args, "previous") and args.previous is not None:
         # TODO: copy optimizer states also???
         policy = torch.load(os.path.join(args.previous, "actor.pt"))
@@ -457,40 +479,28 @@ def run_experiment(args, env_args):
                              nonlinearity=torch.tanh)
             critic = FFCritic(obs_dim, layers=layers)
         else:
-            raise RuntimeError
+            raise RuntimeError(f"Archetecture {args.arch} is not included, check the entry point.")
 
         # Prenormalization
         if args.do_prenorm:
             print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
             train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
             critic.copy_normalizer_stats(policy)
-        else:
-            policy.obs_mean = torch.zeros(obs_dim)
-            policy.obs_std = torch.ones(obs_dim)
-            critic.obs_mean = policy.obs_mean
-            critic.obs_std = policy.obs_std
 
     policy.train(True)
     critic.train(True)
 
-    if args.wandb:
-        import wandb
-        wandb.init(group = args.run_name,
-                   project=args.wandb_project_name,
-                   config=args,
-                   sync_tensorboard=True)
-
-    algo = PPO(policy, critic, env_fn, args)
-
     # create a tensorboard logging object
-    if not args.nolog:
-        logger = create_logger(args)
-    else:
-        logger = None
+    logger = create_logger(args)
+    args.save_actor_path = os.path.join(logger.dir, 'actor.pt')
+    args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
+    args.save_path = logger.dir
+    # create actor/critic dict tp include model_state_dict and other class attributes
+    actor_dict = {}
+    critic_dict = {}
 
-    if not args.nolog:
-        args.save_actor = os.path.join(logger.dir, 'actor.pt')
-        args.save_critic = os.path.join(logger.dir, 'critic.pt')
+    # Algo init
+    algo = PPO(policy, critic, env_fn, args)
 
     print()
     print("Proximal Policy Optimization:")
@@ -528,24 +538,32 @@ def run_experiment(args, env_args):
 
         print(f"timesteps {timesteps:n}")
 
-        if not args.nolog and (best_reward is None or eval_reward > best_reward):
-            print(f"\t(best policy so far! saving to {args.save_actor})")
+        # Savhing checkpoints for best reward
+        if best_reward is None or eval_reward > best_reward:
+            print(f"\t(best policy so far! saving to {args.save_actor_path})")
             best_reward = eval_reward
-            if args.save_actor is not None:
-                torch.save(algo.actor, args.save_actor)
+            for key in vars(algo.actor):
+                actor_dict[key] = getattr(algo.actor, key)
+            for key in vars(algo.critic):
+                critic_dict[key] = getattr(algo.critic, key)
+            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
+                    args.save_actor_path)
+            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
+                    args.save_critic_path)
 
-            if args.save_critic is not None:
-                torch.save(algo.critic, args.save_critic)
-
+        # Intermitent saving
         if itr % 500 == 0:
             past500_reward = -1
         if eval_reward > past500_reward:
             past500_reward = eval_reward
-            if not args.nolog and args.save_actor is not None:
-                torch.save(algo.actor, args.save_actor[:-4] + "_past500.pt")
-
-            if not args.nolog and args.save_critic is not None:
-                torch.save(algo.critic, args.save_critic[:-4] + "_past500.pt")
+            for key in vars(algo.actor):
+                actor_dict[key] = getattr(algo.actor, key)
+            for key in vars(algo.critic):
+                critic_dict[key] = getattr(algo.critic, key)
+            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
+                       args.save_actor_path[:-3] + "_past500.pt")
+            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
+                       args.save_critic_path[:-3] + "_past500.pt")
 
         if logger is not None:
             logger.add_scalar("Test/Return", eval_reward, itr)
@@ -565,4 +583,4 @@ def run_experiment(args, env_args):
     print(f"Finished ({timesteps} of {args.timesteps}).")
 
     if args.wandb:
-        wandb.join()
+        wandb.finish()

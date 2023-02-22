@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import hashlib, os, pickle
 from util.colors import BOLD, ORANGE, ENDC
+import wandb
 
 # Logger stores in trained_models by default
 def create_logger(args):
@@ -65,6 +66,10 @@ def create_logger(args):
         for key, val in arg_dict.items():
             file.write("%s: %s" % (key, val))
             file.write('\n')
+
+    # wandb init before tensorboard. 
+    if args.wandb:
+        wandb.init(group = args.run_name, project=args.wandb_project_name, config=args, sync_tensorboard=True)
 
     logger = SummaryWriter(output_dir, flush_secs=0.1) # flush_secs=0.1 actually slows down quite a bit, even on parallelized set ups
     print("Logging to " + BOLD + ORANGE + str(output_dir) + ENDC)

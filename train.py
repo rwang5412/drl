@@ -36,12 +36,11 @@ if __name__ == "__main__":
 
     """Logger / Saver"""
     parser.add_argument("--wandb",    default=False, action='store_true')              # use weights and biases for training
-    parser.add_argument("--wandb_project_name",    default="roadrunner")              # use weights and biases for training
+    parser.add_argument("--wandb_project_name",    default="roadrunner_refactor")              # use weights and biases for training
     parser.add_argument("--logdir",   default="./trained_models/", type=str)
     parser.add_argument("--run_name", default=None)                                                 # run name
 
     """All RL algorithms"""
-    parser.add_argument("--nolog",     action='store_true')                            # store log data or not.
     parser.add_argument("--seed",      default=0,           type=int)                  # random seed for reproducibility
     parser.add_argument("--traj_len",  default=300,        type=int)                  # max trajectory length for environment
     parser.add_argument("--timesteps", default=1e8,         type=float)                # timesteps to run experiment for
@@ -64,3 +63,11 @@ if __name__ == "__main__":
         # Assume that any extra arguments will be handled later by the env arg parser in env_factory
         args, env_args = parser.parse_known_args()
         run_experiment(args, env_args)
+
+    elif algo == 'diagnose':
+        """
+            Utility for diagonise training errors.
+        """
+        from util.check_number import unpack_training_error
+
+        unpack_training_error('trained_models/CassieEnvClock/283a36-seed0/training_error.pt')

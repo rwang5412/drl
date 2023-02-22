@@ -55,6 +55,14 @@ def is_variable_valid(x):
         print(f"{FAIL}is_variable_valid gets not qualified input type of {type(x)} for {x}.{ENDC}")
         return False
 
+def unpack_training_error(file_path):
+    data = torch.load(file_path)
+    for key, value in data.items():
+        if not isinstance(value, torch.Tensor):
+            print(f"{key} is not tensor, but other type. Need to check further.")
+        elif not torch.isfinite(value).all():
+            print(f"{key} has non finite values! Check the calculation in optimization!")
+
 if __name__=='__main__':
     # Test cases for this utility function
     a = [None, 1, 2]
