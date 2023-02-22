@@ -300,8 +300,8 @@ class PPO_Optim(PPO_Worker):
         self.clip = clip
         self.save_path = save_path
 
-    def optimize(self, 
-                 memory, 
+    def optimize(self,
+                 memory,
                  epochs=4,
                  batch_size=32,
                  kl_thresh=0.02,
@@ -747,11 +747,11 @@ def run_experiment(args, env_args):
     """
     from algo.util.normalization import train_normalizer
     from algo.util.log import create_logger
-    from util.env_factory import env_factory
+    from util.env_factory import env_factory, get_env_parser
+    from util.nn_factory import nn_factory, load_checkpoint, save_checkpoint
 
-    from nn.critic import FFCritic, LSTMCritic, GRUCritic
-    from nn.actor import FFActor, LSTMActor, GRUActor
-
+    import pickle
+    import copy
     import locale
     locale.setlocale(locale.LC_ALL, '')
 
@@ -763,44 +763,21 @@ def run_experiment(args, env_args):
     env_fn = env_factory(args.env_name, env_args)
 
     # Load NN from args or save checkpoint
-    # Due to various shape of NN class, use if/else check for visibility
     if hasattr(args, "previous") and args.previous is not None:
-        actor_dict = torch.load(os.path.join(args.previous, "actor.pt"), map_location='cpu')
-        critic_dict = torch.load(os.path.join(args.previous, "critic.pt"), map_location='cpu')
-        args = argparse.Namespace(**actor_dict)
+        args = pickle.load(open(args.previous + "experiment.pkl", "rb"))
     else:
         args.obs_dim = env_fn().observation_size
         args.action_dim = env_fn().action_size
         args.std = torch.ones(args.action_dim)*args.std
         args.layers = [int(x) for x in args.layers.split(',')]
 
-    if args.arch == 'lstm':
-        policy = LSTMActor(args.obs_dim,
-                            args.action_dim,
-                            std=args.std,
-                            bounded=args.bounded,
-                            layers=args.layers,
-                            learn_std=args.learn_stddev)
-        critic = LSTMCritic(args.obs_dim, layers=args.layers)
-    elif args.arch == 'gru':
-        policy = GRUActor(args.obs_dim,
-                        args.action_dim,
-                        std=args.std,
-                        bounded=args.bounded,
-                        layers=args.layers,
-                        learn_std=args.learn_stddev)
-        critic = GRUCritic(args.obs_dim, layers=args.layers)
-    elif args.arch == 'ff':
-        policy = FFActor(args.obs_dim,
-                        args.action_dim,
-                        std=args.std,
-                        bounded=args.bounded,
-                        layers=args.layers,
-                        learn_std=args.learn_stddev,
-                        nonlinearity=torch.tanh)
-        critic = FFCritic(args.obs_dim, layers=args.layers)
-    else:
-        raise RuntimeError(f"Arch {args.arch} is not included, check the entry point.")
+    policy, critic = nn_factory(args=args)
+    # Load model attributes if args.previous exists
+    if hasattr(args, "previous") and args.previous is not None:
+        actor_dict = torch.load(os.path.join(args.previous, "actor.pt"))
+        critic_dict = torch.load(os.path.join(args.previous, "critic.pt"))
+        load_checkpoint(model_dict=actor_dict, model=policy)
+        load_checkpoint(model_dict=critic_dict, model=critic)
 
     # Prenormalization only on new training
     if args.do_prenorm and args.previous is None:
@@ -810,38 +787,23 @@ def run_experiment(args, env_args):
 
     policy.train(True)
     critic.train(True)
+    # create actor/critic dict tp include model_state_dict and other class attributes
+    actor_dict = {'model_class_name': policy._get_name()}
+    critic_dict = {'model_class_name': critic._get_name()}
 
     # create a tensorboard logging object
-    logger = create_logger(args)
+    env_args = get_env_parser(args.env_name).parse_args()
+    logger = create_logger(args, env_args)
     args.save_actor_path = os.path.join(logger.dir, 'actor.pt')
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
     args.save_path = logger.dir
-    # create actor/critic dict tp include model_state_dict and other class attributes
-    actor_dict = {'name': policy._get_name()}
-    critic_dict = {'name': critic._get_name()}
 
     # Algo init
     algo = PPO(policy, critic, env_fn, args)
 
-    print()
     print("Proximal Policy Optimization:")
-    print("\tseed:               {}".format(args.seed))
-    print("\tenv name:           {}".format(args.env_name))
-    print("\tmirror:             {}".format(args.mirror))
-    print("\ttimesteps:          {:n}".format(int(args.timesteps)))
-    print("\titeration steps:    {:n}".format(int(args.num_steps)))
-    print("\tprenormalize steps: {}".format(int(args.prenormalize_steps)))
-    print("\ttraj_len:           {}".format(args.traj_len))
-    print("\tdiscount:           {}".format(args.discount))
-    print("\tactor_lr:           {}".format(args.a_lr))
-    print("\tcritic_lr:          {}".format(args.c_lr))
-    print("\tadam eps:           {}".format(args.eps))
-    print("\tentropy coeff:      {}".format(args.entropy_coeff))
-    print("\tgrad clip:          {}".format(args.grad_clip))
-    print("\tbatch size:         {}".format(args.batch_size))
-    print("\tepochs:             {}".format(args.epochs))
-    print("\tworkers:            {}".format(args.workers))
-    print()
+    for key, val in args.__dict__.items():
+        print(f"\t{key} = {val}")
 
     itr = 0
     timesteps = 0
@@ -862,31 +824,18 @@ def run_experiment(args, env_args):
         if best_reward is None or eval_reward > best_reward:
             print(f"\t(best policy so far! saving checkpoint to {args.save_actor_path})")
             best_reward = eval_reward
-            # Loop thru keys to make sure get any updates from actor/critic
-            for key in vars(algo.actor):
-                actor_dict[key] = getattr(algo.actor, key)
-            for key in vars(algo.critic):
-                critic_dict[key] = getattr(algo.critic, key)
-            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
-                    args.save_actor_path)
-            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
-                    args.save_critic_path)
+            save_checkpoint(algo.actor, actor_dict, args.save_actor_path)
+            save_checkpoint(algo.critic, critic_dict, args.save_critic_path)
 
-        if itr > 5:
+        if itr > 2:
             exit()
         # Intermitent saving
         if itr % 500 == 0:
             past500_reward = -1
         if eval_reward > past500_reward:
             past500_reward = eval_reward
-            for key in vars(algo.actor):
-                actor_dict[key] = getattr(algo.actor, key)
-            for key in vars(algo.critic):
-                critic_dict[key] = getattr(algo.critic, key)
-            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
-                       args.save_actor_path[:-3] + "_past500.pt")
-            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
-                       args.save_critic_path[:-3] + "_past500.pt")
+            save_checkpoint(algo.actor, actor_dict, args.save_actor_path[:-3] + "_past500.pt")
+            save_checkpoint(algo.critic, critic_dict, args.save_critic_path[:-3] + "_past500.pt")
 
         if logger is not None:
             logger.add_scalar("Test/Return", eval_reward, itr)

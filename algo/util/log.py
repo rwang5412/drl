@@ -4,7 +4,7 @@ from util.colors import BOLD, ORANGE, ENDC
 import wandb
 
 # Logger stores in trained_models by default
-def create_logger(args):
+def create_logger(args, env_args):
     from torch.utils.tensorboard import SummaryWriter
     """Use hyperparms to set a directory to output diagnostic files."""
 
@@ -61,7 +61,8 @@ def create_logger(args):
     info_path = os.path.join(output_dir, "experiment.info")
     pkl_path = os.path.join(output_dir, "experiment.pkl")
     with open(pkl_path, 'wb') as file:
-        pickle.dump(args, file)
+        dict = {'env': env_args, 'nonenv':args}
+        pickle.dump(dict, file)
     with open(info_path, 'w') as file:
         for key, val in arg_dict.items():
             file.write("%s: %s" % (key, val))
