@@ -14,7 +14,7 @@ from util.colors import FAIL, ENDC
 class CassieEnv(GenericEnv):
     def __init__(self,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool):
         """Template class for Cassie with common functions.
@@ -25,14 +25,15 @@ class CassieEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
+            terrain (str): Type of terrain generation [stone, stair, obstacle]
         """
         super().__init__()
-
         self.dynamics_randomization = dynamics_randomization
         self.default_policy_rate = policy_rate
+        self.terrain = terrain
         # Select simulator
         if simulator_type == "mujoco":
-            self.sim = MjCassieSim()
+            self.sim = MjCassieSim(terrain=self.terrain)
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
         else:

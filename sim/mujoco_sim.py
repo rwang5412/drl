@@ -12,11 +12,12 @@ class MujocoSim(GenericSim):
     This class explicitly avoids robot-specific names.
     """
 
-    def __init__(self, model_path):
+    def __init__(self, model_path, terrain=None):
         super().__init__()
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
         self.viewer = None
+        self.terrain = terrain
         # Enforce that necessary constants and index arrays are defined
         check_vars = ["torque_delay_cycles", "torque_efficiency", "motor_position_inds",
             "motor_velocity_inds", "joint_position_inds", "joint_velocity_inds",
@@ -33,7 +34,7 @@ class MujocoSim(GenericSim):
             f"that delay cycle of 1 corresponds to no delay (specifies size of the torque buffer.{ENDC}"
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
 
-        # Load objects for hfield/box/obstacle/stone
+        # Load geoms/bodies for hfield/box/obstacle/stone/stair
         self.load_fixed_object()
         # self.load_movable_object()
 
@@ -44,23 +45,10 @@ class MujocoSim(GenericSim):
             self.box_geoms = [f'box{i}' for i in range(num_geoms_in_xml)]
             self.geom_generator = Geom(self)
         except:
-            print(f"No box-typed geom listed in XML. Or num of geoms is not equal to {num_geoms_in_xml}")
+            print(f"No box-typed geom listed in XML.\n"
+                  f"Or num of geoms is not equal to {num_geoms_in_xml}.")
 
-    # def load_movable_object(self, num_bodies_in_xml=1):
-    #     """Load any geoms. can add more types, such as non box types, but is limited at compile.
-    #     """
-    #     try:
-    #         self.box_bodies = [f'boxx{i}' for i in range(num_bodies_in_xml)]
-    #     except:
-    #         print(f"No box-typed body listed in XML. Or num of bodies is not equal to {num_bodies_in_xml}")
-    #     self.set_body_pose(self.box_bodies[0], np.array([0,0,-5,1,0,0,0]))
-    #     self.qpos_addon = self.get_body_pose(self.box_bodies[0])
-
-    def reset(self,
-              qpos: np.ndarray=None,
-              stair: bool=False,
-              stone: bool=False,
-              obstacle: bool=False):
+    def reset(self, qpos: np.ndarray=None):
         mj.mj_resetData(self.model, self.data)
         if qpos is not None:
             assert len(qpos) == self.model.nq, \
@@ -70,12 +58,14 @@ class MujocoSim(GenericSim):
             self.data.qpos = self.reset_qpos
 
         # Reset non-robot geoms, hfield, other bodies etc.
-        if stone:
+        if self.terrain == 'stone':
             self.geom_generator.create_discrete_terrain()
             self.adjust_robot_pose()
-        elif stair:
+        elif self.terrain == 'stair':
             self.geom_generator.create_stairs(self.data.qpos[0], self.data.qpos[1], 0)
             self.adjust_robot_pose()
+        elif self.terrain == 'obstacle':
+            raise RuntimeError(f"{FAIL}Not implemented obstacle generation.{ENDC}")
         mj.mj_forward(self.model, self.data)
 
     def sim_forward(self, dt: float = None):
@@ -131,6 +121,8 @@ class MujocoSim(GenericSim):
             self.model.dof_damping[i] = 1e5
 
     def adjust_robot_pose(self):
+        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms.
+        """
         # Make sure all kinematics are updated
         mj.mj_kinematics(self.model, self.data)
         # Check iteratively if robot is colliding with geom in XY and move robot up in Z
@@ -142,19 +134,10 @@ class MujocoSim(GenericSim):
             box_id, toe_hgt  = self.geom_generator.check_step(x + 0.1, y, 0)
             z_hgt = max(heel_hgt, toe_hgt)
             z_deltas.append((z_hgt-z))
-        
         base_position = self.get_base_position()
         delta = max(z_deltas)
         base_position[2] += delta + 1e-3
         self.set_base_position(base_position)
-        # for g in self.box_geoms:
-        #     base_position = self.get_base_position()
-        #     if np.linalg.norm(self.model.geom(g).pos[0:2] - base_position[0:2]) <= 0.5:
-        #         geom_height = self.model.geom(g).pos[2] + self.model.geom(g).size[2]
-        #         if geom_height >= 0:
-        #             print(geom_height)
-        #             base_position[2] += geom_height + 1e-3
-        #             self.set_base_position(base_position)
 
     def release(self):
         """Zero stiffness/damping for base 6DOF

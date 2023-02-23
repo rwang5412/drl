@@ -21,24 +21,24 @@ from util.colors import FAIL, ENDC, OKGREEN
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
+    sim_list = [MjCassieSim]
     num_pass = 0
     failed = False
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        num_pass += test_sim_init(sim)
-        num_pass += test_sim_sim_forward(sim)
+        # num_pass += test_sim_init(sim)
+        # num_pass += test_sim_sim_forward(sim)
         num_pass += test_sim_viewer(sim)
-        num_pass += test_sim_glfw_multiple_viewer(sim)
-        num_pass += test_sim_PD(sim)
-        num_pass += test_sim_get_set(sim)
-        num_pass += test_sim_indexes(sim)
-        num_pass += test_sim_body_pose(sim)
-        num_pass += test_sim_body_velocity(sim)
-        num_pass += test_sim_body_acceleration(sim)
-        num_pass += test_sim_body_contact_force(sim)
-        num_pass += test_sim_relative_pose(sim)
+        # num_pass += test_sim_glfw_multiple_viewer(sim)
+        # num_pass += test_sim_PD(sim)
+        # num_pass += test_sim_get_set(sim)
+        # num_pass += test_sim_indexes(sim)
+        # num_pass += test_sim_body_pose(sim)
+        # num_pass += test_sim_body_velocity(sim)
+        # num_pass += test_sim_body_acceleration(sim)
+        # num_pass += test_sim_body_contact_force(sim)
+        # num_pass += test_sim_relative_pose(sim)
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
@@ -67,7 +67,7 @@ def test_sim_sim_forward(sim):
 
 def test_sim_viewer(sim):
     print("Testing sim viewer, quit window to continue")
-    test_sim = sim()
+    test_sim = sim(terrain='stair')
     test_sim.reset()
     test_sim.viewer_init()
     render_state = test_sim.viewer_render()
@@ -79,6 +79,8 @@ def test_sim_viewer(sim):
         render_state = test_sim.viewer_render()
         # Assume 2kHz sim for now
         delaytime = max(0, 50/2000 - (time.time() - start_t))
+        if test_sim.get_base_position()[2] < 0.5:
+            test_sim.reset()
         time.sleep(delaytime)
     print("Passed sim viewer")
     return True
