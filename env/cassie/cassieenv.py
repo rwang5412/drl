@@ -33,13 +33,8 @@ class CassieEnv(GenericEnv):
         # Select simulator
         if simulator_type == "mujoco":
             self.sim = MjCassieSim()
-            # Handle simulation features, such as heightmap
-            if terrain:
-                pass
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
-            if terrain:
-                pass
         else:
             raise RuntimeError(f"Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'libcassie'.")

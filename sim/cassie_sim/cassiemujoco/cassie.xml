@@ -231,21 +231,32 @@
     </body>
 
     <!-- Add any other moving bodies after the Cassie definition -->
-    <geom name='box1'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box2'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box3'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box4'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box5'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box6'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box7'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box8'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box9'  pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box10' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box11' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box12' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box13' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box14' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
-    <geom name='box15' pos='0 0 -1.01'  size='10 10 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box0'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box1'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box2'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box3'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box4'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box5'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box6'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box7'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box8'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box9'  pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box10' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box11' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box12' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box13' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box14' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box15' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box16' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box17' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box18' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    <geom name='box19' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
+  
+    <!-- <body name='boxx0'  pos='0 0 -5'>
+      <freejoint/>
+      <geom name='box' size='1 1 1' type='box' condim='3' conaffinity='15'/>
+    </body> -->
+    
   </worldbody>
 
   <equality>

@@ -4,6 +4,7 @@ import mujoco as mj
 from .generic_sim import GenericSim
 from .mujoco_viewer import MujocoViewer
 from util.colors import FAIL, WARNING, ENDC
+from sim.util.geom import Geom
 
 class MujocoSim(GenericSim):
     """
@@ -32,7 +33,34 @@ class MujocoSim(GenericSim):
             f"that delay cycle of 1 corresponds to no delay (specifies size of the torque buffer.{ENDC}"
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
 
-    def reset(self, qpos: np.ndarray=None):
+        # Load objects for hfield/box/obstacle/stone
+        self.load_fixed_object()
+        # self.load_movable_object()
+
+    def load_fixed_object(self, num_geoms_in_xml=20):
+        """Load any geoms. can add more types, such as non box types, but is limited at compile.
+        """
+        try:
+            self.box_geoms = [f'box{i}' for i in range(num_geoms_in_xml)]
+            self.geom_generator = Geom(self)
+        except:
+            print(f"No box-typed geom listed in XML. Or num of geoms is not equal to {num_geoms_in_xml}")
+
+    # def load_movable_object(self, num_bodies_in_xml=1):
+    #     """Load any geoms. can add more types, such as non box types, but is limited at compile.
+    #     """
+    #     try:
+    #         self.box_bodies = [f'boxx{i}' for i in range(num_bodies_in_xml)]
+    #     except:
+    #         print(f"No box-typed body listed in XML. Or num of bodies is not equal to {num_bodies_in_xml}")
+    #     self.set_body_pose(self.box_bodies[0], np.array([0,0,-5,1,0,0,0]))
+    #     self.qpos_addon = self.get_body_pose(self.box_bodies[0])
+
+    def reset(self,
+              qpos: np.ndarray=None,
+              stair: bool=False,
+              stone: bool=False,
+              obstacle: bool=False):
         mj.mj_resetData(self.model, self.data)
         if qpos is not None:
             assert len(qpos) == self.model.nq, \
@@ -40,6 +68,14 @@ class MujocoSim(GenericSim):
             self.data.qpos = qpos
         else:
             self.data.qpos = self.reset_qpos
+
+        # Reset non-robot geoms, hfield, other bodies etc.
+        if stone:
+            self.geom_generator.create_discrete_terrain()
+            self.adjust_robot_pose()
+        elif stair:
+            self.geom_generator.create_stairs(self.data.qpos[0], self.data.qpos[1], 0)
+            self.adjust_robot_pose()
         mj.mj_forward(self.model, self.data)
 
     def sim_forward(self, dt: float = None):
@@ -93,6 +129,32 @@ class MujocoSim(GenericSim):
 
         for i in range(3, 6):
             self.model.dof_damping[i] = 1e5
+
+    def adjust_robot_pose(self):
+        # Make sure all kinematics are updated
+        mj.mj_kinematics(self.model, self.data)
+        # Check iteratively if robot is colliding with geom in XY and move robot up in Z
+        lfoot_pos  = self.get_site_pose(self.feet_site_name[0])[0:3]
+        rfoot_pos  = self.get_site_pose(self.feet_site_name[1])[0:3]
+        z_deltas = []
+        for (x,y,z) in [lfoot_pos, rfoot_pos]:
+            box_id, heel_hgt = self.geom_generator.check_step(x - 0.1, y, 0)
+            box_id, toe_hgt  = self.geom_generator.check_step(x + 0.1, y, 0)
+            z_hgt = max(heel_hgt, toe_hgt)
+            z_deltas.append((z_hgt-z))
+        
+        base_position = self.get_base_position()
+        delta = max(z_deltas)
+        base_position[2] += delta + 1e-3
+        self.set_base_position(base_position)
+        # for g in self.box_geoms:
+        #     base_position = self.get_base_position()
+        #     if np.linalg.norm(self.model.geom(g).pos[0:2] - base_position[0:2]) <= 0.5:
+        #         geom_height = self.model.geom(g).pos[2] + self.model.geom(g).size[2]
+        #         if geom_height >= 0:
+        #             print(geom_height)
+        #             base_position[2] += geom_height + 1e-3
+        #             self.set_base_position(base_position)
 
     def release(self):
         """Zero stiffness/damping for base 6DOF
@@ -205,6 +267,17 @@ class MujocoSim(GenericSim):
         pose[:3] = self.data.geom(name).xpos
         mj.mju_mat2Quat(pose[3:7], self.data.geom(name).xmat)
         return pose
+
+    def get_geom_size(self, name: str):
+        """Get geom size by name
+
+        Args:
+            name (str): geom name
+
+        Returns:
+            ndarray: size [3x]
+        """
+        return self.model.geom(name).size
 
     def get_relative_pose(self, pose1: np.ndarray, pose2: np.ndarray):
         """Computes relative pose of object2 in the frame of object1.
@@ -350,3 +423,19 @@ class MujocoSim(GenericSim):
                f"should be shape (3,).{ENDC}"
         self.data.qvel[self.base_angular_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
+
+    """The following setters are meant during simulation or reset, so should not advance simulation by itself.
+    """
+    def set_geom_pose(self, name: str, pose: np.ndarray):
+        self.model.geom(name).pos = pose[0:3]
+        self.model.geom(name).quat = pose[3:7]
+
+    def set_geom_size(self, name: str, size: np.ndarray):
+        self.model.geom(name).size = size
+
+    def set_geom_color(self, name: str, color: np.ndarray):
+        self.model.geom(name).rgba = color
+
+    def set_body_pose(self, name: str, pose: np.ndarray):
+        self.data.body(name).xpos = pose[0:3]
+        self.data.body(name).xquat = pose[3:7]
