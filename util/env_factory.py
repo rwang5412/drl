@@ -53,8 +53,8 @@ def env_factory(env_name: str, env_args: list | SimpleNamespace | argparse.Names
     except:
         raise RuntimeError(f"Cannot locate env with name {env_name}.\n"
                            f"Check if modules names are aligned exactly the same from class to folder names.")
-        
-def get_env_parser(env_name):
+
+def add_env_parser(env_name, parser):
     if "cassie" in env_name.lower():
         robot_type = "cassie"
     elif "digit" in env_name.lower():
@@ -63,10 +63,9 @@ def get_env_parser(env_name):
         raise RuntimeError("Please add options here to include a new robot type.")
 
     try:
-        env_argparse = argparse.ArgumentParser()
         env_module = import_module(f"env.{robot_type}.{env_name.lower()}.{env_name.lower()}")
-        env_argparse = env_module.add_env_args(env_argparse)
-        return env_argparse
+        parser = env_module.add_env_args(parser)
+        return parser
     except:
         raise RuntimeError(f"Cannot locate env with name {env_name}.\n"
                            f"Check if modules names are aligned exactly the same from class to folder names.")

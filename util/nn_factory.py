@@ -1,7 +1,9 @@
+import argparse
+import torch
+
 from nn.critic import FFCritic, LSTMCritic, GRUCritic
 from nn.actor import FFActor, LSTMActor, GRUActor, MixActor
 from util.colors import FAIL, WARNING, ENDC
-import torch
 
 def nn_factory(args):
     """The nn_factory initializes a model class (actor, critic etc) by args (from saved pickle file
@@ -36,13 +38,13 @@ def nn_factory(args):
                         bounded=args.bounded,
                         layers=args.layers,
                         learn_std=args.learn_stddev,
-                        nonlinearity=torch.tanh)
+                        nonlinearity=args.nonlinearity)
         critic = FFCritic(args.obs_dim, layers=args.layers)
     elif args.arch == 'mix':
         pass
     else:
         raise RuntimeError(f"Arch {args.arch} is not included, check the entry point.")
-    
+
     return policy, critic
 
 def load_checkpoint(model, model_dict: dict):
@@ -51,7 +53,7 @@ def load_checkpoint(model, model_dict: dict):
 
     Args:
         model_dict (dict): A saved dict contains required attributes to initialize a model class.
-        model: A model class, ie actor, critic, cnn etc. Thsi is not a direct nn.module, but a 
+        model: A model class, ie actor, critic, cnn etc. Thsi is not a direct nn.module, but a
                customized wrapper class with use-base dependent attributes.
     """
     # Create dict to check that all actor attributes are set
@@ -93,3 +95,19 @@ def save_checkpoint(model, model_dict: dict, save_path: str):
             model_dict[key] = getattr(model, key)
     torch.save(model_dict | {'model_state_dict': model.state_dict()},
                 save_path)
+
+def add_nn_parser(parser: argparse.ArgumentParser):
+    nn_group = parser.add_argument_group("NN arguments")
+    nn_group.add_argument("--std",      default=0.13, type=float, help="Action noise std dev")
+    nn_group.add_argument("--bounded",  default=False, action="store_true",
+                        help="Whether or not actor policy has bounded output")
+    nn_group.add_argument("--layers", default="256,256", type=str,
+                        help="Hidden layer size for actor and critic")
+    nn_group.add_argument("--arch", default="ff", type=str,
+                        help="Actor/critic NN architecture")
+    nn_group.add_argument("--learn-stddev", default=False, action="store_true",
+                        help="Whether or not to learn action std dev")
+    nn_group.add_argument("--nonlinearity", default="tanh", type=str,
+                        help="Actor output layer activation function")
+
+    return parser

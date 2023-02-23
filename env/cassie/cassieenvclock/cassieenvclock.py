@@ -170,7 +170,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             as the input but with added arguments.
     """
     args = {
-        "simulator_type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\""),
+        "simulator_type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\")"),
         "terrain" : (False, "What terrain to train with (default is flat terrain)"),
         "policy_rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics_randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
@@ -178,12 +178,13 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "clock_type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
     }
     if isinstance(parser, argparse.ArgumentParser):
+        env_group = parser.add_argument_group("Env arguments")
         for arg, (default, help_str) in args.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                parser.add_argument("--" + arg, default = default, action = "store_" + \
+                env_group.add_argument("--" + arg, default = default, action = "store_" + \
                                     str(not default).lower(), help = help_str)
             else:
-                parser.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+                env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace):
         for arg, (default, help_str) in args.items():
             if not hasattr(parser, arg):

@@ -382,8 +382,6 @@ def add_algo_args(parser):
         "prenormalize_steps" : (100, "Number of steps to use in prenormlization"),
         "num_steps"          : (5000, "Number of steps to sample each iteration"),
         "discount"           : (0.99, "Discount factor when calculating returns"),
-        "learn_stddev"       : (False, "Whether to learn action std dev or not"),
-        "std"                : (0.13, "Action noise std dev"),
         "a_lr"               : (1e-4, "Actor policy learning rate"),
         "c_lr"               : (1e-4, "Critic learning rate"),
         "eps"                : (1e-6, "Adam optimizer eps value"),
@@ -395,20 +393,19 @@ def add_algo_args(parser):
         "epochs"             : (3, "Number of epochs to optimize for each iteration"),
         "mirror"             : (0, "Mirror loss coefficient"),
         "do_prenorm"         : (False, "Whether to do prenormalization or not"),
-        "layers"             : ("256,256", "Hidden layer size for actor and critic"),
-        "arch"               : ('ff', "Actor/critic NN architecture"),
-        "bounded"            : (False, "Whether or not actor policy has bounded output"),
         "workers"            : (2, "Number of parallel workers to use for sampling"),
         "redis"              : (None, "Ray redis address"),
         "previous"           : (None, "Previous model to bootstrap from")
     }
     if isinstance(parser, argparse.ArgumentParser):
+        ppo_group = parser.add_argument_group("PPO arguments")
         for arg, (default, help_str) in default_values.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                parser.add_argument("--" + arg, default = default, action = "store_" + \
+                ppo_group.add_argument("--" + arg, default = default, action = "store_" + \
                                     str(not default).lower(), help = help_str)
             else:
-                parser.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+                ppo_group.add_argument("--" + arg, default = default, type = type(default),
+                                      help = help_str)
 
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
         for arg, (default, help_str) in default_values.items():
@@ -418,40 +415,66 @@ def add_algo_args(parser):
     return parser
 
 
-def run_experiment(args, env_args):
+def run_experiment(parser, env_name):
     """
     Function to run a PPO experiment.
 
     Args:
-        args: argparse namespace
+        parser: argparse object
     """
     from algo.util.normalization import train_normalizer
     from algo.util.log import create_logger
-    from util.env_factory import env_factory, get_env_parser
-    from util.nn_factory import nn_factory, load_checkpoint, save_checkpoint
+    from util.env_factory import env_factory, add_env_parser
+    from util.nn_factory import nn_factory, load_checkpoint, save_checkpoint, add_nn_parser
 
     import pickle
     import copy
     import locale
     locale.setlocale(locale.LC_ALL, '')
 
+    # Add env and NN parser arguments, then can finally parse args
+    add_env_parser(env_name, parser)
+    add_nn_parser(parser)
+    args = parser.parse_args()
+    for arg_group in parser._action_groups:
+        print(arg_group.title)
+        if arg_group.title == "PPO arguments":
+            ppo_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+            ppo_args = argparse.Namespace(**ppo_dict)
+        elif arg_group.title == "Env arguments":
+            env_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+            env_args = argparse.Namespace(**env_dict)
+        elif arg_group.title == "NN arguments":
+            nn_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+            nn_args = argparse.Namespace(**nn_dict)
+
+    # wrapper function for creating parallelized envs
+    env_fn = env_factory(env_name, env_args)
+
     # Set seeds
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # wrapper function for creating parallelized envs
-    env_fn = env_factory(args.env_name, env_args)
-
     # Load NN from args or save checkpoint
     if hasattr(args, "previous") and args.previous is not None:
-        args = pickle.load(open(args.previous + "experiment.pkl", "rb"))
+        prev_args = pickle.load(open(args.previous + "experiment.pkl", "rb"))
+        args = prev_args["all_args"]
+        ppo_args = prev_args["algo_args"]
+        env_args = prev_args["env_args"]
+        nn_args = prev_args["nn_args"]
     else:
-        args.obs_dim = env_fn().observation_size
-        args.action_dim = env_fn().action_size
-        args.std = torch.ones(args.action_dim)*args.std
-        args.layers = [int(x) for x in args.layers.split(',')]
+        nn_args.obs_dim = env_fn().observation_size
+        nn_args.action_dim = env_fn().action_size
+        nn_args.std = torch.ones(nn_args.action_dim)*args.std
+        nn_args.layers = [int(x) for x in args.layers.split(',')]
+        nn_args.nonlinearity = getattr(torch, nn_args.nonlinearity)
+        args.obs_dim = nn_args.obs_dim
+        args.action_dim = nn_args.action_dim
+        args.std = nn_args.std
+        args.layers = nn_args.layers
+        args.nonlinearity = nn_args.nonlinearity
 
-    policy, critic = nn_factory(args=args)
+    policy, critic = nn_factory(args=nn_args)
     # Load model attributes if args.previous exists
     if hasattr(args, "previous") and args.previous is not None:
         actor_dict = torch.load(os.path.join(args.previous, "actor.pt"))
@@ -472,14 +495,14 @@ def run_experiment(args, env_args):
     critic_dict = {'model_class_name': critic._get_name()}
 
     # create a tensorboard logging object
-    env_args = get_env_parser(args.env_name).parse_args()
-    logger = create_logger(args, env_args)
+    # env_args = get_env_parser(args.env_name).parse_args()
+    logger = create_logger(args, ppo_args, env_args, nn_args)
     args.save_actor_path = os.path.join(logger.dir, 'actor.pt')
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
     args.save_path = logger.dir
 
     # Algo init
-    algo = PPO(policy, critic, env_fn, args)
+    algo = PPO(policy, critic, env_fn, ppo_args)
 
     print("Proximal Policy Optimization:")
     for key, val in args.__dict__.items():
