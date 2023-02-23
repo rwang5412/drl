@@ -311,8 +311,8 @@ class PPO(AlgoWorker):
         eval_buffers, _, _ = zip(*ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, \
                                            do_eval=True) for w in self.workers]))
         eval_memory = reduce(add, eval_buffers)
-        eval_reward = np.mean(eval_memory.rewards)
-        avg_ep_len = np.mean(eval_memory.ep_lens)
+        eval_reward = np.mean(eval_memory.ep_returns)
+        eval_ep_len = np.mean(eval_memory.ep_lens)
 
         # Sampling for optimization
         sampling_start = time()
@@ -336,7 +336,8 @@ class PPO(AlgoWorker):
         map(ray.cancel, sample_jobs) # Cancel leftover unneeded jobs
 
         total_steps = len(memory)
-        avg_batch_reward = np.mean(memory.ep_returns)
+        batch_reward = np.mean(memory.ep_returns)
+        batch_ep_len = np.mean(memory.ep_lens)
         sampling_elapsed = time() - sampling_start
         sample_rate = (total_steps / 1000) / sampling_elapsed
         ideal_efficiency = avg_efficiency * len(self.workers)
@@ -374,8 +375,8 @@ class PPO(AlgoWorker):
         times["Optimize Time"] = time() - optim_start
         if verbose:
             print(f"\t{times['Optimize Time']:3.2f}s to update policy.")
-        return eval_reward, np.mean(kls), np.mean(a_loss), np.mean(c_loss), np.mean(m_loss), \
-               len(memory), times, total_steps, avg_ep_len, avg_batch_reward
+        return eval_reward, eval_ep_len, batch_reward, batch_ep_len, np.mean(kls), \
+               np.mean(a_loss), np.mean(c_loss), np.mean(m_loss), len(memory), times
 
 def add_algo_args(parser):
     default_values = {
@@ -527,8 +528,13 @@ def run_experiment(args, env_args):
     best_reward = None
     past500_reward = -1
     while timesteps < args.timesteps:
-        eval_reward, kl, a_loss, c_loss, m_loss, steps, times, total_steps, avg_ep_len, avg_batch_reward = \
-            algo.do_iteration(args.num_steps, args.traj_len, args.epochs, batch_size=args.batch_size, kl_thresh=args.kl, mirror=args.mirror)
+        eval_reward, eval_ep_len, batch_reward, batch_ep_len, kl, a_loss, c_loss, m_loss, steps, \
+        times = algo.do_iteration(args.num_steps,
+                                  args.traj_len,
+                                  args.epochs,
+                                  batch_size=args.batch_size,
+                                  kl_thresh=args.kl,
+                                  mirror=args.mirror)
 
         timesteps += steps
         print(f"iter {itr:4d} | return: {eval_reward:5.2f} | KL {kl:5.4f} | Actor loss {a_loss:5.4f}" \
@@ -538,7 +544,7 @@ def run_experiment(args, env_args):
 
         print(f"timesteps {timesteps:n}")
 
-        # Savhing checkpoints for best reward
+        # Saving checkpoints for best reward
         if best_reward is None or eval_reward > best_reward:
             print(f"\t(best policy so far! saving to {args.save_actor_path})")
             best_reward = eval_reward
@@ -567,14 +573,16 @@ def run_experiment(args, env_args):
 
         if logger is not None:
             logger.add_scalar("Test/Return", eval_reward, itr)
-            logger.add_scalar("Train/Return", avg_batch_reward, itr)
-            logger.add_scalar("Train/Mean Eplen", avg_ep_len, itr)
+            logger.add_scalar("Test/Mean Eplen", eval_ep_len, itr)
+            logger.add_scalar("Train/Return", batch_reward, itr)
+            logger.add_scalar("Train/Mean Eplen", batch_ep_len, itr)
             logger.add_scalar("Train/Mean KL Div", kl, itr)
 
             logger.add_scalar("Misc/Critic Loss", c_loss, itr)
             logger.add_scalar("Misc/Actor Loss", a_loss, itr)
             logger.add_scalar("Misc/Mirror Loss", m_loss, itr)
-            logger.add_scalar("Misc/Timesteps", total_steps, itr)
+            logger.add_scalar("Misc/Timesteps", steps, itr)
+            logger.add_scalar("Misc/Total Steps", timesteps, itr)
 
             for time, val in times.items():
                 logger.add_scalar("Misc/" + time, val, itr)
