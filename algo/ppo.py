@@ -379,20 +379,21 @@ class PPO(AlgoWorker):
 
 def add_algo_args(parser):
     default_values = {
-        "prenormalize_steps" : (100, "Number of steps to use in prenormlization"),
+        "prenormalize-steps" : (100, "Number of steps to use in prenormlization"),
+        "prenorm"            : (False, "Whether to do prenormalization or not"),
+        "update-norm"        : (False, "Update input normalization during training."),
         "num_steps"          : (5000, "Number of steps to sample each iteration"),
         "discount"           : (0.99, "Discount factor when calculating returns"),
-        "a_lr"               : (1e-4, "Actor policy learning rate"),
-        "c_lr"               : (1e-4, "Critic learning rate"),
+        "a-lr"               : (1e-4, "Actor policy learning rate"),
+        "c-lr"               : (1e-4, "Critic learning rate"),
         "eps"                : (1e-6, "Adam optimizer eps value"),
         "kl"                 : (0.02, "KL divergence threshold"),
-        "entropy_coeff"      : (0.0, "Coefficient of entropy loss in optimization"),
+        "entropy-coeff"      : (0.0, "Coefficient of entropy loss in optimization"),
         "clip"               : (0.2, "Log prob clamping value (1 +- clip)"),
-        "grad_clip"          : (0.05, "Gradient clip value (maximum allowed gradient norm)"),
-        "batch_size"         : (64, "Minibatch size to use during optimization"),
+        "grad-clip"          : (0.05, "Gradient clip value (maximum allowed gradient norm)"),
+        "batch-size"         : (64, "Minibatch size to use during optimization"),
         "epochs"             : (3, "Number of epochs to optimize for each iteration"),
         "mirror"             : (0, "Mirror loss coefficient"),
-        "do_prenorm"         : (False, "Whether to do prenormalization or not"),
         "workers"            : (2, "Number of parallel workers to use for sampling"),
         "redis"              : (None, "Ray redis address"),
         "previous"           : (None, "Previous model to bootstrap from")
@@ -483,7 +484,7 @@ def run_experiment(parser, env_name):
         load_checkpoint(model_dict=critic_dict, model=critic)
 
     # Prenormalization only on new training
-    if args.do_prenorm and args.previous is None:
+    if args.prenorm and args.previous is None:
         print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
         train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
         critic.copy_normalizer_stats(policy)

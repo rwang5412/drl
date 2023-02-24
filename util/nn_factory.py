@@ -15,6 +15,11 @@ def nn_factory(args):
 
     Returns: actor and critic
     """
+    if args.std_array:
+        assert len(args.std_array) == args.action_dim,\
+               f"{FAIL}Std noise array size mismatch with action size.{ENDC}"
+        args.std = torch.tensor(args.std_array)
+
     if args.arch == 'lstm':
         policy = LSTMActor(args.obs_dim,
                             args.action_dim,
@@ -98,7 +103,8 @@ def save_checkpoint(model, model_dict: dict, save_path: str):
 
 def add_nn_parser(parser: argparse.ArgumentParser):
     nn_group = parser.add_argument_group("NN arguments")
-    nn_group.add_argument("--std",      default=0.13, type=float, help="Action noise std dev")
+    nn_group.add_argument("--std", default=0.13, type=float, help="Action noise std dev")
+    nn_group.add_argument("--std-array", default=None, nargs="+", type=float, help="Action noise std dev in array")
     nn_group.add_argument("--bounded",  default=False, action="store_true",
                         help="Whether or not actor policy has bounded output")
     nn_group.add_argument("--layers", default="256,256", type=str,
