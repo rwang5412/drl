@@ -3,6 +3,7 @@ import torch
 
 from nn.critic import FFCritic, LSTMCritic, GRUCritic
 from nn.actor import FFActor, LSTMActor, GRUActor, MixActor
+from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 
 def nn_factory(args):
@@ -101,19 +102,36 @@ def save_checkpoint(model, model_dict: dict, save_path: str):
     torch.save(model_dict | {'model_state_dict': model.state_dict()},
                 save_path)
 
-def add_nn_parser(parser: argparse.ArgumentParser):
-    nn_group = parser.add_argument_group("NN arguments")
-    nn_group.add_argument("--std", default=0.13, type=float, help="Action noise std dev")
-    nn_group.add_argument("--std-array", default=None, nargs="+", type=float, help="Action noise std dev in array")
-    nn_group.add_argument("--bounded",  default=False, action="store_true",
-                        help="Whether or not actor policy has bounded output")
-    nn_group.add_argument("--layers", default="256,256", type=str,
-                        help="Hidden layer size for actor and critic")
-    nn_group.add_argument("--arch", default="ff", type=str,
-                        help="Actor/critic NN architecture")
-    nn_group.add_argument("--learn-stddev", default=False, action="store_true",
-                        help="Whether or not to learn action std dev")
-    nn_group.add_argument("--nonlinearity", default="tanh", type=str,
-                        help="Actor output layer activation function")
+def add_nn_parser(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
+    args = {
+        "std" : (0.13, "Action noise std dev"),
+        "bounded" : (False, "Whether or not actor policy has bounded output"),
+        "layers" : ("256,256", "Hidden layer size for actor and critic"),
+        "arch" : ("ff", "Actor/critic NN architecture"),
+        "learn-stddev" : (False, "Whether or not to learn action std dev"),
+        "nonlinearity" : ("tanh", "Actor output layer activation function")
+    }
+    if isinstance(parser, argparse.ArgumentParser):
+        nn_group = parser.add_argument_group("NN arguments")
+        # Handle std-array manually because of nargs action
+        nn_group.add_argument("--std-array", default=None, nargs="+", type=float,
+                              help="Action noise std dev in array")
+        for arg, (default, help_str) in args.items():
+            if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
+                nn_group.add_argument("--" + arg, default = default, action = "store_" + \
+                                    str(not default).lower(), help = help_str)
+            else:
+                nn_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace):
+        for arg, (default, help_str) in args.items():
+            arg = arg.replace("-", "_")
+            if not hasattr(parser, arg):
+                setattr(parser, arg, default)
+        if not hasattr(parser, "std_array"):
+            parser.std_array = None
+    else:
+        raise RuntimeError(f"{FAIL}nn_factory add_nn_args got invalid object type when trying " \
+                           f"to add nn arguments. Input object should be either an " \
+                           f"ArgumentParser or a SimpleNamespace.{ENDC}")
 
     return parser

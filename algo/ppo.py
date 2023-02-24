@@ -407,9 +407,9 @@ def add_algo_args(parser):
             else:
                 ppo_group.add_argument("--" + arg, default = default, type = type(default),
                                       help = help_str)
-
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
         for arg, (default, help_str) in default_values.items():
+            arg = arg.replace("-", "_")
             if not hasattr(parser, arg):
                 setattr(parser, arg, default)
 
@@ -434,20 +434,31 @@ def run_experiment(parser, env_name):
     locale.setlocale(locale.LC_ALL, '')
 
     # Add env and NN parser arguments, then can finally parse args
-    add_env_parser(env_name, parser)
-    add_nn_parser(parser)
-    args = parser.parse_args()
-    for arg_group in parser._action_groups:
-        print(arg_group.title)
-        if arg_group.title == "PPO arguments":
-            ppo_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
-            ppo_args = argparse.Namespace(**ppo_dict)
-        elif arg_group.title == "Env arguments":
-            env_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
-            env_args = argparse.Namespace(**env_dict)
-        elif arg_group.title == "NN arguments":
-            nn_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
-            nn_args = argparse.Namespace(**nn_dict)
+    if isinstance(parser, argparse.ArgumentParser):
+        add_env_parser(env_name, parser)
+        add_nn_parser(parser)
+        args = parser.parse_args()
+        for arg_group in parser._action_groups:
+            if arg_group.title == "PPO arguments":
+                ppo_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+                ppo_args = argparse.Namespace(**ppo_dict)
+            elif arg_group.title == "Env arguments":
+                env_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+                env_args = argparse.Namespace(**env_dict)
+            elif arg_group.title == "NN arguments":
+                nn_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+                nn_args = argparse.Namespace(**nn_dict)
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace):
+        env_args = SimpleNamespace()
+        nn_args = SimpleNamespace()
+        ppo_args = parser
+        add_env_parser(env_name, env_args)
+        add_nn_parser(nn_args)
+        args = parser
+    else:
+        raise RuntimeError(f"{FAIL}ppo.py run_experiment got invalid object type for arguments. " \
+                           f"Input object should be either an ArgumentParser or a " \
+                           f"SimpleNamespace.{ENDC}")
 
     # wrapper function for creating parallelized envs
     env_fn = env_factory(env_name, env_args)
@@ -466,14 +477,9 @@ def run_experiment(parser, env_name):
     else:
         nn_args.obs_dim = env_fn().observation_size
         nn_args.action_dim = env_fn().action_size
-        nn_args.std = torch.ones(nn_args.action_dim)*args.std
-        nn_args.layers = [int(x) for x in args.layers.split(',')]
+        nn_args.std = torch.ones(nn_args.action_dim)*nn_args.std
+        nn_args.layers = [int(x) for x in nn_args.layers.split(',')]
         nn_args.nonlinearity = getattr(torch, nn_args.nonlinearity)
-        args.obs_dim = nn_args.obs_dim
-        args.action_dim = nn_args.action_dim
-        args.std = nn_args.std
-        args.layers = nn_args.layers
-        args.nonlinearity = nn_args.nonlinearity
 
     policy, critic = nn_factory(args=nn_args)
     # Load model attributes if args.previous exists
@@ -496,7 +502,14 @@ def run_experiment(parser, env_name):
     critic_dict = {'model_class_name': critic._get_name()}
 
     # create a tensorboard logging object
-    # env_args = get_env_parser(args.env_name).parse_args()
+    # before create logger files, double check that all args are updated in case any other of
+    # ppo_args, env_args, nn_args changed
+    for arg in ppo_args.__dict__:
+        setattr(args, arg, getattr(ppo_args, arg))
+    for arg in env_args.__dict__:
+        setattr(args, arg, getattr(env_args, arg))
+    for arg in nn_args.__dict__:
+        setattr(args, arg, getattr(nn_args, arg))
     logger = create_logger(args, ppo_args, env_args, nn_args)
     args.save_actor_path = os.path.join(logger.dir, 'actor.pt')
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
