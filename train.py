@@ -47,19 +47,12 @@ if __name__ == "__main__":
             Utility for running Proximal Policy Optimization.
         """
         from algo.ppo import add_algo_args, run_experiment
-
         parser = add_algo_args(parser)
-        # args = parser.parse_args()
-        # print(args)
-        # exit()
-        # Assume that any extra arguments will be handled later by the env arg parser in env_factory
-        # args, env_args = parser.parse_known_args()
-        run_experiment(parser, env_name)
+        run_experiment(parser=parser, env_name=env_name)
 
     elif algo_name == 'diagnose':
         """
             Utility for diagonise training errors.
         """
         from util.check_number import unpack_training_error
-
         unpack_training_error('trained_models/CassieEnvClock/283a36-seed0/training_error.pt')

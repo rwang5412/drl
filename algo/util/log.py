@@ -40,12 +40,9 @@ def create_logger(all_args, algo_args, env_args, nn_args):
         output_dir += index
     else:
         # see if we are resuming a previous run, if we are mark as continued
-        if hasattr(all_args, 'previous') and all_args.previous is not None:
-            if all_args.exchange_reward is not None:
-                output_dir = all_args.previous[0:-1] + "_NEW-" + all_args.reward
-            else:
-                print(all_args.previous[0:-1])
-                output_dir = all_args.previous[0:-1] + '-cont'
+        if hasattr(all_args, 'previous') and all_args.previous != "":
+            print(all_args.previous[0:-1])
+            output_dir = all_args.previous[0:-1] + '-cont'
         else:
             # get a unique hash for the hyperparameter settings, truncated at 10 chars
             arg_hash   = hashlib.md5(str(arg_dict).encode('ascii')).hexdigest()[0:6] + '-seed' + seed

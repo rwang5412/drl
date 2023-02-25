@@ -16,11 +16,6 @@ def nn_factory(args):
 
     Returns: actor and critic
     """
-    if args.std_array:
-        assert len(args.std_array) == args.action_dim,\
-               f"{FAIL}Std noise array size mismatch with action size.{ENDC}"
-        args.std = torch.tensor(args.std_array)
-
     if args.arch == 'lstm':
         policy = LSTMActor(args.obs_dim,
                             args.action_dim,
@@ -109,7 +104,8 @@ def add_nn_parser(parser: argparse.ArgumentParser | SimpleNamespace | argparse.N
         "layers" : ("256,256", "Hidden layer size for actor and critic"),
         "arch" : ("ff", "Actor/critic NN architecture"),
         "learn-stddev" : (False, "Whether or not to learn action std dev"),
-        "nonlinearity" : ("tanh", "Actor output layer activation function")
+        "nonlinearity" : ("tanh", "Actor output layer activation function"),
+        "stuff"           : ("", "Previous model to bootstrap from")
     }
     if isinstance(parser, argparse.ArgumentParser):
         nn_group = parser.add_argument_group("NN arguments")

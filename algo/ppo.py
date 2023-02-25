@@ -394,9 +394,9 @@ def add_algo_args(parser):
         "batch-size"         : (64, "Minibatch size to use during optimization"),
         "epochs"             : (3, "Number of epochs to optimize for each iteration"),
         "mirror"             : (0, "Mirror loss coefficient"),
-        "workers"            : (2, "Number of parallel workers to use for sampling"),
+        "workers"            : (4, "Number of parallel workers to use for sampling"),
         "redis"              : (None, "Ray redis address"),
-        "previous"           : (None, "Previous model to bootstrap from")
+        "previous"           : ("", "Previous model to bootstrap from"),
     }
     if isinstance(parser, argparse.ArgumentParser):
         ppo_group = parser.add_argument_group("PPO arguments")
@@ -427,9 +427,9 @@ def run_experiment(parser, env_name):
     from algo.util.log import create_logger
     from util.env_factory import env_factory, add_env_parser
     from util.nn_factory import nn_factory, load_checkpoint, save_checkpoint, add_nn_parser
+    from util.colors import FAIL, ENDC, WARNING
 
     import pickle
-    import copy
     import locale
     locale.setlocale(locale.LC_ALL, '')
 
@@ -462,35 +462,53 @@ def run_experiment(parser, env_name):
 
     # wrapper function for creating parallelized envs
     env_fn = env_factory(env_name, env_args)
+    args.env_name = env_name # add back in since deleted earlier
 
     # Set seeds
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # Load NN from args or save checkpoint
-    if hasattr(args, "previous") and args.previous is not None:
-        prev_args = pickle.load(open(args.previous + "experiment.pkl", "rb"))
-        args = prev_args["all_args"]
-        ppo_args = prev_args["algo_args"]
-        env_args = prev_args["env_args"]
-        nn_args = prev_args["nn_args"]
-    else:
-        nn_args.obs_dim = env_fn().observation_size
-        nn_args.action_dim = env_fn().action_size
-        nn_args.std = torch.ones(nn_args.action_dim)*nn_args.std
-        nn_args.layers = [int(x) for x in nn_args.layers.split(',')]
-        nn_args.nonlinearity = getattr(torch, nn_args.nonlinearity)
+    # Process args for NN. Append more in here and add_nn_parser() if needed
+    nn_args.obs_dim = env_fn().observation_size
+    nn_args.action_dim = env_fn().action_size
+    nn_args.std = torch.ones(nn_args.action_dim)*nn_args.std
+    nn_args.layers = [int(x) for x in nn_args.layers.split(',')]
+    nn_args.nonlinearity = getattr(torch, nn_args.nonlinearity)
+
+    if args.std_array:
+        assert len(args.std_array) == nn_args.action_dim,\
+               f"{FAIL}Std noise array size mismatch with action size.{ENDC}"
+        nn_args.std = torch.tensor(args.std_array)
 
     policy, critic = nn_factory(args=nn_args)
     # Load model attributes if args.previous exists
-    if hasattr(args, "previous") and args.previous is not None:
+    if hasattr(args, "previous") and args.previous != "":
         actor_dict = torch.load(os.path.join(args.previous, "actor.pt"))
         critic_dict = torch.load(os.path.join(args.previous, "critic.pt"))
         load_checkpoint(model_dict=actor_dict, model=policy)
         load_checkpoint(model_dict=critic_dict, model=critic)
-
+        prev_args_dict = pickle.load(open(os.path.join(args.previous, "experiment.pkl"), "rb"))
+        # Compare if any arg has been changed (add/remove/update)
+        for a in vars(nn_args):
+            if a in prev_args_dict['nn_args']:    
+                try:
+                    if getattr(nn_args, a) != getattr(prev_args_dict['nn_args'], a):
+                        print(f"{WARNING}Argument {a} is set to a new value {getattr(nn_args, a)}, "
+                              f"old one is {getattr(prev_args_dict['nn_args'], a)}.{ENDC}")
+                except:
+                    if getattr(nn_args, a).any() != getattr(prev_args_dict['nn_args'], a).any():
+                        print(f"{WARNING}Argument {a} is set to a new value {getattr(nn_args, a)}, "
+                              f"old one is {getattr(prev_args_dict['nn_args'], a)}.{ENDC}")
+            else:
+                print(f"{WARNING}Added a new argument: {a}.{ENDC}")
+        exit()
+        # Update with new args
+        for arg in nn_args:
+            if arg not in ["obs_dim", "action_dim", "layers", "bounded", "nonlinearity"]:
+                setattr(policy, arg, getattr(nn_args, arg))
+                print(f"Set {arg} with {getattr(nn_args, arg)}. Previous as ")
     # Prenormalization only on new training
-    if args.prenorm and args.previous is None:
+    if args.prenorm and args.previous == "":
         print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
         train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
         critic.copy_normalizer_stats(policy)
