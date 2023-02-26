@@ -382,7 +382,7 @@ def add_algo_args(parser):
         "prenormalize-steps" : (100, "Number of steps to use in prenormlization"),
         "prenorm"            : (False, "Whether to do prenormalization or not"),
         "update-norm"        : (False, "Update input normalization during training."),
-        "num_steps"          : (2000, "Number of steps to sample each iteration"),
+        "num-steps"          : (2000, "Number of steps to sample each iteration"),
         "discount"           : (0.99, "Discount factor when calculating returns"),
         "a-lr"               : (1e-4, "Actor policy learning rate"),
         "c-lr"               : (1e-4, "Critic learning rate"),
