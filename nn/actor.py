@@ -121,6 +121,8 @@ class FFActor(FFBase, Actor):
                  learn_std,
                  std):
         
+        # TODO, helei, make sure we have a actor example on what has to be included. 
+        # like the stuff below is useless to init, but has to inlcluded in order for saving checkpoint
         self.obs_dim = obs_dim
         self.action_dim = action_dim
         self.layers = layers
