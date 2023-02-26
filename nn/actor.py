@@ -26,7 +26,7 @@ class Actor:
         """
         self.action_dim = action_dim
         self.bounded    = bounded
-        self.std        = std
+        self.std        = torch.tensor(std)
         self.means      = nn.Linear(latent, action_dim)
         self.learn_std  = learn_std
         if self.learn_std:

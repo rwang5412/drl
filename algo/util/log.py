@@ -31,13 +31,10 @@ def create_logger(all_args, algo_args, env_args, nn_args):
         logdir = os.path.join(logdir, env_name)
         output_dir = os.path.join(logdir, run_name)
         # Check if policy name already exists. If it does, increment filename
-        index = ''
-        while os.path.exists(output_dir + index):
-            if index:
-                index = '_(' + str(int(index[2:-1]) + 1) + ')'
-            else:
-                index = '_(1)'
-        output_dir += index
+        if os.path.exists(logdir) or os.path.exists(output_dir):
+            import datetime
+            logdir = os.path.join(logdir)+"/"+datetime.datetime.now().strftime("%m_%d_%H_%M")
+            output_dir = os.path.join(output_dir)+"/"+datetime.datetime.now().strftime("%m_%d_%H_%M")
     else:
         # see if we are resuming a previous run, if we are mark as continued
         if hasattr(all_args, 'previous') and all_args.previous != "":

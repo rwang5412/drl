@@ -19,38 +19,25 @@ if __name__ == "__main__":
     parser.add_argument('--path', default=None, type=str)
     args = parser.parse_args()
     model_path = args.path
-    args_dict = pickle.load(open(model_path + "experiment.pkl", "rb"))
-    actor_model_dict = torch.load(os.path.join(model_path, 'actor.pt'), map_location='cpu')
-    env_args = args_dict['env']
-    non_env_args = args_dict['nonenv']
+    previous_args_dict = pickle.load(open(model_path + "experiment.pkl", "rb"))
+    actor_checkpoint = torch.load(os.path.join(model_path, 'actor.pt'), map_location='cpu')
 
     # Resolve for actors from old roadrunner
     remove_keys = ["env_name", "calculate_norm"]
     for key in remove_keys:
-        if key in actor_model_dict.keys():
-            actor_model_dict.pop(key)
-    if "fixed_std" in actor_model_dict.keys():
-        actor_model_dict["learn_std"] = False if actor_model_dict['fixed_std'] is not None else True
-        actor_model_dict.pop("fixed_std")
+        if key in actor_checkpoint.keys():
+            actor_checkpoint.pop(key)
+    if "fixed_std" in actor_checkpoint.keys():
+        actor_checkpoint["learn_std"] = False if actor_checkpoint['fixed_std'] is not None else True
+        actor_checkpoint.pop("fixed_std")
 
     # Load model class and checkpoint
-    # args_dict.obs_dim = 43
-    # args_dict.action_dim = 10
-    # args_dict.layers = [64, 64]
-    # from types import SimpleNamespace
-    # env_args = SimpleNamespace()
-    # env_args.simulator_type = "mujoco"
-    # env_args.terrain = False
-    # env_args.policy_rate = 50
-    # env_args.dynamics_randomization = True
-    # env_args.reward_name = "locomotion_linear_clock_reward"
-    # env_args.clock_type = "linear"
-    actor, critic = nn_factory(args=non_env_args)
-    load_checkpoint(model=actor, model_dict=actor_model_dict)
+    actor, critic = nn_factory(args=previous_args_dict['nn_args'])
+    load_checkpoint(model=actor, model_dict=actor_checkpoint)
     actor.eval()
     actor.training = False
 
     if evaluation_type == 'simple':
-        simple_eval(actor=actor, env_name=non_env_args.env_name, args=env_args)
+        simple_eval(actor=actor, env_name=previous_args_dict['all_args'].env_name, args=previous_args_dict['env_args'])
     else:
         raise RuntimeError(f"This evaluation type {evaluation_type} has not been implemented.")

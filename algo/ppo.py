@@ -382,7 +382,7 @@ def add_algo_args(parser):
         "prenormalize-steps" : (100, "Number of steps to use in prenormlization"),
         "prenorm"            : (False, "Whether to do prenormalization or not"),
         "update-norm"        : (False, "Update input normalization during training."),
-        "num_steps"          : (5000, "Number of steps to sample each iteration"),
+        "num_steps"          : (2000, "Number of steps to sample each iteration"),
         "discount"           : (0.99, "Discount factor when calculating returns"),
         "a-lr"               : (1e-4, "Actor policy learning rate"),
         "c-lr"               : (1e-4, "Critic learning rate"),
@@ -433,7 +433,7 @@ def run_experiment(parser, env_name):
     import locale
     locale.setlocale(locale.LC_ALL, '')
 
-    # Add env and NN parser arguments, then can finally parse args
+    # Add parser arguments from env/nn/algo, then can finally parse args
     if isinstance(parser, argparse.ArgumentParser):
         add_env_parser(env_name, parser)
         add_nn_parser(parser)
@@ -460,66 +460,57 @@ def run_experiment(parser, env_name):
                            f"Input object should be either an ArgumentParser or a " \
                            f"SimpleNamespace.{ENDC}")
 
-    # wrapper function for creating parallelized envs
-    env_fn = env_factory(env_name, env_args)
-    args.env_name = env_name # add back in since deleted earlier
-
     # Set seeds
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # Process args for NN. Append more in here and add_nn_parser() if needed
+    # Create callable env_fn for parallelized envs
+    env_fn = env_factory(env_name, env_args)
+
+    # Create nn modules. Append more in here and add_nn_parser() if needed
     nn_args.obs_dim = env_fn().observation_size
     nn_args.action_dim = env_fn().action_size
-    nn_args.std = torch.ones(nn_args.action_dim)*nn_args.std
-    nn_args.layers = [int(x) for x in nn_args.layers.split(',')]
-    nn_args.nonlinearity = getattr(torch, nn_args.nonlinearity)
-
-    if args.std_array:
-        assert len(args.std_array) == nn_args.action_dim,\
-               f"{FAIL}Std noise array size mismatch with action size.{ENDC}"
-        nn_args.std = torch.tensor(args.std_array)
-
     policy, critic = nn_factory(args=nn_args)
+
     # Load model attributes if args.previous exists
     if hasattr(args, "previous") and args.previous != "":
+        # Load and compare if any arg has been changed (add/remove/update), compared to prev_args
+        prev_args_dict = pickle.load(open(os.path.join(args.previous, "experiment.pkl"), "rb"))
+        for a in vars(args):
+            if a in prev_args_dict['all_args']:
+                try:
+                    if getattr(args, a) != getattr(prev_args_dict['all_args'], a):
+                        print(f"{WARNING}Argument {a} is set to a new value {getattr(args, a)}, "
+                              f"old one is {getattr(prev_args_dict['all_args'], a)}.{ENDC}")
+                except:
+                    if getattr(args, a).any() != getattr(prev_args_dict['all_args'], a).any():
+                        print(f"{WARNING}Argument {a} is set to a new value {getattr(args, a)}, "
+                              f"old one is {getattr(prev_args_dict['all_args'], a)}.{ENDC}")
+            else:
+                print(f"{WARNING}Added a new argument: {a}.{ENDC}")
+
+        # Load nn modules from checkpoints
         actor_dict = torch.load(os.path.join(args.previous, "actor.pt"))
         critic_dict = torch.load(os.path.join(args.previous, "critic.pt"))
         load_checkpoint(model_dict=actor_dict, model=policy)
         load_checkpoint(model_dict=critic_dict, model=critic)
-        prev_args_dict = pickle.load(open(os.path.join(args.previous, "experiment.pkl"), "rb"))
-        # Compare if any arg has been changed (add/remove/update)
-        for a in vars(nn_args):
-            if a in prev_args_dict['nn_args']:    
-                try:
-                    if getattr(nn_args, a) != getattr(prev_args_dict['nn_args'], a):
-                        print(f"{WARNING}Argument {a} is set to a new value {getattr(nn_args, a)}, "
-                              f"old one is {getattr(prev_args_dict['nn_args'], a)}.{ENDC}")
-                except:
-                    if getattr(nn_args, a).any() != getattr(prev_args_dict['nn_args'], a).any():
-                        print(f"{WARNING}Argument {a} is set to a new value {getattr(nn_args, a)}, "
-                              f"old one is {getattr(prev_args_dict['nn_args'], a)}.{ENDC}")
-            else:
-                print(f"{WARNING}Added a new argument: {a}.{ENDC}")
-        exit()
-        # Update with new args
-        for arg in nn_args:
-            if arg not in ["obs_dim", "action_dim", "layers", "bounded", "nonlinearity"]:
-                setattr(policy, arg, getattr(nn_args, arg))
-                print(f"Set {arg} with {getattr(nn_args, arg)}. Previous as ")
+
     # Prenormalization only on new training
     if args.prenorm and args.previous == "":
         print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
         train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
         critic.copy_normalizer_stats(policy)
 
-    policy.train(True)
-    critic.train(True)
-    # create actor/critic dict tp include model_state_dict and other class attributes
+    # Create actor/critic dict to include model_state_dict and other class attributes
     actor_dict = {'model_class_name': policy._get_name()}
     critic_dict = {'model_class_name': critic._get_name()}
 
-    # create a tensorboard logging object
+    # Catch any missing args (already parsed or any dependencies) and add them into args
+    args.env_name = env_name # add back in since deleted in train.py
+    args.obs_dim = env_fn().observation_size
+    args.action_dim = env_fn().action_size
+
+    # Create a tensorboard logging object
     # before create logger files, double check that all args are updated in case any other of
     # ppo_args, env_args, nn_args changed
     for arg in ppo_args.__dict__:
@@ -533,9 +524,10 @@ def run_experiment(parser, env_name):
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
     args.save_path = logger.dir
 
-    # Algo init
+    # Create algo class
+    policy.train(True)
+    critic.train(True)
     algo = PPO(policy, critic, env_fn, ppo_args)
-
     print("Proximal Policy Optimization:")
     for key, val in args.__dict__.items():
         print(f"\t{key} = {val}")
@@ -563,8 +555,6 @@ def run_experiment(parser, env_name):
             save_checkpoint(algo.actor, actor_dict, args.save_actor_path)
             save_checkpoint(algo.critic, critic_dict, args.save_critic_path)
 
-        if itr > 2:
-            exit()
         # Intermitent saving
         if itr % 500 == 0:
             past500_reward = -1

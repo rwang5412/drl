@@ -16,31 +16,42 @@ def nn_factory(args):
 
     Returns: actor and critic
     """
+    # Unpack args with iterators
+    layers = [int(x) for x in args.layers.split(',')]
+    if args.std_array != "":
+        args.std = args.std_array
+        std = [float(x) for x in args.std.split(',')]
+        assert len(std) == args.action_dim,\
+               f"{FAIL}Std array size {len(std)} mismatch with action size {args.action_dim}.{ENDC}"
+    else:
+        std = args.std
+
+    # Construct module class
     if args.arch == 'lstm':
         policy = LSTMActor(args.obs_dim,
                             args.action_dim,
-                            std=args.std,
+                            std=std,
                             bounded=args.bounded,
-                            layers=args.layers,
+                            layers=layers,
                             learn_std=args.learn_stddev)
-        critic = LSTMCritic(args.obs_dim, layers=args.layers)
+        critic = LSTMCritic(args.obs_dim, layers=layers)
     elif args.arch == 'gru':
         policy = GRUActor(args.obs_dim,
                         args.action_dim,
-                        std=args.std,
+                        std=std,
                         bounded=args.bounded,
-                        layers=args.layers,
+                        layers=layers,
                         learn_std=args.learn_stddev)
-        critic = GRUCritic(args.obs_dim, layers=args.layers)
+        critic = GRUCritic(args.obs_dim, layers=layers)
     elif args.arch == 'ff':
         policy = FFActor(args.obs_dim,
                         args.action_dim,
-                        std=args.std,
+                        std=std,
                         bounded=args.bounded,
-                        layers=args.layers,
+                        layers=layers,
                         learn_std=args.learn_stddev,
                         nonlinearity=args.nonlinearity)
-        critic = FFCritic(args.obs_dim, layers=args.layers)
+        critic = FFCritic(args.obs_dim, layers=layers)
     elif args.arch == 'mix':
         pass
     else:
@@ -70,8 +81,8 @@ def load_checkpoint(model, model_dict: dict):
                 setattr(model, key, val)
         else:
             print(
-                f"{FAIL}{key} in saved model dict, but model {model.__class__.__name__} has no such "
-                f"attribute.{ENDC}")
+                f"{FAIL}{key} in saved model dict, but model {model.__class__.__name__} "
+                f"has no such attribute.{ENDC}")
         model_vars.discard(key)
     # Double check that all model attributes are set
     if len(model_vars) != 0:
@@ -105,13 +116,10 @@ def add_nn_parser(parser: argparse.ArgumentParser | SimpleNamespace | argparse.N
         "arch" : ("ff", "Actor/critic NN architecture"),
         "learn-stddev" : (False, "Whether or not to learn action std dev"),
         "nonlinearity" : ("tanh", "Actor output layer activation function"),
-        "stuff"           : ("", "Previous model to bootstrap from")
+        "std-array" : ("", "An array repsenting action noise per action."),
     }
     if isinstance(parser, argparse.ArgumentParser):
         nn_group = parser.add_argument_group("NN arguments")
-        # Handle std-array manually because of nargs action
-        nn_group.add_argument("--std-array", default=None, nargs="+", type=float,
-                              help="Action noise std dev in array")
         for arg, (default, help_str) in args.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
                 nn_group.add_argument("--" + arg, default = default, action = "store_" + \
@@ -123,8 +131,6 @@ def add_nn_parser(parser: argparse.ArgumentParser | SimpleNamespace | argparse.N
             arg = arg.replace("-", "_")
             if not hasattr(parser, arg):
                 setattr(parser, arg, default)
-        if not hasattr(parser, "std_array"):
-            parser.std_array = None
     else:
         raise RuntimeError(f"{FAIL}nn_factory add_nn_args got invalid object type when trying " \
                            f"to add nn arguments. Input object should be either an " \
