@@ -455,6 +455,13 @@ def run_experiment(parser, env_name):
         add_env_parser(env_name, env_args)
         add_nn_parser(nn_args)
         args = parser
+        for arg in args.__dict__:
+            if hasattr(env_args, arg):
+                setattr(env_args, arg, getattr(args, arg))
+            if hasattr(nn_args, arg):
+                setattr(nn_args, arg, getattr(args, arg))
+            if hasattr(ppo_args, arg):
+                setattr(ppo_args, arg, getattr(args, arg))
     else:
         raise RuntimeError(f"{FAIL}ppo.py run_experiment got invalid object type for arguments. " \
                            f"Input object should be either an ArgumentParser or a " \
