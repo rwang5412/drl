@@ -1,13 +1,14 @@
 import argparse
 import json
 import numpy as np
-from pathlib import Path
+import os
 import traceback
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
 from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 from util.check_number import is_variable_valid
@@ -73,7 +74,9 @@ class CassieEnvClock(CassieEnv):
         self.observation_size += 2 # period shift
         self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
-        self.check_observation_action_size()
+        # Only check sizes if calling current class. If is child class, don't need to check
+        if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
+            self.check_observation_action_size()
 
     def reset(self):
         """Reset simulator and env variables.
