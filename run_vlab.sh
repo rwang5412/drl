@@ -7,7 +7,7 @@ conda activate mjenv
 
 python train.py ppo \
 --env-name 'CassieStone' \
---run_name 'init_test_stone' \
+--run-name 'init_test_stone' \
 --layers 64,64 --discount 0.95 \
---std 0.13 --mirror 1 --batch_size 32 --num_steps 50000 --a_lr 0.0003 --c_lr 0.0003 --epochs 5 \
---traj_len 300 --timesteps 4000000000 --workers 56 --arch lstm --wandb
+--std 0.13 --mirror 1 --batch-size 32 --num-steps 50000 --a-lr 0.0003 --c-lr 0.0003 --epochs 5 \
+--traj-len 300 --timesteps 4000000000 --workers 56 --arch lstm --wandb
