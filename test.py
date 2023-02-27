@@ -12,8 +12,15 @@ if __name__ == "__main__":
     parser.add_argument("--render", default=False, action='store_true')
     args = parser.parse_args()
 
+    if args.all:
+        args.algo = True
+        args.env = True
+        args.sim = True
+        args.clock = True
+        args.nn = True
+
     if args.algo:
-        pass
+        test_all_algos()
     if args.env:
         import testing.test_env as test_env
         test_env.test_all_env()
@@ -43,3 +50,6 @@ if __name__ == "__main__":
     if args.nn:
         from testing.test_nn import test_nn
         test_nn()
+    if args.mirror:
+        from testing.test_mirror import test_mirror
+        test_mirror()

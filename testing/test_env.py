@@ -6,16 +6,20 @@ import traceback
 from env.cassie.cassieenv import CassieEnv
 from env.digit.digitenv import DigitEnv
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
+from env.cassie.cassieenvclockold.cassieenvclockold import CassieEnvClockOld
+from env.cassie.cassieenvclockoldff.cassieenvclockoldff import CassieEnvClockOldFF
+from env.cassie.cassieenvclockoldvonmises.cassieenvclockoldvonmises import CassieEnvClockOldVonMises
 from env.digit.digitenvclock.digitenvclock import DigitEnvClock
 from util.env_factory import env_factory
 from util.colors import FAIL, ENDC, OKGREEN
-
+from types import SimpleNamespace
 
 def test_all_env():
     base_env_sim_pair = [[CassieEnv, "mujoco"], [DigitEnv, "mujoco"],
                          [CassieEnv, "libcassie"]]
     child_env_list = [[CassieEnvClock, "mujoco"], [DigitEnvClock, "mujoco"],
-                      [CassieEnvClock, "libcassie"]]
+                      [CassieEnvClock, "libcassie"], [CassieEnvClockOld, "mujoco"],
+                      [CassieEnvClockOldFF, "mujoco"], [CassieEnvClockOldVonMises, "mujoco"]]
     reward_list = [["linear", "locomotion_linear_clock_reward"],
                    ["von_mises", "locomotion_vonmises_clock_reward"],
                    ["linear", "stand_reward"]]
@@ -27,7 +31,7 @@ def test_all_env():
         except Exception:
             print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
             print(traceback.format_exc())
-
+            sys.exit()
 
     for pair in child_env_list:
         try:
@@ -36,6 +40,7 @@ def test_all_env():
         except Exception:
             print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
             print(traceback.format_exc())
+            sys.exit()
 
     for pair in child_env_list:
         for rew_pair in reward_list:
@@ -47,18 +52,20 @@ def test_all_env():
                 print(f"{FAIL}{pair[0].__name__} with {pair[1]}, clock {rew_pair[0]}, and reward " \
                      f"{rew_pair[1]} failed test with error:{ENDC}")
                 print(traceback.format_exc())
+                sys.exit()
     print(f"{OKGREEN}Passed all env tests! \u2713{ENDC}")
 
     for pair in child_env_list:
         for rew_pair in reward_list:
             try:
                 test_env_factory(pair[0], pair[1], rew_pair[0], rew_pair[1])
-                print(f"Pass test with {pair[0].__name__} and {pair[1]}, clock {rew_pair[0]}, and " \
-                      f"reward {rew_pair[1]}.")
+                print(f"{OKGREEN}Pass test with {pair[0].__name__} and {pair[1]}, clock " \
+                      f"{rew_pair[0]}, and reward {rew_pair[1]}.{ENDC}")
             except Exception:
                 print(f"{FAIL}{pair[0].__name__} with {pair[1]}, clock {rew_pair[0]}, and reward " \
                       f"{rew_pair[1]} failed test with error:{ENDC}")
                 print(traceback.format_exc())
+                sys.exit()
     print(f"{OKGREEN}Passed all env factory tests! \u2713{ENDC}")
 
 def test_base_env_step(test_env, test_sim):
@@ -82,8 +89,7 @@ def test_base_env_step(test_env, test_sim):
 def test_child_env_step(test_env, test_sim):
     """Test if child env is stepping based on specified policy rate.
     """
-    env = test_env(cycle_time = 1.0,
-                   simulator_type=test_sim,
+    env = test_env(simulator_type=test_sim,
                    policy_rate=50,
                    dynamics_randomization=False,
                    terrain=False,
@@ -104,8 +110,7 @@ def test_child_env_step(test_env, test_sim):
 def test_child_env_reward(test_env, test_sim, clock_type, reward):
     """Test if child env with reward to make sure doesn't crash.
     """
-    env = test_env(cycle_time = 1.0,
-                   simulator_type=test_sim,
+    env = test_env(simulator_type=test_sim,
                    policy_rate=50,
                    dynamics_randomization=False,
                    terrain=False,
@@ -122,21 +127,12 @@ def test_child_env_reward(test_env, test_sim, clock_type, reward):
             f"a reward greater than 1."
 
 def test_env_factory(test_env, test_sim, clock_type, reward):
-    if '--env' in sys.argv: # remove args from test.py root args
-        sys.argv.remove(sys.argv[1])
-    # Create new args
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--env-name', default=test_env.__name__)
-    parser.add_argument('--simulator-type', default=test_sim)
-    parser.add_argument('--clock-type', default=clock_type)
-    parser.add_argument('--reward-name', default=reward)
-    parser.add_argument('--policy-rate', default=50)
-    parser.add_argument('--dynamics-randomization', default=False)
-    parser.add_argument('--terrain', default=False)
-    args = parser.parse_args()
-
+    args = SimpleNamespace(simulator_type = test_sim,
+                           clock_type = clock_type,
+                           reward_name = reward,
+                           dynamics_randomization = False)
     # load callable env partial
-    env_fn = env_factory(**vars(args))
+    env_fn = env_factory(test_env.__name__, args)
     env = env_fn()
     env.reset()
     sim_duration = []

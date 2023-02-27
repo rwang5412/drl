@@ -27,9 +27,13 @@ class MujocoSim(GenericSim):
             assert getattr(self, var) is not None, \
                 f"{FAIL}In env {self.__class__.__name__} self.{var} is None.{ENDC}"
 
+        assert self.torque_delay_cycles > 0, \
+            f"{FAIL}Env {self.__class__.__name__} must have non-zeron torque_delay_cycles. Note " \
+            f"that delay cycle of 1 corresponds to no delay (specifies size of the torque buffer.{ENDC}"
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
 
     def reset(self, qpos: np.ndarray=None):
+        mj.mj_resetData(self.model, self.data)
         if qpos is not None:
             assert len(qpos) == self.model.nq, \
                 f"{FAIL}reset qpos len={len(qpos)}, but should be {self.model.nq}{ENDC}"
@@ -100,7 +104,7 @@ class MujocoSim(GenericSim):
         for i in range(3, 6):
             self.model.dof_damping[i] = 0
 
-    def viewer_init(self, width=None, height=None, camera_id=-1):
+    def viewer_init(self, width=1280, height=960, camera_id=-1):
         self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos, width=width, \
             height=height, camera_id=camera_id)
 

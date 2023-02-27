@@ -3,4 +3,7 @@
 OKGREEN = '\033[92m'
 FAIL = '\033[91m'
 WARNING = '\033[93m'
+BOLD   = '\033[1m\033[48m'
+ORANGE = '\033[38;5;202m'
+BLACK  = '\033[38;5;240m'
 ENDC = '\033[0m'
