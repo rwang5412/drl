@@ -83,15 +83,15 @@ class CassieEnvClock(CassieEnv):
         """
         self.reset_simulation()
         # Randomize commands
-        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
-        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.x_velocity = 0#np.random.uniform(*self._x_velocity_bounds)
+        self.y_velocity = 0#np.random.uniform(*self._y_velocity_bounds)
         self.orient_add = 0
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
-        period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
-        self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
+        period_shifts = [0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
+        self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
