@@ -1,7 +1,9 @@
-from collections import OrderedDict
 import hashlib, os, pickle
-from util.colors import BOLD, ORANGE, ENDC
 import wandb
+import datetime
+
+from util.colors import BOLD, ORANGE, ENDC
+from collections import OrderedDict
 
 # Logger stores in trained_models by default
 def create_logger(all_args, algo_args, env_args, nn_args):
@@ -32,14 +34,13 @@ def create_logger(all_args, algo_args, env_args, nn_args):
         output_dir = os.path.join(logdir, run_name)
         # Check if policy name already exists. If it does, increment filename
         if os.path.exists(logdir) or os.path.exists(output_dir):
-            import datetime
-            logdir = os.path.join(logdir)+"/"+datetime.datetime.now().strftime("%m_%d_%H_%M")
-            output_dir = os.path.join(output_dir)+"/"+datetime.datetime.now().strftime("%m_%d_%H_%M")
+            logdir = os.path.join(logdir)+"/"+datetime.datetime.now().strftime("%m-%d-%H-%M")
+            output_dir = os.path.join(output_dir)+"/"+datetime.datetime.now().strftime("%m-%d-%H-%M")
     else:
         # see if we are resuming a previous run, if we are mark as continued
         if hasattr(all_args, 'previous') and all_args.previous != "":
-            print(all_args.previous[0:-1])
-            output_dir = all_args.previous[0:-1] + '-cont'
+            logdir = os.path.join(logdir)+"/"+datetime.datetime.now().strftime("%m-%d-%H-%M")
+            output_dir = all_args.previous[0:-1] + '-cont-' + datetime.datetime.now().strftime("%m-%d-%H-%M")
         else:
             # get a unique hash for the hyperparameter settings, truncated at 10 chars
             arg_hash   = hashlib.md5(str(arg_dict).encode('ascii')).hexdigest()[0:6] + '-seed' + seed

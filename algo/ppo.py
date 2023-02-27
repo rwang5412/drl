@@ -512,11 +512,6 @@ def run_experiment(parser, env_name):
     actor_dict = {'model_class_name': policy._get_name()}
     critic_dict = {'model_class_name': critic._get_name()}
 
-    # Catch any missing args (already parsed or any dependencies) and add them into args
-    args.env_name = env_name # add back in since deleted in train.py
-    args.obs_dim = env_fn().observation_size
-    args.action_dim = env_fn().action_size
-
     # Create a tensorboard logging object
     # before create logger files, double check that all args are updated in case any other of
     # ppo_args, env_args, nn_args changed

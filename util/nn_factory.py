@@ -77,12 +77,16 @@ def load_checkpoint(model, model_dict: dict):
         if key == "model_state_dict":
             model.load_state_dict(val)
         elif hasattr(model, key):
-            if not key.startswith('_'): # avoid loading private attributes
+            # avoid loading private attributes
+            if not key.startswith('_'):
                 setattr(model, key, val)
         else:
-            print(
-                f"{FAIL}{key} in saved model dict, but model {model.__class__.__name__} "
-                f"has no such attribute.{ENDC}")
+            if key == 'model_class_name':
+                pass
+            else:
+                print(
+                    f"{FAIL}{key} in saved model dict, but model {model.__class__.__name__} "
+                    f"has no such attribute.{ENDC}")
         model_vars.discard(key)
     # Double check that all model attributes are set
     if len(model_vars) != 0:
