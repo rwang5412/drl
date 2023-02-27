@@ -2,9 +2,6 @@ import numpy as np
 from scipy.stats import vonmises
 from typing import List
 
-# I'm actually not sure if we want this to be a class or not. We could make class and then have it
-# hold on to the variables, or just make them all functions have things like phase, phaselen, etc.
-# be inputs to the function.
 class PeriodicClock:
 
     """
@@ -82,7 +79,6 @@ class PeriodicClock:
             else:
                 phases.append(self._phase + self._period_shifts[i])
         return np.interp(phases[0], x_clock[0], y_clock[0]), np.interp(phases[1], x_clock[1], y_clock[1])
-
 
     def von_mises(self, std: float = 0.1):
         # Von Mises clock function, but with hard coded coeff values of [0, 1]. This is chosen to
@@ -208,3 +204,8 @@ class PeriodicClock:
         if self._von_mises_buf is not None:
             self.precompute_von_mises()
 
+    def is_stance(self, threshold=0.95):
+        return [i > threshold for i in self.linear_clock()]
+
+    def is_swing(self):
+        return [not i for i in self.is_stance()]

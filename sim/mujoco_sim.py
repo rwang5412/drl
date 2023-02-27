@@ -130,8 +130,8 @@ class MujocoSim(GenericSim):
         rfoot_pos  = self.get_site_pose(self.feet_site_name[1])[0:3]
         z_deltas = []
         for (x,y,z) in [lfoot_pos, rfoot_pos]:
-            box_id, heel_hgt = self.geom_generator.check_step(x - 0.1, y, 0)
-            box_id, toe_hgt  = self.geom_generator.check_step(x + 0.1, y, 0)
+            box_id, heel_hgt = self.geom_generator.check_step(x - 0.09, y, 0)
+            box_id, toe_hgt  = self.geom_generator.check_step(x + 0.09, y, 0)
             z_hgt = max(heel_hgt, toe_hgt)
             z_deltas.append((z_hgt-z))
         base_position = self.get_base_position()
