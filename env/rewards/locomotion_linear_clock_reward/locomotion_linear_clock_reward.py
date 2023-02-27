@@ -88,7 +88,7 @@ def compute_reward(self, action):
     ### Stable base reward terms.  Don't want base to rotate or accelerate too much ###
     base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
     q["base_rotvel"] = np.linalg.norm(base_vel[3:])
-    q["base_transacc"] = np.linalg.norm(base_acc[0:2]) # Don't care about z acceleration
+    q["base_transacc"] = np.linalg.norm(base_acc[0:3]) # Don't care about z acceleration
 
     ### Sim2real stability rewards ###
     motor_vel = self.sim.get_motor_velocity()

@@ -76,7 +76,7 @@ def compute_reward(self, action):
 
     ### Sim2real stability rewards ###
     base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
-    q["stable_base"] = np.abs(base_vel[3:]).sum() + np.abs(base_acc[0:2]).sum()
+    q["stable_base"] = np.abs(base_vel[3:]).sum() + np.abs(base_acc[0:3]).sum()
     if self.last_action is not None:
         q["ctrl_penalty"] = sum(np.abs(self.last_action - action)) / len(action)
     else:

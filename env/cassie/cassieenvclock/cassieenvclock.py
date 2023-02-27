@@ -111,12 +111,15 @@ class CassieEnvClock(CassieEnv):
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
         self.step_simulation(action, simulator_repeat_steps)
-        self.clock.increment()
+
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
 
         self.traj_idx += 1
         self.last_action = action
+
+        # Increment clock at last for updating s'
+        self.clock.increment()
 
         return self.get_state(), r, self.compute_done(), {}
 
