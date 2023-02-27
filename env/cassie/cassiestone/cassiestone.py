@@ -122,7 +122,7 @@ class CassieStone(CassieEnv):
     def step(self, action: np.ndarray):
         # Unpack actions besides motor actions
         new_phase_add = self.clock.get_phase_add() + \
-                        self.scale_number(action[-1], min=-0.1, max=0.1, smoothness=3)
+                        self.scale_number(action[-1], min=-0.01, max=0.01, smoothness=3)
         action = action[:-1]
 
         # Step simulation by n steps. This call will update self.tracker_fn.
@@ -141,11 +141,19 @@ class CassieStone(CassieEnv):
             if stance:
                 if not self.touchdown_by_clock_flag[i] and not self.is_stance_previous[i]:
                     self.touchdown_by_clock_flag[i] = True
+                    input()
                 else:
                     self.touchdown_by_clock_flag[i] = False
 
         # Reward for taking current action before changing quantities for new state
+        # self.touchdown_by_clock_flag tells which side to check the touchdown locations
         r = self.compute_reward(action)
+
+        print(self.traj_idx, "at step #", self.steps_active_idx, \
+            "TD side ", self.steps_order[self.steps_active_idx], \
+            "Force clock at TD", self.clock.linear_clock()[self.steps_order[self.steps_active_idx]],\
+            "TD detection side ", self.touchdown_by_clock_flag, \
+            "Next TD side ", self.steps_order[self.steps_active_idx+1])
 
         # Update counter variable after reward
         self.is_stance_previous = self.clock.is_stance()
@@ -154,7 +162,7 @@ class CassieStone(CassieEnv):
         if any(self.touchdown_by_clock_flag):
             self.update_footstep_target()
             # Update phase_add before clock increment
-        self.clock.set_phase_add(phase_add=int(new_phase_add))
+        self.clock.set_phase_add(phase_add=new_phase_add)
 
         # Increment clock at the last place and update s' with get_state()
         self.clock.increment()
@@ -165,7 +173,6 @@ class CassieStone(CassieEnv):
         """Update inputs for s', assuming touchdown event on any side is triggered
         """
         self.steps_active_idx += 1 # increment for next step info
-        # print("update info for step #", self.steps_active_idx, "target side is ", self.steps_order[self.steps_active_idx], "based on curr td at side ", self.steps_order[self.steps_active_idx-1])
         # update the target, global is based on the curr TD pos + the relative commands
         self.steps_com_target[self.steps_active_idx] = self.steps_target_global[self.steps_active_idx]
         self.steps_commands_pelvis = self.steps_target_global[self.steps_active_idx] -\
@@ -322,7 +329,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "terrain" : (False, "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
-        "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
+        "reward-name" : ("stepping_stone", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")"),
         "z-step" : (False, ""),
     }

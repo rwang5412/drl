@@ -1,0 +1,46 @@
+{
+    "x_vel": {
+        "weighting": 0.075,
+        "scaling": 2.0
+    },
+    "y_vel": {
+        "weighting": 0.125,
+        "scaling": 2.0
+    },
+    "orientation": {
+        "weighting": 0.125,
+        "scaling": 30
+    },
+    "left_force": {
+        "weighting": 0.125,
+        "scaling": 0.01
+    },
+    "right_force": {
+        "weighting": 0.125,
+        "scaling": 0.01
+    },
+    "left_speed": {
+        "weighting": 0.125,
+        "scaling": 1
+    },
+    "right_speed": {
+        "weighting": 0.125,
+        "scaling": 1
+    },
+    "hop_symmetry": {
+        "weighting": 0.1,
+        "scaling": 10
+    },
+    "stable_base": {
+        "weighting": 0.025,
+        "scaling": 0.1
+    },
+    "ctrl_penalty": {
+        "weighting": 0.025,
+        "scaling": 5.0
+    },
+    "trq_penalty": {
+        "weighting": 0.025,
+        "scaling": 0.05
+    }
+}
