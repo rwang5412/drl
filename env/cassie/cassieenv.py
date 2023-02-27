@@ -172,6 +172,7 @@ class CassieEnv(GenericEnv):
             f"Check observation size = {self.observation_size}," \
             f"but get_state() returns with size {len(self.get_state())}"
         assert len(self.get_observation_mirror_indices()) == self.observation_size, \
-            "State mirror inds size mismatch with observation size."
+            f"State mirror inds size {len(self.get_observation_mirror_indices())} mismatch " \
+            f"with observation size {self.observation_size}."
         assert len(self.get_action_mirror_indices()) == self.action_size, \
             "Action mirror inds size mismatch with action size."

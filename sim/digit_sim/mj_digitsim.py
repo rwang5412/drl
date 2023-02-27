@@ -10,7 +10,7 @@ class MjDigitSim(MujocoSim):
     """
     Wrapper for Digit Mujoco. This class only defines several specifics for Digit.
     """
-    def __init__(self, model_name: str = "digit-v3-new.xml"):
+    def __init__(self, model_name: str = "digit-v3-new.xml", terrain: str=None):
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
         # Number of sim steps before commanded torque is actually applied
         self.torque_delay_cycles = 6
@@ -54,7 +54,7 @@ class MjDigitSim(MujocoSim):
                         ])
 
         # NOTE: Have to call super init AFTER index arrays are defined
-        super().__init__(model_path=model_path)
+        super().__init__(model_path=model_path, terrain=terrain)
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
 

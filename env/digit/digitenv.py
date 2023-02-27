@@ -13,7 +13,7 @@ from env.util.quaternion import (
 class DigitEnv(GenericEnv):
     def __init__(self,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool):
         """Template class for Digit with common functions.
@@ -26,19 +26,14 @@ class DigitEnv(GenericEnv):
             dynamics_randomization (bool): True, enable dynamics randomization.
         """
         super().__init__()
-
         self.dynamics_randomization = dynamics_randomization
         self.default_policy_rate = policy_rate
+        self.terrain = terrain
         # Select simulator
         if simulator_type == "mujoco":
-            self.sim = MjDigitSim()
-            # Handle simulation features, such as heightmap
-            if terrain:
-                pass
+            self.sim = MjDigitSim(terrain=terrain)
         elif simulator_type == 'ar':
             self.sim = ArDigitSim()
-            if terrain:
-                pass
         else:
             raise RuntimeError(f"Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'ar'.")
@@ -52,7 +47,7 @@ class DigitEnv(GenericEnv):
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.orient_add = 0
-        self.trackers = [self.update_tracker_grf, 
+        self.trackers = [self.update_tracker_grf,
                          self.update_tracker_velocity]
         self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
         self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
