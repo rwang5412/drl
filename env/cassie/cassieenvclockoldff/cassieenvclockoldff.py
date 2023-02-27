@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import os
 
 from env.util.periodicclock import PeriodicClock
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
@@ -37,7 +38,9 @@ class CassieEnvClockOldFF(CassieEnvClock):
         self.observation_size += 1 # Xvelocity command
         self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
-        self.check_observation_action_size()
+        # Only check sizes if calling current class. If is child class, don't need to check
+        if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
+            self.check_observation_action_size()
 
     def reset(self):
         """Reset simulator and env variables.
