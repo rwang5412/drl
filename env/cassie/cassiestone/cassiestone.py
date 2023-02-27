@@ -59,7 +59,7 @@ class CassieStone(CassieEnv):
             if weight_sum != 1:
                 print(f"{WARNING}WARNING: Reward weightings do not sum up to 1, renormalizing.{ENDC}")
                 for name, weight_dict in self.reward_weight.items():
-                    weight_dict["weighting"] /= weight_sum
+                    weight_dict["weighting"] /= float(weight_sum)
             self._compute_reward = reward_module.compute_reward
             self._compute_done = reward_module.compute_done
         except ModuleNotFoundError:
@@ -102,10 +102,6 @@ class CassieStone(CassieEnv):
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
 
-        # Reset env counter variables
-        self.traj_idx = 0
-        self.last_action = None
-
         # Stone reset
         _, stones = self.generate_fixed_stones(z_step=self.z_step)
         for s in range(len(self.sim.geom_generator.geoms)):
@@ -113,9 +109,14 @@ class CassieStone(CassieEnv):
         self.sim.adjust_robot_pose()
 
         self.touchdown_by_clock_flag = [False, False]
-        self.is_stance_previous = self.clock.is_stance()
+        self.is_stance_previous = [False, False]
         self.steps_commands_pelvis = self.steps_target_global[self.steps_active_idx] - \
                                      self.sim.get_body_pose(self.sim.base_body_name)[0:3]
+
+        # Reset env counter variables
+        self.traj_idx = 0
+        self.last_action = None
+        self.last_base_position = self.sim.get_base_position()
 
         return self.get_state()
 
@@ -135,48 +136,51 @@ class CassieStone(CassieEnv):
 
         # Check time-based clock for gait event
         is_stance = self.clock.is_stance()
-        # print(f"clock value, {self.clock.linear_clock()[0]}, stance {is_stance[0]} "
-        #       f"previous stance {self.is_stance_previous[0]}")
         for i, stance in enumerate(is_stance):
             if stance:
                 if not self.touchdown_by_clock_flag[i] and not self.is_stance_previous[i]:
                     self.touchdown_by_clock_flag[i] = True
-                    input()
                 else:
                     self.touchdown_by_clock_flag[i] = False
+        
+        # print(f"clock value, {self.clock.linear_clock()}, stance {is_stance} "
+        #       f"previous stance {self.is_stance_previous} ",
+        #       f"side of TD {self.touchdown_by_clock_flag}")
 
+        # print(self.traj_idx, "at step #", self.steps_active_idx, \
+        #     "This TD loc ", self.steps_target_global[self.steps_active_idx][0:2],\
+        #     "Next TD side ", self.steps_order[self.steps_active_idx+1])
+
+        # if any(self.touchdown_by_clock_flag):
+        #     input()
         # Reward for taking current action before changing quantities for new state
         # self.touchdown_by_clock_flag tells which side to check the touchdown locations
         r = self.compute_reward(action)
 
-        print(self.traj_idx, "at step #", self.steps_active_idx, \
-            "TD side ", self.steps_order[self.steps_active_idx], \
-            "Force clock at TD", self.clock.linear_clock()[self.steps_order[self.steps_active_idx]],\
-            "TD detection side ", self.touchdown_by_clock_flag, \
-            "Next TD side ", self.steps_order[self.steps_active_idx+1])
+        # Update footstep targets at TD event
+        if any(self.touchdown_by_clock_flag):
+            self.update_footstep_target()
 
         # Update counter variable after reward
         self.is_stance_previous = self.clock.is_stance()
         self.traj_idx += 1
         self.last_action = action
-        if any(self.touchdown_by_clock_flag):
-            self.update_footstep_target()
-            # Update phase_add before clock increment
-        self.clock.set_phase_add(phase_add=new_phase_add)
+        self.last_base_position = self.sim.get_base_position()
 
         # Increment clock at the last place and update s' with get_state()
+        self.clock.set_phase_add(phase_add=new_phase_add)
         self.clock.increment()
 
-        return self.get_state(), r, False, {}
+        return self.get_state(), r, self.compute_done(), {}
 
     def update_footstep_target(self):
         """Update inputs for s', assuming touchdown event on any side is triggered
         """
-        self.steps_active_idx += 1 # increment for next step info
         # update the target, global is based on the curr TD pos + the relative commands
         self.steps_com_target[self.steps_active_idx] = self.steps_target_global[self.steps_active_idx]
         self.steps_commands_pelvis = self.steps_target_global[self.steps_active_idx] -\
                                      self.sim.get_body_pose(self.sim.base_body_name)[0:3]
+        self.steps_active_idx += 1 # increment for next step info
 
     def get_state(self):
         command_target2pelvis = self.steps_commands_pelvis / np.linalg.norm(self.steps_commands_pelvis)

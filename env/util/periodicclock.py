@@ -204,8 +204,8 @@ class PeriodicClock:
         if self._von_mises_buf is not None:
             self.precompute_von_mises()
 
-    def is_stance(self, threshold=0.95):
-        return [i > threshold for i in self.linear_clock()]
+    def is_stance(self, threshold=0.05):
+        return [i < threshold for i in self.linear_clock()]
 
     def is_swing(self):
         return [not i for i in self.is_stance()]
