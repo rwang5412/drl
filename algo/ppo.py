@@ -456,6 +456,13 @@ def run_experiment(parser, env_name):
         add_env_parser(env_name, env_args)
         add_nn_parser(nn_args)
         args = parser
+        for arg in args.__dict__:
+            if hasattr(env_args, arg):
+                setattr(env_args, arg, getattr(args, arg))
+            if hasattr(nn_args, arg):
+                setattr(nn_args, arg, getattr(args, arg))
+            if hasattr(ppo_args, arg):
+                setattr(ppo_args, arg, getattr(args, arg))
     else:
         raise RuntimeError(f"{FAIL}ppo.py run_experiment got invalid object type for arguments. " \
                            f"Input object should be either an ArgumentParser or a " \
@@ -478,7 +485,7 @@ def run_experiment(parser, env_name):
         # Load and compare if any arg has been changed (add/remove/update), compared to prev_args
         prev_args_dict = pickle.load(open(os.path.join(args.previous, "experiment.pkl"), "rb"))
         for a in vars(args):
-            if a in prev_args_dict['all_args']:
+            if hasattr(prev_args_dict['all_args'], a):
                 try:
                     if getattr(args, a) != getattr(prev_args_dict['all_args'], a):
                         print(f"{WARNING}Argument {a} is set to a new value {getattr(args, a)}, "
@@ -505,11 +512,6 @@ def run_experiment(parser, env_name):
     # Create actor/critic dict to include model_state_dict and other class attributes
     actor_dict = {'model_class_name': policy._get_name()}
     critic_dict = {'model_class_name': critic._get_name()}
-
-    # Catch any missing args (already parsed or any dependencies) and add them into args
-    args.env_name = env_name # add back in since deleted in train.py
-    args.obs_dim = env_fn().observation_size
-    args.action_dim = env_fn().action_size
 
     # Create a tensorboard logging object
     # before create logger files, double check that all args are updated in case any other of
