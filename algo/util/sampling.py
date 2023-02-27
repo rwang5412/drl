@@ -240,7 +240,7 @@ class AlgoSampler(AlgoWorker):
 
         AlgoWorker.__init__(self, actor, critic)
 
-    def sample_traj(self, max_traj_len: int = 300, do_eval: bool = False):
+    def sample_traj(self, max_traj_len: int = 300, do_eval: bool = False, update_normalization_param: bool=False):
         """
         Function to sample experience
 
@@ -264,7 +264,9 @@ class AlgoSampler(AlgoWorker):
 
             while not done and traj_len < max_traj_len:
                 state = torch.Tensor(state)
-                action = self.actor(state, deterministic=do_eval)
+                action = self.actor(state,
+                                    deterministic=do_eval,
+                                    update_normalization_param=update_normalization_param)
                 if do_eval:
                     # If is evaluation, don't need critic value
                     value = 0.0

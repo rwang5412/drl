@@ -4,11 +4,11 @@ from util.colors import BOLD, ORANGE, ENDC
 import wandb
 
 # Logger stores in trained_models by default
-def create_logger(args):
+def create_logger(all_args, algo_args, env_args, nn_args):
     from torch.utils.tensorboard import SummaryWriter
     """Use hyperparms to set a directory to output diagnostic files."""
 
-    arg_dict = args.__dict__
+    arg_dict = all_args.__dict__
     assert "seed" in arg_dict, \
     "You must provide a 'seed' key in your command line arguments"
     assert "logdir" in arg_dict, \
@@ -31,21 +31,15 @@ def create_logger(args):
         logdir = os.path.join(logdir, env_name)
         output_dir = os.path.join(logdir, run_name)
         # Check if policy name already exists. If it does, increment filename
-        index = ''
-        while os.path.exists(output_dir + index):
-            if index:
-                index = '_(' + str(int(index[2:-1]) + 1) + ')'
-            else:
-                index = '_(1)'
-        output_dir += index
+        if os.path.exists(logdir) or os.path.exists(output_dir):
+            import datetime
+            logdir = os.path.join(logdir)+"/"+datetime.datetime.now().strftime("%m_%d_%H_%M")
+            output_dir = os.path.join(output_dir)+"/"+datetime.datetime.now().strftime("%m_%d_%H_%M")
     else:
         # see if we are resuming a previous run, if we are mark as continued
-        if hasattr(args, 'previous') and args.previous is not None:
-            if args.exchange_reward is not None:
-                output_dir = args.previous[0:-1] + "_NEW-" + args.reward
-            else:
-                print(args.previous[0:-1])
-                output_dir = args.previous[0:-1] + '-cont'
+        if hasattr(all_args, 'previous') and all_args.previous != "":
+            print(all_args.previous[0:-1])
+            output_dir = all_args.previous[0:-1] + '-cont'
         else:
             # get a unique hash for the hyperparameter settings, truncated at 10 chars
             arg_hash   = hashlib.md5(str(arg_dict).encode('ascii')).hexdigest()[0:6] + '-seed' + seed
@@ -61,15 +55,19 @@ def create_logger(args):
     info_path = os.path.join(output_dir, "experiment.info")
     pkl_path = os.path.join(output_dir, "experiment.pkl")
     with open(pkl_path, 'wb') as file:
-        pickle.dump(args, file)
+        dict = {'all_args': all_args,
+                'algo_args': algo_args,
+                'env_args': env_args,
+                'nn_args': nn_args}
+        pickle.dump(dict, file)
     with open(info_path, 'w') as file:
         for key, val in arg_dict.items():
             file.write("%s: %s" % (key, val))
             file.write('\n')
 
-    # wandb init before tensorboard. 
-    if args.wandb:
-        wandb.init(group = args.run_name, project=args.wandb_project_name, config=args, sync_tensorboard=True)
+    # wandb init before tensorboard.
+    if all_args.wandb:
+        wandb.init(group = all_args.run_name, project=all_args.wandb_project_name, config=all_args, sync_tensorboard=True)
 
     logger = SummaryWriter(output_dir, flush_secs=0.1) # flush_secs=0.1 actually slows down quite a bit, even on parallelized set ups
     print("Logging to " + BOLD + ORANGE + str(output_dir) + ENDC)

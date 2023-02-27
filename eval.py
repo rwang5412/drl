@@ -1,11 +1,11 @@
 import torch
 import argparse
 import sys
+import pickle
+import os
 
-from nn.actor import LSTMActor, FFActor
-from util.colors import FAIL, ENDC, OKGREEN, WARNING
-from util.env_factory import env_factory
 from util.evaluation_factory import simple_eval
+from util.nn_factory import load_checkpoint, nn_factory
 
 if __name__ == "__main__":
 

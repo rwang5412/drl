@@ -380,148 +380,158 @@ class PPO(AlgoWorker):
 
 def add_algo_args(parser):
     default_values = {
-        "prenormalize_steps" : (100, "Number of steps to use in prenormlization"),
-        "num_steps"          : (5000, "Number of steps to sample each iteration"),
+        "prenormalize-steps" : (100, "Number of steps to use in prenormlization"),
+        "prenorm"            : (False, "Whether to do prenormalization or not"),
+        "update-norm"        : (False, "Update input normalization during training."),
+        "num-steps"          : (2000, "Number of steps to sample each iteration"),
         "discount"           : (0.99, "Discount factor when calculating returns"),
-        "learn_stddev"       : (False, "Whether to learn action std dev or not"),
-        "std"                : (0.13, "Action noise std dev"),
-        "a_lr"               : (1e-4, "Actor policy learning rate"),
-        "c_lr"               : (1e-4, "Critic learning rate"),
+        "a-lr"               : (1e-4, "Actor policy learning rate"),
+        "c-lr"               : (1e-4, "Critic learning rate"),
         "eps"                : (1e-6, "Adam optimizer eps value"),
         "kl"                 : (0.02, "KL divergence threshold"),
-        "entropy_coeff"      : (0.0, "Coefficient of entropy loss in optimization"),
+        "entropy-coeff"      : (0.0, "Coefficient of entropy loss in optimization"),
         "clip"               : (0.2, "Log prob clamping value (1 +- clip)"),
-        "grad_clip"          : (0.05, "Gradient clip value (maximum allowed gradient norm)"),
-        "batch_size"         : (64, "Minibatch size to use during optimization"),
+        "grad-clip"          : (0.05, "Gradient clip value (maximum allowed gradient norm)"),
+        "batch-size"         : (64, "Minibatch size to use during optimization"),
         "epochs"             : (3, "Number of epochs to optimize for each iteration"),
         "mirror"             : (0, "Mirror loss coefficient"),
-        "do_prenorm"         : (False, "Whether to do prenormalization or not"),
-        "layers"             : ("256,256", "Hidden layer size for actor and critic"),
-        "arch"               : ('ff', "Actor/critic NN architecture"),
-        "bounded"            : (False, "Whether or not actor policy has bounded output"),
-        "workers"            : (2, "Number of parallel workers to use for sampling"),
+        "workers"            : (4, "Number of parallel workers to use for sampling"),
         "redis"              : (None, "Ray redis address"),
-        "previous"           : (None, "Previous model to bootstrap from")
+        "previous"           : ("", "Previous model to bootstrap from"),
     }
     if isinstance(parser, argparse.ArgumentParser):
+        ppo_group = parser.add_argument_group("PPO arguments")
         for arg, (default, help_str) in default_values.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                parser.add_argument("--" + arg, default = default, action = "store_" + \
+                ppo_group.add_argument("--" + arg, default = default, action = "store_" + \
                                     str(not default).lower(), help = help_str)
             else:
-                parser.add_argument("--" + arg, default = default, type = type(default), help = help_str)
-
+                ppo_group.add_argument("--" + arg, default = default, type = type(default),
+                                      help = help_str)
     elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
         for arg, (default, help_str) in default_values.items():
+            arg = arg.replace("-", "_")
             if not hasattr(parser, arg):
                 setattr(parser, arg, default)
 
     return parser
 
 
-def run_experiment(args, env_args):
+def run_experiment(parser, env_name):
     """
     Function to run a PPO experiment.
 
     Args:
-        args: argparse namespace
+        parser: argparse object
     """
     from algo.util.normalization import train_normalizer
     from algo.util.log import create_logger
-    from util.env_factory import env_factory
+    from util.env_factory import env_factory, add_env_parser
+    from util.nn_factory import nn_factory, load_checkpoint, save_checkpoint, add_nn_parser
+    from util.colors import FAIL, ENDC, WARNING
 
-    from nn.critic import FFCritic, LSTMCritic, GRUCritic
-    from nn.actor import FFActor, LSTMActor, GRUActor
-
+    import pickle
     import locale
     locale.setlocale(locale.LC_ALL, '')
 
-    # wrapper function for creating parallelized envs
-    env_fn = env_factory(args.env_name, env_args)
-    obs_dim = env_fn().observation_size
-    action_dim = env_fn().action_size
+    # Add parser arguments from env/nn/algo, then can finally parse args
+    if isinstance(parser, argparse.ArgumentParser):
+        add_env_parser(env_name, parser)
+        add_nn_parser(parser)
+        args = parser.parse_args()
+        for arg_group in parser._action_groups:
+            if arg_group.title == "PPO arguments":
+                ppo_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+                ppo_args = argparse.Namespace(**ppo_dict)
+            elif arg_group.title == "Env arguments":
+                env_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+                env_args = argparse.Namespace(**env_dict)
+            elif arg_group.title == "NN arguments":
+                nn_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
+                nn_args = argparse.Namespace(**nn_dict)
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace):
+        env_args = SimpleNamespace()
+        nn_args = SimpleNamespace()
+        ppo_args = parser
+        add_env_parser(env_name, env_args)
+        add_nn_parser(nn_args)
+        args = parser
+    else:
+        raise RuntimeError(f"{FAIL}ppo.py run_experiment got invalid object type for arguments. " \
+                           f"Input object should be either an ArgumentParser or a " \
+                           f"SimpleNamespace.{ENDC}")
 
     # Set seeds
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # NN loading
-    std = torch.ones(action_dim)*args.std
-    layers = [int(x) for x in args.layers.split(',')]
-    if hasattr(args, "previous") and args.previous is not None:
-        # TODO: copy optimizer states also???
-        policy = torch.load(os.path.join(args.previous, "actor.pt"))
-        critic = torch.load(os.path.join(args.previous, "critic.pt"))
-        print("loaded model from {}".format(args.previous))
-    else:
-        if args.arch.lower() == 'lstm':
-            policy = LSTMActor(obs_dim,
-                               action_dim,
-                               std=std,
-                               bounded=False,
-                               layers=layers,
-                               learn_std=args.learn_stddev)
-            critic = LSTMCritic(obs_dim, layers=layers)
-        elif args.arch.lower() == 'gru':
-            policy = GRUActor(obs_dim,
-                              action_dim,
-                              std=std,
-                              bounded=False,
-                              layers=layers,
-                              learn_std=args.learn_stddev)
-            critic = GRUCritic(obs_dim, layers=layers)
-        elif args.arch.lower() == 'ff':
-            policy = FFActor(obs_dim,
-                             action_dim,
-                             std=std,
-                             bounded=False,
-                             layers=layers,
-                             learn_std=args.learn_stddev,
-                             nonlinearity=torch.tanh)
-            critic = FFCritic(obs_dim, layers=layers)
-        else:
-            raise RuntimeError(f"Archetecture {args.arch} is not included, check the entry point.")
+    # Create callable env_fn for parallelized envs
+    env_fn = env_factory(env_name, env_args)
 
-        # Prenormalization
-        if args.do_prenorm:
-            print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
-            train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
-            critic.copy_normalizer_stats(policy)
+    # Create nn modules. Append more in here and add_nn_parser() if needed
+    nn_args.obs_dim = env_fn().observation_size
+    nn_args.action_dim = env_fn().action_size
+    policy, critic = nn_factory(args=nn_args)
 
-    policy.train(True)
-    critic.train(True)
+    # Load model attributes if args.previous exists
+    if hasattr(args, "previous") and args.previous != "":
+        # Load and compare if any arg has been changed (add/remove/update), compared to prev_args
+        prev_args_dict = pickle.load(open(os.path.join(args.previous, "experiment.pkl"), "rb"))
+        for a in vars(args):
+            if a in prev_args_dict['all_args']:
+                try:
+                    if getattr(args, a) != getattr(prev_args_dict['all_args'], a):
+                        print(f"{WARNING}Argument {a} is set to a new value {getattr(args, a)}, "
+                              f"old one is {getattr(prev_args_dict['all_args'], a)}.{ENDC}")
+                except:
+                    if getattr(args, a).any() != getattr(prev_args_dict['all_args'], a).any():
+                        print(f"{WARNING}Argument {a} is set to a new value {getattr(args, a)}, "
+                              f"old one is {getattr(prev_args_dict['all_args'], a)}.{ENDC}")
+            else:
+                print(f"{WARNING}Added a new argument: {a}.{ENDC}")
 
-    # create a tensorboard logging object
-    logger = create_logger(args)
+        # Load nn modules from checkpoints
+        actor_dict = torch.load(os.path.join(args.previous, "actor.pt"))
+        critic_dict = torch.load(os.path.join(args.previous, "critic.pt"))
+        load_checkpoint(model_dict=actor_dict, model=policy)
+        load_checkpoint(model_dict=critic_dict, model=critic)
+
+    # Prenormalization only on new training
+    if args.prenorm and args.previous == "":
+        print("Collecting normalization statistics with {} states...".format(args.prenormalize_steps))
+        train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
+        critic.copy_normalizer_stats(policy)
+
+    # Create actor/critic dict to include model_state_dict and other class attributes
+    actor_dict = {'model_class_name': policy._get_name()}
+    critic_dict = {'model_class_name': critic._get_name()}
+
+    # Catch any missing args (already parsed or any dependencies) and add them into args
+    args.env_name = env_name # add back in since deleted in train.py
+    args.obs_dim = env_fn().observation_size
+    args.action_dim = env_fn().action_size
+
+    # Create a tensorboard logging object
+    # before create logger files, double check that all args are updated in case any other of
+    # ppo_args, env_args, nn_args changed
+    for arg in ppo_args.__dict__:
+        setattr(args, arg, getattr(ppo_args, arg))
+    for arg in env_args.__dict__:
+        setattr(args, arg, getattr(env_args, arg))
+    for arg in nn_args.__dict__:
+        setattr(args, arg, getattr(nn_args, arg))
+    logger = create_logger(args, ppo_args, env_args, nn_args)
     args.save_actor_path = os.path.join(logger.dir, 'actor.pt')
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
     args.save_path = logger.dir
-    # create actor/critic dict tp include model_state_dict and other class attributes
-    actor_dict = {}
-    critic_dict = {}
 
-    # Algo init
-    algo = PPO(policy, critic, env_fn, args)
-
-    print()
+    # Create algo class
+    policy.train(True)
+    critic.train(True)
+    algo = PPO(policy, critic, env_fn, ppo_args)
     print("Proximal Policy Optimization:")
-    print("\tseed:               {}".format(args.seed))
-    print("\tenv name:           {}".format(args.env_name))
-    print("\tmirror:             {}".format(args.mirror))
-    print("\ttimesteps:          {:n}".format(int(args.timesteps)))
-    print("\titeration steps:    {:n}".format(int(args.num_steps)))
-    print("\tprenormalize steps: {}".format(int(args.prenormalize_steps)))
-    print("\ttraj_len:           {}".format(args.traj_len))
-    print("\tdiscount:           {}".format(args.discount))
-    print("\tactor_lr:           {}".format(args.a_lr))
-    print("\tcritic_lr:          {}".format(args.c_lr))
-    print("\tadam eps:           {}".format(args.eps))
-    print("\tentropy coeff:      {}".format(args.entropy_coeff))
-    print("\tgrad clip:          {}".format(args.grad_clip))
-    print("\tbatch size:         {}".format(args.batch_size))
-    print("\tepochs:             {}".format(args.epochs))
-    print("\tworkers:            {}".format(args.workers))
-    print()
+    for key, val in args.__dict__.items():
+        print(f"\t{key} = {val}")
 
     itr = 0
     timesteps = 0
@@ -546,30 +556,18 @@ def run_experiment(args, env_args):
 
         # Saving checkpoints for best reward
         if best_reward is None or eval_reward > best_reward:
-            print(f"\t(best policy so far! saving to {args.save_actor_path})")
+            print(f"\t(best policy so far! saving checkpoint to {args.save_actor_path})")
             best_reward = eval_reward
-            for key in vars(algo.actor):
-                actor_dict[key] = getattr(algo.actor, key)
-            for key in vars(algo.critic):
-                critic_dict[key] = getattr(algo.critic, key)
-            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
-                    args.save_actor_path)
-            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
-                    args.save_critic_path)
+            save_checkpoint(algo.actor, actor_dict, args.save_actor_path)
+            save_checkpoint(algo.critic, critic_dict, args.save_critic_path)
 
         # Intermitent saving
         if itr % 500 == 0:
             past500_reward = -1
         if eval_reward > past500_reward:
             past500_reward = eval_reward
-            for key in vars(algo.actor):
-                actor_dict[key] = getattr(algo.actor, key)
-            for key in vars(algo.critic):
-                critic_dict[key] = getattr(algo.critic, key)
-            torch.save(actor_dict | {'model_state_dict': algo.actor.state_dict()},
-                       args.save_actor_path[:-3] + "_past500.pt")
-            torch.save(critic_dict | {'model_state_dict': algo.critic.state_dict()},
-                       args.save_critic_path[:-3] + "_past500.pt")
+            save_checkpoint(algo.actor, actor_dict, args.save_actor_path[:-3] + "_past500.pt")
+            save_checkpoint(algo.critic, critic_dict, args.save_critic_path[:-3] + "_past500.pt")
 
         if logger is not None:
             logger.add_scalar("Test/Return", eval_reward, itr)

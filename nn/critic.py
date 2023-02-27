@@ -34,7 +34,7 @@ class FFCritic(FFBase, Critic):
     which implements a feedforward value function.
     """
     def __init__(self, input_dim, layers):
-        FFBase.__init__(self, in_dim=input_dim, layers=layers, nonlinearity=F.relu)
+        FFBase.__init__(self, in_dim=input_dim, layers=layers, nonlinearity='relu')
         Critic.__init__(self, latent=layers[-1])
 
     def forward(self, state, update_normalization_param=False):
