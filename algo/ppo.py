@@ -477,7 +477,7 @@ def run_experiment(parser, env_name):
         # Load and compare if any arg has been changed (add/remove/update), compared to prev_args
         prev_args_dict = pickle.load(open(os.path.join(args.previous, "experiment.pkl"), "rb"))
         for a in vars(args):
-            if a in prev_args_dict['all_args']:
+            if hasattr(prev_args_dict['all_args'], a):
                 try:
                     if getattr(args, a) != getattr(prev_args_dict['all_args'], a):
                         print(f"{WARNING}Argument {a} is set to a new value {getattr(args, a)}, "
