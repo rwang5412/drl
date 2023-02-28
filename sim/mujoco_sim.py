@@ -56,16 +56,6 @@ class MujocoSim(GenericSim):
             self.data.qpos = qpos
         else:
             self.data.qpos = self.reset_qpos
-
-        # Reset non-robot geoms, hfield, other bodies etc.
-        if self.terrain == 'stone':
-            self.geom_generator.create_discrete_terrain()
-            self.adjust_robot_pose()
-        elif self.terrain == 'stair':
-            self.geom_generator.create_stairs(self.data.qpos[0], self.data.qpos[1], 0)
-            self.adjust_robot_pose()
-        elif self.terrain == 'obstacle':
-            raise RuntimeError(f"{FAIL}Not implemented obstacle generation.{ENDC}")
         mj.mj_forward(self.model, self.data)
 
     def sim_forward(self, dt: float = None):
@@ -121,7 +111,7 @@ class MujocoSim(GenericSim):
             self.model.dof_damping[i] = 1e5
 
     def adjust_robot_pose(self):
-        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms.
+        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms. Make sure to call if env is updating the model.
         """
         # Make sure all kinematics are updated
         mj.mj_kinematics(self.model, self.data)

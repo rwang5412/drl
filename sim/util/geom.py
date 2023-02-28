@@ -89,8 +89,8 @@ class Geom:
             self.sim.set_geom_size(box, [0.1, 0.1, 0.1])
             self.sim.set_geom_pose(box, [current_x, 20, 0, 1, 0, 0, 0])
 
-    def _create_stone(self, box_name: str, start_x: float, start_y: float, start_z: float,
-                      rise: float, length: float, width: float, quat: np.ndarray=None):
+    def _create_geom(self, box_name: str, start_x: float, start_y: float, start_z: float,
+                     rise: float, length: float, width: float, quat: np.ndarray=None, color: np.ndarray=None):
         """Create a basic geom with size and pose.
         Args:
             box_name (str): Geom name
@@ -109,6 +109,8 @@ class Geom:
         self.sim.set_geom_pose(box_name, [start_x, start_y, vert_pos, 1, 0, 0, 0])
         if quat:
             self.sim.set_geom_pose(box_name, [start_x, start_y, vert_pos, *quat])
+        if color:
+            self.sim.set_geom_color(box_name, color)
 
         return np.array([start_x + length/2, start_y, start_z + rise])
 
