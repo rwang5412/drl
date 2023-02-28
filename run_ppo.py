@@ -12,16 +12,23 @@ from types import SimpleNamespace
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+
+    """All RL algorithms"""
+    parser.add_argument("--seed",      default=0,           type=int)                  # random seed for reproducibility
+
+    args = parser.parse_args()
+
     # Setup arg Namespaces and get default values for algo args
-    args = SimpleNamespace()
+    # args = SimpleNamespace()
     env_args = SimpleNamespace()
 
     # Overwrite with whatever optimization args you want here
     args.seed = 0
     args.traj_len = 300
-    args.arch = "ff"
-    args.layers = "64,64"
-    args.num_steps = 50000
+    args.arch = "lstm"
+    args.layers = "128,128"
+    args.num_steps = 30000
     args.batch_size = 32
     args.epochs = 5
     args.dynamics_randomization = True
@@ -35,7 +42,8 @@ if __name__ == "__main__":
     args.std = np.exp(-1.5)
 
     # Set env and logging args
-    args.env_name = "CassieEnvClock"
+    args.env_name = "CassieEnvClockOld"
+    args.run_name = f"CassieEnvClockOld_clockfix_test_seed{args.seed}"
 
     # Set env args
     args.simulator_type = "mujoco"
@@ -45,10 +53,11 @@ if __name__ == "__main__":
     args.reward_name = "locomotion_linear_clock_reward"
     args.clock_type = "linear"
 
-    args.run_name = f"steppingplace_{args.clock_type}_{args.arch}_mirror"
     args.wandb = True
     args.wandb_project_name = "roadrunner_refactor"
-    args.logdir = "./trained_models/"
+    args.logdir = "./logs/test/"
+    # args.logdir = "./logs/dump/"
+    # args.wandb = False
 
     args = add_algo_args(args)
     run_experiment(args, args.env_name)
