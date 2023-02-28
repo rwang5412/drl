@@ -14,7 +14,7 @@ from util.colors import FAIL, ENDC
 class CassieEnv(GenericEnv):
     def __init__(self,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool):
         """Template class for Cassie with common functions.
@@ -25,21 +25,18 @@ class CassieEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
+            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside 
+                           each subenv class to support individual use case.
         """
         super().__init__()
-
         self.dynamics_randomization = dynamics_randomization
         self.default_policy_rate = policy_rate
+        self.terrain = terrain
         # Select simulator
         if simulator_type == "mujoco":
             self.sim = MjCassieSim()
-            # Handle simulation features, such as heightmap
-            if terrain:
-                pass
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
-            if terrain:
-                pass
         else:
             raise RuntimeError(f"Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'libcassie'.")
@@ -176,6 +173,7 @@ class CassieEnv(GenericEnv):
             f"Check observation size = {self.observation_size}," \
             f"but get_state() returns with size {len(self.get_state())}"
         assert len(self.get_observation_mirror_indices()) == self.observation_size, \
-            "State mirror inds size mismatch with observation size."
+            f"State mirror inds size {len(self.get_observation_mirror_indices())} mismatch " \
+            f"with observation size {self.observation_size}."
         assert len(self.get_action_mirror_indices()) == self.action_size, \
             "Action mirror inds size mismatch with action size."
