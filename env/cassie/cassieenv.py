@@ -25,7 +25,8 @@ class CassieEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
-            terrain (str): Type of terrain generation [stone, stair, obstacle]
+            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside 
+                           each subenv class to support individual use case.
         """
         super().__init__()
         self.dynamics_randomization = dynamics_randomization
