@@ -474,6 +474,7 @@ def run_experiment(parser, env_name):
 
     # Create callable env_fn for parallelized envs
     env_fn = env_factory(env_name, env_args)
+    args.env_name = env_name
 
     # Create nn modules. Append more in here and add_nn_parser() if needed
     nn_args.obs_dim = env_fn().observation_size
