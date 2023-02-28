@@ -9,29 +9,24 @@ from algo.util.log import create_logger
 from util.colors import BOLD, ORANGE, FAIL, ENDC
 from util.env_factory import env_factory
 from types import SimpleNamespace
-from train import print_logo
-
 
 if __name__ == "__main__":
-
-    print_logo(subtitle="Maintained by Oregon State University's Dynamic Robotics Lab")
 
     # Setup arg Namespaces and get default values for algo args
     args = SimpleNamespace()
     env_args = SimpleNamespace()
-    args = add_algo_args(args)
 
     # Overwrite with whatever optimization args you want here
     args.seed = 0
-    args.traj_len = 200
-    args.arch = "lstm"
-    args.layers = "128,128"
-    args.num_steps = 30000
+    args.traj_len = 300
+    args.arch = "ff"
+    args.layers = "64,64"
+    args.num_steps = 50000
     args.batch_size = 32
     args.epochs = 5
     args.dynamics_randomization = True
     args.discount = 0.95
-    args.mirror = 0
+    args.mirror = 1
     args.timesteps = 4e9
     args.workers = 56
     args.do_prenorm = False
@@ -41,17 +36,19 @@ if __name__ == "__main__":
 
     # Set env and logging args
     args.env_name = "CassieEnvClock"
-    args.run_name = "CassieEnvClock_vonmises_test_seed{}".format(args.seed)
-    args.logdir = "./logs/dump/"
-    args.wandb = False
-    args.nolog = False
 
     # Set env args
-    env_args.simulator_type = "mujoco"
-    env_args.terrain = False
-    env_args.policy_rate = 50
-    env_args.dynamics_randomization = True
-    env_args.reward_name = "locomotion_vonmises_clock_reward"
-    env_args.clock_type = "von_mises"
+    args.simulator_type = "mujoco"
+    args.terrain = False
+    args.policy_rate = 50
+    args.dynamics_randomization = True
+    args.reward_name = "locomotion_linear_clock_reward"
+    args.clock_type = "linear"
 
-    run_experiment(args, env_args)
+    args.run_name = f"steppingplace_{args.clock_type}_{args.arch}_mirror"
+    args.wandb = True
+    args.wandb_project_name = "roadrunner_refactor"
+    args.logdir = "./trained_models/"
+
+    args = add_algo_args(args)
+    run_experiment(args, args.env_name)

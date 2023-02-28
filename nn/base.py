@@ -78,10 +78,10 @@ class FFBase(Net):
     """
     The base class for feedforward networks.
     """
-    def __init__(self, in_dim, layers, nonlinearity=torch.tanh):
+    def __init__(self, in_dim, layers, nonlinearity='tanh'):
         super(FFBase, self).__init__()
         self.layers       = create_layers(nn.Linear, in_dim, layers)
-        self.nonlinearity = nonlinearity
+        self.nonlinearity = get_activation(nonlinearity)
 
     def _base_forward(self, x):
         for idx, layer in enumerate(self.layers):
@@ -259,3 +259,9 @@ class GRUBase(Net):
             if dims == 1:
                 x = x.view(-1)
         return x
+
+def get_activation(act_name):
+    try:
+        return getattr(torch, act_name)
+    except:
+        raise RuntimeError(f"Not implemented activation {act_name}. Please add in.")

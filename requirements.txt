@@ -1,0 +1,8 @@
+# Required packages
+mujoco==2.3.2
+ray==2.2.0
+tensorboard==2.12.0
+wandb==0.13.10
+
+# Agility .whl file for Digit interface
+./sim/digit_sim/digit_ar_sim/agility-1.1.1-py3-none-any.whl
