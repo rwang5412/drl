@@ -6,6 +6,9 @@ import traceback
 from env.cassie.cassieenv import CassieEnv
 from env.digit.digitenv import DigitEnv
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
+from env.cassie.cassieenvclockold.cassieenvclockold import CassieEnvClockOld
+from env.cassie.cassieenvclockoldff.cassieenvclockoldff import CassieEnvClockOldFF
+from env.cassie.cassieenvclockoldvonmises.cassieenvclockoldvonmises import CassieEnvClockOldVonMises
 from env.digit.digitenvclock.digitenvclock import DigitEnvClock
 from util.env_factory import env_factory
 from util.colors import FAIL, ENDC, OKGREEN
@@ -15,7 +18,8 @@ def test_all_env():
     base_env_sim_pair = [[CassieEnv, "mujoco"], [DigitEnv, "mujoco"],
                          [CassieEnv, "libcassie"]]
     child_env_list = [[CassieEnvClock, "mujoco"], [DigitEnvClock, "mujoco"],
-                      [CassieEnvClock, "libcassie"]]
+                      [CassieEnvClock, "libcassie"], [CassieEnvClockOld, "mujoco"],
+                      [CassieEnvClockOldFF, "mujoco"], [CassieEnvClockOldVonMises, "mujoco"]]
     reward_list = [["linear", "locomotion_linear_clock_reward"],
                    ["von_mises", "locomotion_vonmises_clock_reward"],
                    ["linear", "stand_reward"]]
@@ -27,6 +31,7 @@ def test_all_env():
         except Exception:
             print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
             print(traceback.format_exc())
+            sys.exit()
 
     for pair in child_env_list:
         try:
@@ -35,6 +40,7 @@ def test_all_env():
         except Exception:
             print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
             print(traceback.format_exc())
+            sys.exit()
 
     for pair in child_env_list:
         for rew_pair in reward_list:
@@ -46,6 +52,7 @@ def test_all_env():
                 print(f"{FAIL}{pair[0].__name__} with {pair[1]}, clock {rew_pair[0]}, and reward " \
                      f"{rew_pair[1]} failed test with error:{ENDC}")
                 print(traceback.format_exc())
+                sys.exit()
     print(f"{OKGREEN}Passed all env tests! \u2713{ENDC}")
 
     for pair in child_env_list:
@@ -58,6 +65,7 @@ def test_all_env():
                 print(f"{FAIL}{pair[0].__name__} with {pair[1]}, clock {rew_pair[0]}, and reward " \
                       f"{rew_pair[1]} failed test with error:{ENDC}")
                 print(traceback.format_exc())
+                sys.exit()
     print(f"{OKGREEN}Passed all env factory tests! \u2713{ENDC}")
 
 def test_base_env_step(test_env, test_sim):

@@ -35,8 +35,6 @@ if __name__ == "__main__":
         if not isinstance(env_name, str):
             print(f"{__file__}: error: argument --env-name received non-string input.")
             sys.exit()
-        # Delete env-name from command line input so isn't caught in parser below
-        del sys.argv[env_name_idx:env_name_idx + 2]
     except ValueError:
         # If env-name not in command line input, use default value
         env_name = parser._option_string_actions["--env-name"].default

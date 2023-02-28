@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import os
 
 from env.util.periodicclock import PeriodicClock
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
@@ -37,7 +38,9 @@ class CassieEnvClockOldFF(CassieEnvClock):
         self.observation_size += 1 # Xvelocity command
         self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
-        self.check_observation_action_size()
+        # Only check sizes if calling current class. If is child class, don't need to check
+        if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
+            self.check_observation_action_size()
 
     def reset(self):
         """Reset simulator and env variables.
@@ -142,14 +145,14 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
     }
     if isinstance(parser, argparse.ArgumentParser):
+        env_group = parser.add_argument_group("Env arguments")
         for arg, (default, help_str) in args.items():
-            env_group = parser.add_argument_group("Env arguments")
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
                 env_group.add_argument("--" + arg, default = default, action = "store_" + \
                                     str(not default).lower(), help = help_str)
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
-    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")
             if not hasattr(parser, arg):
