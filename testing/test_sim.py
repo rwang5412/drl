@@ -67,7 +67,7 @@ def test_sim_sim_forward(sim):
 
 def test_sim_viewer(sim):
     print("Testing sim viewer, quit window to continue")
-    test_sim = sim(terrain='stair')
+    test_sim = sim(terrain='stone')
     test_sim.reset()
     test_sim.viewer_init()
     render_state = test_sim.viewer_render()
