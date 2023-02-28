@@ -92,7 +92,8 @@ class CassieEnvClock(CassieEnv):
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
+        swing_ratio = np.random.uniform(*self._swing_ratio_bounds)
+        swing_ratios = [swing_ratio, swing_ratio]
         period_shifts = [0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
         self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
