@@ -31,7 +31,7 @@ class DigitEnv(GenericEnv):
         self.terrain = terrain
         # Select simulator
         if simulator_type == "mujoco":
-            self.sim = MjDigitSim(terrain=terrain)
+            self.sim = MjDigitSim()
         elif simulator_type == 'ar':
             self.sim = ArDigitSim()
         else:

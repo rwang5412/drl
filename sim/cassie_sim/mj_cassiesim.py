@@ -12,7 +12,7 @@ class MjCassieSim(MujocoSim):
     """
     Wrapper for Cassie Mujoco. This class only defines several specifics for Cassie.
     """
-    def __init__(self, model_name: str = "cassiemujoco/cassie.xml", terrain: str=None):
+    def __init__(self, model_name: str = "cassiemujoco/cassie.xml"):
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
         # Torque delay, i.e. size of the torque buffer. Note that "delay" of 1 corresponds to no
         # delay. So torque_delay_cycles should be the number of sim steps before commanded torque is
@@ -42,7 +42,7 @@ class MjCassieSim(MujocoSim):
                     -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968])
 
         # NOTE: Have to call super init AFTER index arrays and constants are defined
-        super().__init__(model_path=model_path, terrain=terrain)
+        super().__init__(model_path=model_path)
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
 

@@ -33,7 +33,7 @@ class CassieEnv(GenericEnv):
         self.terrain = terrain
         # Select simulator
         if simulator_type == "mujoco":
-            self.sim = MjCassieSim(terrain=self.terrain)
+            self.sim = MjCassieSim()
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
         else:
