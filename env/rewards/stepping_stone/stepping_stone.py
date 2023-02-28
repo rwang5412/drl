@@ -43,7 +43,7 @@ def compute_reward(self, action):
     if footstep_distance < 0.1:
         q['base_progress'] = np.abs(base_vel[1]) + np.abs(base_vel[0])
     else:
-        q['base_progress'] = 40 * base_change
+        q['base_progress'] = np.abs(base_disance2target_curr)
 
     ### Orientation rewards (base and feet) ###
     target_quat = np.array([1, 0, 0, 0])
@@ -77,6 +77,10 @@ def compute_reward(self, action):
         self.reward += self.reward_weight[name]["weighting"] * \
                        kernel(self.reward_weight[name]["scaling"] * q[name])
 
+    print()
+    for name in q:
+        print(self.traj_idx, name, kernel(self.reward_weight[name]["scaling"] * q[name]))
+    
     ### Stepping stone sparse reward ###
     if any(self.touchdown_by_clock_flag):
         side = self.steps_order[self.steps_active_idx]
