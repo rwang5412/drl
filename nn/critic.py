@@ -34,7 +34,10 @@ class FFCritic(FFBase, Critic):
     which implements a feedforward value function.
     """
     def __init__(self, input_dim, layers):
-        FFBase.__init__(self, in_dim=input_dim, layers=layers, nonlinearity=F.relu)
+        self.input_dim = input_dim
+        self.layers = layers
+        
+        FFBase.__init__(self, in_dim=input_dim, layers=layers, nonlinearity='relu')
         Critic.__init__(self, latent=layers[-1])
 
     def forward(self, state, update_normalization_param=False):
@@ -46,6 +49,9 @@ class LSTMCritic(LSTMBase, Critic):
     which implements a recurrent value function.
     """
     def __init__(self, input_dim, layers):
+        self.input_dim = input_dim
+        self.layers = layers
+
         LSTMBase.__init__(self, in_dim=input_dim, layers=layers)
         Critic.__init__(self, latent=layers[-1])
         self.is_recurrent = True
@@ -60,6 +66,9 @@ class GRUCritic(GRUBase, Critic):
     which implements a recurrent value function.
     """
     def __init__(self, input_dim, layers):
+        self.input_dim = input_dim
+        self.layers = layers
+
         GRUBase.__init__(self, in_dim=input_dim, layers=layers)
         Critic.__init__(self, latent=layers[-1])
         self.is_recurrent = True
@@ -77,6 +86,14 @@ class MixCritic(MixBase, Critic):
                  ff_layers,
                  nonstate_encoder_dim, 
                  nonstate_encoder_on):
+        self.input_dim = input_dim
+        self.state_dim = state_dim
+        self.nonstate_dim = nonstate_dim
+        self.lstm_layers = lstm_layers
+        self.ff_layers = ff_layers
+        self.nonstate_dim = nonstate_dim
+        self.nonstate_encoder_on = self.nonstate_encoder_on
+
         MixBase.__init__(self,
                           in_dim=input_dim, 
                           state_dim=state_dim, 

@@ -30,7 +30,7 @@ def test_ppo():
     env_args = SimpleNamespace()
 
     add_algo_args(args)
-    run_experiment(args, env_args)
+    run_experiment(args, args.env_name)
     print(f"{OKGREEN}Passed PPO test{ENDC}")
 
 
