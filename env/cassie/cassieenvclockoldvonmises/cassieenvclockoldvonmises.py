@@ -127,7 +127,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
                                     str(not default).lower(), help = help_str)
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
-    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace):
+    elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")
             if not hasattr(parser, arg):
