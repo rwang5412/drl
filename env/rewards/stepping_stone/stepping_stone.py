@@ -77,9 +77,9 @@ def compute_reward(self, action):
         self.reward += self.reward_weight[name]["weighting"] * \
                        kernel(self.reward_weight[name]["scaling"] * q[name])
 
-    print()
-    for name in q:
-        print(self.traj_idx, name, kernel(self.reward_weight[name]["scaling"] * q[name]))
+    # print()
+    # for name in q:
+    #     print(self.traj_idx, name, kernel(self.reward_weight[name]["scaling"] * q[name]))
     
     ### Stepping stone sparse reward ###
     if any(self.touchdown_by_clock_flag):
