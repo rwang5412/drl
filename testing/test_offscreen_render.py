@@ -19,6 +19,7 @@ def test_offscreen_rendering():
 		assert os.getenv('MUJOCO_GL') == gl_option, f"GL option is {os.getenv('MUJOCO_GL')} but want to load {gl_option}."
 		print(os.getenv('PYOPENGL_PLATFORM'))
 
+	camera_name = "forward-chest-realsense-d435/depth/image-rect"
 	size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480]
 	# size = [400]
 	sim_time_avg_list = []
@@ -28,14 +29,12 @@ def test_offscreen_rendering():
 		# Init mujoc sim and optional viewer to verify
 		sim = MjCassieSim()
 		sim.reset()
-		camera_name = "forward-chest-realsense-d435/depth/image-rect"
+		sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.5, length=0.3, width=1)
 		# sim.viewer_init(camera_id=camera_name, height=500, width=500)
 		# render_state = sim.viewer_render()
 
 		# Init renderer that reads the same model/data
-		renderer = mujoco.Renderer(sim.model, height=s, width=s)
-		print("Verify the Gl context object, ", renderer._gl_context)
-		renderer.enable_depth_rendering()
+		sim.init_offscreen_renderer(width=s, height=s)
 
 		time_raw_sim_list = []
 		time_render_depth = []
@@ -49,11 +48,10 @@ def test_offscreen_rendering():
 			# render_state = sim.viewer_render()
 			# Render offscreen
 			start_t = time.time()
-			renderer.update_scene(sim.data, camera=camera_name)
-			img = renderer.render()
+			depth = sim.get_depth_image(camera_name)
 			time_render_depth.append(time.time() - start_t)
-			frames.append(img)
-
+			frames.append(depth.astype(np.uint8))
+   
 			if sim.get_base_position()[2] < 0.5:
 				mean_time_sim = np.mean(np.array(time_raw_sim_list))
 				mean_time_render = np.mean(np.array(time_render_depth))
@@ -61,7 +59,7 @@ def test_offscreen_rendering():
 				render_time_avg_list.append(mean_time_render)
 				time_render_ratio.append(100*mean_time_render / (mean_time_sim+mean_time_render))
 				break
-	mediapy.write_video("test.mp4", frames, fps=30)
+	mediapy.write_video("test.mp4", frames, fps=50)
 	fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2)
 	ax1.plot(size, sim_time_avg_list)
 	ax1.set_title('sim time [s] per policy step')
