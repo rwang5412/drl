@@ -257,7 +257,7 @@
       <geom name='box' size='1 1 1' type='box' condim='3' conaffinity='15'/>
     </body> -->
 
-  </worldbody>              
+  </worldbody>
 
   <equality>
     <connect body1='left-plantar-rod'  body2='left-foot'        anchor='0.35012 0 0'/>
