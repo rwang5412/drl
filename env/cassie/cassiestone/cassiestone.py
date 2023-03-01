@@ -78,6 +78,8 @@ class CassieStone(CassieEnv):
         self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
         self.action_size += 1 # phase_add
+        self.state_dim = len(self.get_robot_state())
+        self.nonstate_dim = 7
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
             self.check_observation_action_size()
@@ -104,7 +106,10 @@ class CassieStone(CassieEnv):
         # Stone reset
         _, stones = self.generate_fixed_stones(z_step=self.z_step)
         for s in range(len(self.sim.geom_generator.geoms)):
-            self.sim.geom_generator._create_stone(f'box{s}', *stones[s], rise=0.3, length=0.1, width=0.1)
+            stone_size = 0.15 if s < 2 else 0.1
+            self.sim.geom_generator._create_stone(f'box{s}', *stones[s], rise=.1,
+                                                  length=stone_size, width=stone_size)
+        # self.sim.set_geom_color('box0',np.array([255, 0, 0, 1]))
         self.sim.adjust_robot_pose()
 
         self.touchdown_by_clock_flag = [False, False]
@@ -121,8 +126,7 @@ class CassieStone(CassieEnv):
 
     def step(self, action: np.ndarray):
         # Unpack actions besides motor actions
-        new_phase_add = self.clock.get_phase_add() + \
-                        self.scale_number(action[-1], min=-0.01, max=0.01, smoothness=3)
+        phase_add_residual = action[-1]
         action = action[:-1]
 
         # Step simulation by n steps. This call will update self.tracker_fn.
@@ -141,19 +145,16 @@ class CassieStone(CassieEnv):
                     self.touchdown_by_clock_flag[i] = True
                 else:
                     self.touchdown_by_clock_flag[i] = False
-        
         # print(f"clock value, {self.clock.linear_clock()}, stance {is_stance} "
         #       f"previous stance {self.is_stance_previous} ",
         #       f"side of TD {self.touchdown_by_clock_flag}")
 
-        # print(self.traj_idx, "at step #", self.steps_active_idx, \
-        #     "This TD loc ", self.steps_target_global[self.steps_active_idx][0:2],\
-        #     "Next TD side ", self.steps_order[self.steps_active_idx+1])
-
         # if any(self.touchdown_by_clock_flag):
+        #     print(self.traj_idx, "at step #", self.steps_active_idx, \
+        #         "This TD loc ", self.steps_target_global[self.steps_active_idx][0:2],\
+        #         "Next TD side ", self.steps_order[self.steps_active_idx+1])
         #     input()
         # Reward for taking current action before changing quantities for new state
-        # self.touchdown_by_clock_flag tells which side to check the touchdown locations
         r = self.compute_reward(action)
 
         # Update footstep targets at TD event
@@ -167,8 +168,9 @@ class CassieStone(CassieEnv):
         self.last_base_position = self.sim.get_base_position()
 
         # Increment clock at the last place and update s' with get_state()
-        self.clock.set_phase_add(phase_add=new_phase_add)
-        self.clock.increment()
+        new_phase_add = self.clock.get_phase_add() + \
+                        self.scale_number(phase_add_residual, min=-15/2000, max=15/2000, smoothness=3)
+        self.clock.increment(phase_add=new_phase_add)
 
         return self.get_state(), r, self.compute_done(), {}
 
@@ -182,8 +184,14 @@ class CassieStone(CassieEnv):
         self.steps_active_idx += 1 # increment for next step info
 
     def get_state(self):
-        command_target2pelvis = self.steps_commands_pelvis / np.linalg.norm(self.steps_commands_pelvis)
-        command_target2pelvis = np.append(command_target2pelvis, np.linalg.norm(self.steps_commands_pelvis))
+        # self.steps_commands_pelvis = [0, 0.135 * -np.power(-1, self.steps_order[self.steps_active_idx]), -1]
+        # print(self.steps_commands_pelvis)
+        # input()
+        command_target2pelvis = self.steps_commands_pelvis
+        command_target2pelvis = \
+            self.steps_commands_pelvis / np.linalg.norm(self.steps_commands_pelvis)
+        command_target2pelvis = \
+            np.append(command_target2pelvis, np.linalg.norm(self.steps_commands_pelvis))
         out = np.concatenate((self.get_robot_state(),
                               command_target2pelvis,
                               [0],
@@ -249,39 +257,37 @@ class CassieStone(CassieEnv):
 
         self.steps_active_idx = 0
 
-        for i, pos in enumerate(fpos):
-            # self.steps_order           = {0: self.calc_init_contact_order()} # first step target side
-            self.steps_order[i] = i
-            # used for inputs
-            self.steps_commands[i] = {"sl": np.random.uniform(0.1, 0.15),
-                                      "sd": np.pi/2*np.power(-1, self.steps_order[0])}
-            # used for rewards
-            self.steps_target_relative[i] = \
-                np.array([self.steps_commands[0]['sl']*np.cos(self.steps_commands[0]['sd']),
-                self.steps_commands[0]['sl']*np.sin(self.steps_commands[0]['sd']),
-                0])
-            self.steps_target_global[i] = pos
-            self.steps_com_target[i] = self.steps_target_global[0]
+        initial_phase = self.clock.get_phase()
+        self.steps_order[0] = self.get_init_contact_order(initial_phase) # first step target side
+        # print("first contact side ", self.steps_order[0])
+        self.steps_commands[0] = {"sl": np.random.uniform(0.2, 0.35),
+                                  "sd": np.pi/2*np.power(-1, self.steps_order[0])}
+        # used for rewards
+        self.steps_target_relative[0] = \
+            np.array([self.steps_commands[0]['sl']*np.cos(self.steps_commands[0]['sd']),
+            self.steps_commands[0]['sl']*np.sin(self.steps_commands[0]['sd']),
+            0])
+        self.steps_target_global[0] = fpos[self.steps_order[0]]
+        self.steps_com_target[0] = self.steps_target_global[0]
 
         # pre-compute the rest steps
-        step_n1 = 2
-        step_n2 = 200 - step_n1 # avoid key error
-        modes = ["front"]*step_n2
-        for i in range(step_n1+step_n2): # precompute contact orders
+        step_n1 = np.random.randint(2, 5)
+        step_n2 = 12 - step_n1 # avoid key error
+        step_n3 = 30 - (step_n1+step_n2)
+        modes = ["inplace"]*step_n1 + ["front"]*step_n2 + ["inplace"] * step_n3
+        for i in range(step_n1+step_n2+step_n3): # precompute contact orders
             self.steps_order[i+1] = 1-self.steps_order[i]
+        # print(self.steps_order)
         for i, mode in enumerate(modes):
-            i += 1 # offset first two steps
+            # print(i, mode)
             side = self.steps_order[i+1] # side is the next on index
             if mode == 'front':
                 a = np.random.uniform(20/180*np.pi,60/180*np.pi) * np.power(-1, side) # forward 20-60deg
                 l = np.random.uniform(0.2, 0.6)
                 h = np.random.uniform(-0.05, 0.05) if i < 5 else np.random.uniform(-0.15, 0.15) # avoid initial geom overlap
-            elif mode == 'back':
-                a = np.random.uniform(110/180*np.pi,160/180*np.pi) * np.power(-1, side) # backward 20-60deg
-                l = np.random.uniform(0.2, 0.5)
             elif mode == 'inplace':
                 a = np.pi/2 * np.power(-1, side) # backward
-                l = np.random.uniform(0.1, 0.15)
+                l = np.random.uniform(0.15, 0.25)
                 h = 0
             # append the signals
             self.steps_target_global[i+1]   = self.steps_target_global[i] + np.array([l*np.cos(a), l*np.sin(a), 0])
@@ -291,6 +297,7 @@ class CassieStone(CassieEnv):
             self.steps_commands[i+1]        = {"sl": l, "sd": a}
             self.steps_com_target[i+1]      = self.steps_target_global[i+1]
 
+        # print(self.steps_target_global)
         # import matplotlib.pyplot as plt
         # import matplotlib.cm as cm
         # x=[]
@@ -309,6 +316,34 @@ class CassieStone(CassieEnv):
 
     def scale_number(self, nn, min, max, smoothness):
         return (max - min) / (1 + np.exp(- smoothness * nn)) + min
+
+    def get_init_contact_order(self, init_phase):
+        # print("initial phase ", self.clock._phase)
+        lf=[]
+        rf=[]
+        cnt=0
+        while True:
+            lswing, rswing = self.clock.linear_clock(percent_transition=0.2)
+            lf.append(lswing)
+            rf.append(rswing)
+            # print(lswing, rswing)
+            if lswing < 0.05: # current left TD
+                side = 0
+                cnt+=1
+            elif rswing < 0.05: # right TD
+                side = 1
+                cnt+=1
+            if cnt >=1:
+                break
+            self.clock.increment()
+        # print(side)
+        # import matplotlib.pyplot as plt
+        # plt.plot(lf, color='red')
+        # plt.plot(rf, color='blue')
+        # plt.show()
+        # exit()
+        self.clock.set_phase(init_phase)
+        return side
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """
@@ -329,7 +364,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
     """
     args = {
         "simulator-type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\""),
-        "terrain" : (False, "What terrain to train with (default is flat terrain)"),
+        "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "reward-name" : ("stepping_stone", "Which reward to use"),

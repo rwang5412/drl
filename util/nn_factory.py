@@ -6,13 +6,15 @@ from nn.actor import FFActor, LSTMActor, GRUActor, MixActor
 from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 
-def nn_factory(args):
+def nn_factory(args, env_fn=None):
     """The nn_factory initializes a model class (actor, critic etc) by args (from saved pickle file
     or fresh new training). More cases can be added here to support different class types and init
     methods.
 
     Args:
         args (Namespace): Arguments for model class init.
+        env_fn (Callable object, optional): Env callable object to get any env-relevant info to 
+            initialize modules. Defaults to None.
 
     Returns: actor and critic
     """
@@ -53,7 +55,18 @@ def nn_factory(args):
                         nonlinearity=args.nonlinearity)
         critic = FFCritic(args.obs_dim, layers=layers)
     elif args.arch == 'mix':
-        pass
+        policy = MixActor(obs_dim=35,
+                          state_dim=env_fn().state_dim,
+                          nonstate_dim=env_fn().nonstate_dim,
+                          action_dim=args.action_dim,
+                          lstm_layers=[64,64],
+                          ff_layers=[64,64],
+                          bounded=False,
+                          learn_std=False,
+                          std=0.13,
+                          nonstate_encoder_dim=8,
+                          nonstate_encoder_on=False)
+        critic = LSTMCritic(42, layers=[64,64])
     else:
         raise RuntimeError(f"Arch {args.arch} is not included, check the entry point.")
 
