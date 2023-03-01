@@ -107,3 +107,21 @@ class GenericSim(object):
 
     def get_body_contact_force(self, name: str):
         raise NotImplementedError
+    
+    def get_body_mass(self, name: str = None):
+        raise NotImplementedError
+    
+    def get_dof_damping(self, name: str = None):
+        raise NotImplementedError
+    
+    def get_geom_friction(self, name: str = None):
+        raise NotImplementedError
+    
+    def set_body_mass(self, name: str = None):
+        raise NotImplementedError
+    
+    def set_dof_damping(self, name: str = None):
+        raise NotImplementedError
+    
+    def set_geom_friction(self, name: str = None):
+        raise NotImplementedError

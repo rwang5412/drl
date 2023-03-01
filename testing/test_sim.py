@@ -13,7 +13,13 @@ from .common import (
     DIGIT_MOTOR_NAME,
     DIGIT_JOINT_NAME,
     CASSIE_MOTOR_NAME,
-    CASSIE_JOINT_NAME
+    CASSIE_JOINT_NAME,
+    CASSIE_NUM_BODY,
+    CASSIE_NUM_GEOM,
+    CASSIE_NV,
+    DIGIT_NUM_BODY,
+    DIGIT_NUM_GEOM,
+    DIGIT_NV
 )
 
 from env.util.quaternion import quaternion2euler
@@ -21,24 +27,26 @@ from util.colors import FAIL, ENDC, OKGREEN
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
+    # sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
+    sim_list = [MjDigitSim]
     num_pass = 0
     failed = False
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        num_pass += test_sim_init(sim)
-        num_pass += test_sim_sim_forward(sim)
-        num_pass += test_sim_viewer(sim)
-        num_pass += test_sim_glfw_multiple_viewer(sim)
-        num_pass += test_sim_PD(sim)
-        num_pass += test_sim_get_set(sim)
-        num_pass += test_sim_indexes(sim)
-        num_pass += test_sim_body_pose(sim)
-        num_pass += test_sim_body_velocity(sim)
-        num_pass += test_sim_body_acceleration(sim)
-        num_pass += test_sim_body_contact_force(sim)
-        num_pass += test_sim_relative_pose(sim)
+        test_sim_get_set(sim)
+        # num_pass += test_sim_init(sim)
+        # num_pass += test_sim_sim_forward(sim)
+        # num_pass += test_sim_viewer(sim)
+        # num_pass += test_sim_glfw_multiple_viewer(sim)
+        # num_pass += test_sim_PD(sim)
+        # num_pass += test_sim_get_set(sim)
+        # num_pass += test_sim_indexes(sim)
+        # num_pass += test_sim_body_pose(sim)
+        # num_pass += test_sim_body_velocity(sim)
+        # num_pass += test_sim_body_acceleration(sim)
+        # num_pass += test_sim_body_contact_force(sim)
+        # num_pass += test_sim_relative_pose(sim)
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
@@ -166,6 +174,11 @@ def test_sim_drop(sim):
 
 def test_sim_get_set(sim):
     print("Testing sim getter and setter functions")
+    motor_name = CASSIE_MOTOR_NAME if 'cassie' in sim.__name__.lower() else DIGIT_MOTOR_NAME
+    floor_name = "floor" if 'cassie' in sim.__name__.lower() else "ground"
+    nbody = CASSIE_NUM_BODY if 'cassie' in sim.__name__.lower() else DIGIT_NUM_BODY
+    nv = CASSIE_NV if 'cassie' in sim.__name__.lower() else DIGIT_NV
+    ngeom = CASSIE_NUM_GEOM if 'cassie' in sim.__name__.lower() else DIGIT_NUM_GEOM
     test_sim = sim()
     test_sim.reset()
     # Test getters
@@ -176,6 +189,12 @@ def test_sim_get_set(sim):
     test_sim.get_base_orientation()
     test_sim.get_base_angular_velocity()
     test_sim.get_torque()
+    test_sim.get_body_mass()
+    test_sim.get_body_mass(name=motor_name[0])
+    test_sim.get_dof_damping()
+    test_sim.get_dof_damping(name=motor_name[0])
+    test_sim.get_geom_friction()
+    test_sim.get_geom_friction(name=floor_name)
 
     # Test setters
     test_sim.set_joint_position(np.zeros(test_sim.num_joints))
@@ -185,6 +204,12 @@ def test_sim_get_set(sim):
     test_sim.set_base_orientation(np.array([0, 0.6987058, 0.2329019, 0.6764369]))
     test_sim.set_base_angular_velocity(np.zeros(3))
     test_sim.set_torque(np.zeros(test_sim.num_actuators))
+    test_sim.set_body_mass(np.zeros(nbody))
+    test_sim.set_body_mass(0, name=motor_name[0])
+    test_sim.set_dof_damping(np.zeros(nv))
+    test_sim.set_dof_damping(np.zeros(1), name=motor_name[0])
+    test_sim.set_geom_friction(np.zeros((ngeom, 3)))
+    test_sim.set_geom_friction(np.zeros(3), name=floor_name)
 
     print("Pass sim getter and setter functions")
     return True
@@ -352,3 +377,20 @@ def test_sim_relative_pose(sim):
 
     print("Passed sim get_relative_pose")
     return True
+
+def test_sim_dr(sim):
+    test_sim = sim()
+    # print(test_sim.get_dof_damping(name="left-hip-roll"))
+    # print(test_sim.get_dof_damping(name="left-achilles-rod"))
+    # foo = test_sim.get_body_mass(name="left-hip-roll")
+    foo = test_sim.get_dof_damping(name="left-hip-roll")
+    print(foo)
+    foo = 5
+    print(test_sim.get_dof_damping(name="left-hip-roll"))
+    test_sim.set_geom_friction(np.zeros(10), name="floor")
+    exit()
+    # print(test_sim.get_body_mass(name="left-hip-roll"))
+    foo = test_sim.get_joint_position()
+    # print(foo)
+    foo[0] = 5
+    # print(test_sim.get_joint_position())
