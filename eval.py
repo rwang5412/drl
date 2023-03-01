@@ -15,6 +15,20 @@ if __name__ == "__main__":
     except:
         raise RuntimeError("Choose evaluation type from ['simple','ui']. Or add a new one.")
 
+    if evaluation_type == 'test':
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--env-name', default="CassieEnvClock", type=str)
+        import os
+        gl_option = 'glx'
+        os.environ['MUJOCO_GL']=gl_option
+
+        # Check if the env variable is correct
+        if "MUJOCO_GL" in os.environ:
+            assert os.getenv('MUJOCO_GL') == gl_option, f"GL option is {os.getenv('MUJOCO_GL')} but want to load {gl_option}."
+        args, env_args = parser.parse_known_args()
+        simple_eval(actor=None, env_name=args.env_name, env_args=env_args)
+        exit()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str)
     args = parser.parse_args()
