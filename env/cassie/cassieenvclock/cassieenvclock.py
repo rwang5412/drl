@@ -86,15 +86,16 @@ class CassieEnvClock(CassieEnv):
         """
         self.reset_simulation()
         # Randomize commands
-        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
-        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.x_velocity = 0#np.random.uniform(*self._x_velocity_bounds)
+        self.y_velocity = 0#np.random.uniform(*self._y_velocity_bounds)
         self.orient_add = 0
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        swing_ratios = np.random.uniform(*self._swing_ratio_bounds, 2)
-        period_shifts = np.random.uniform(*self._period_shift_bounds, 2)
-        self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
+        swing_ratio = np.random.uniform(*self._swing_ratio_bounds)
+        swing_ratios = [swing_ratio, swing_ratio]
+        period_shifts = [0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
+        self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
@@ -114,12 +115,15 @@ class CassieEnvClock(CassieEnv):
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
         self.step_simulation(action, simulator_repeat_steps)
-        self.clock.increment()
+
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
 
         self.traj_idx += 1
         self.last_action = action
+
+        # Increment clock at last for updating s'
+        self.clock.increment()
 
         return self.get_state(), r, self.compute_done(), {}
 

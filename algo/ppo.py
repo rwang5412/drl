@@ -408,7 +408,7 @@ def add_algo_args(parser):
             else:
                 ppo_group.add_argument("--" + arg, default = default, type = type(default),
                                       help = help_str)
-    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace()):
+    elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in default_values.items():
             arg = arg.replace("-", "_")
             if not hasattr(parser, arg):
