@@ -3,36 +3,33 @@ import json
 import numpy as np
 import os
 import traceback
+import time
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
-from env.digit.digitenv import DigitEnv
+from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 from util.check_number import is_variable_valid
 
-class DigitEnvClock(DigitEnv):
+import mujoco
+
+class CassieDepth(CassieEnv):
 
     def __init__(self,
-                 clock_type: str,
                  reward_name: str,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
-                 dynamics_randomization: bool):
-        assert clock_type == "linear" or clock_type == "von_mises", \
-            f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
-            f"\"von_mises\" are valid clock types.{ENDC}"
+                 dynamics_randomization: bool,
+                 depth: bool):
 
         super().__init__(simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization)
-
-        # Clock variables
-        self.clock_type = clock_type
 
         # Command randomization ranges
         self._x_velocity_bounds = [0.0, 3.0]
@@ -68,12 +65,10 @@ class DigitEnvClock(DigitEnv):
         self.reset()
 
         # Define env specifics after reset
-        self.observation_size = len(self.get_robot_state()) # robot proprioceptive obs
+        self.observation_size = len(self.get_robot_state())
         self.observation_size += 2 # XY velocity command
-        self.observation_size += 2 # swing ratio
-        self.observation_size += 2 # period shift
-        self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
+        self.depth_size = 100*100
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
             self.check_observation_action_size()
@@ -97,12 +92,21 @@ class DigitEnvClock(DigitEnv):
         self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
-        if self.clock_type == "von_mises":
-            self.clock.precompute_von_mises()
 
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
+        
+        self.renderer = mujoco.Renderer(self.sim.model, height=100, width=100)
+        # print("Verify the Gl context object, ", self.renderer._gl_context)
+        self.renderer.enable_depth_rendering()
+        self.camera_name = "forward-chest-realsense-d435/depth/image-rect"
+        
+        self.sim.geom_generator._create_geom('box0', *[0, 0, 0], rise=0.3, length=0.2, width=1)
+        self.sim.adjust_robot_pose()
+        
+        self.depth_image = self.get_depth_image()
+        
         return self.get_state()
 
     def step(self, action: np.ndarray):
@@ -114,12 +118,13 @@ class DigitEnvClock(DigitEnv):
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
         self.step_simulation(action, simulator_repeat_steps)
-        self.clock.increment()
+
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
 
         self.traj_idx += 1
         self.last_action = action
+        self.depth_image = self.get_depth_image()
 
         return self.get_state(), r, self.compute_done(), {}
 
@@ -129,12 +134,23 @@ class DigitEnvClock(DigitEnv):
     def compute_done(self):
         return self._compute_done(self)
 
+    def get_depth_image(self):
+        self.renderer.update_scene(self.sim.data, camera=self.camera_name)
+        depth = self.renderer.render()
+        # Shift nearest values to the origin.
+        depth -= depth.min()
+        # Scale by 2 mean distances of near rays.
+        depth /= (2*depth[depth <= 1].mean() + 1e-4)
+        # Scale to [0, 255]
+        depth = 255*np.clip(depth, 0, 1)
+        # import matplotlib.pylab as plt
+        # plt.imshow(depth.astype(np.uint8))
+        # plt.show()
+        return depth
+  
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
-                              [self.x_velocity, self.y_velocity],
-                              self.clock.get_swing_ratios(),
-                              self.clock.get_period_shifts(),
-                              self.clock.input_clock()))
+                              [self.x_velocity, self.y_velocity]))
         if not is_variable_valid(out):
             raise RuntimeError(f"States has Nan or Inf values. Training stopped.\n"
                                f"get_state returns {out}")
@@ -147,12 +163,6 @@ class DigitEnvClock(DigitEnv):
         mirror_inds = self.robot_state_mirror_indices
         # XY velocity command
         mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1)]
-        # swing ratio
-        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
-        # period shift
-        mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
-        # input clock sin/cos
-        mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         return mirror_inds
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
@@ -177,8 +187,8 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
-        "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
-        "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
+        "reward-name" : ("depth", "Which reward to use"),
+        "depth": (True, "Off-screen render depth")
     }
     if isinstance(parser, argparse.ArgumentParser):
         env_group = parser.add_argument_group("Env arguments")
