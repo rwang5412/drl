@@ -9,6 +9,7 @@ if __name__ == "__main__":
     parser.add_argument("--ar", default=False, action='store_true')
     parser.add_argument("--clock", default=False, action='store_true')
     parser.add_argument("--nn", default=False, action='store_true')
+    parser.add_argument("--mirror", default=False, action='store_true')
     parser.add_argument("--render", default=False, action='store_true')
     parser.add_argument("--all", default=False, action='store_true')
     args = parser.parse_args()
@@ -21,6 +22,7 @@ if __name__ == "__main__":
         args.nn = True
 
     if args.algo:
+        from testing.test_algo import test_all_algos
         test_all_algos()
     if args.env:
         import testing.test_env as test_env
