@@ -20,20 +20,20 @@ def test_all_env():
     child_env_list = [[CassieEnvClock, "mujoco"], [DigitEnvClock, "mujoco"],
                       [CassieEnvClock, "libcassie"], [CassieEnvClockOld, "mujoco"],
                       [CassieEnvClockOldFF, "mujoco"], [CassieEnvClockOldVonMises, "mujoco"]]
-    child_env_list = [[CassieEnvClock, "mujoco"], [CassieEnvClockOld, "mujoco"],
+    child_env_list = [[CassieEnvClock, "mujoco"], [DigitEnvClock, "mujoco"], [CassieEnvClockOld, "mujoco"],
                       [CassieEnvClockOldFF, "mujoco"], [CassieEnvClockOldVonMises, "mujoco"]]
     reward_list = [["linear", "locomotion_linear_clock_reward"],
                    ["von_mises", "locomotion_vonmises_clock_reward"],
                    ["linear", "stand_reward"]]
 
-    # for pair in base_env_sim_pair:
-    #     try:
-    #         test_base_env_step(test_env=pair[0], test_sim=pair[1])
-    #         print(f"{OKGREEN}Pass test with {pair[0].__name__} and {pair[1]}.{ENDC}")
-    #     except Exception:
-    #         print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
-    #         print(traceback.format_exc())
-    #         sys.exit()
+    for pair in base_env_sim_pair:
+        try:
+            test_base_env_step(test_env=pair[0], test_sim=pair[1])
+            print(f"{OKGREEN}Pass test with {pair[0].__name__} and {pair[1]}.{ENDC}")
+        except Exception:
+            print(f"{FAIL}{pair[0].__name__} with {pair[1]} failed test with error:{ENDC}")
+            print(traceback.format_exc())
+            sys.exit()
 
     for pair in child_env_list:
         try:

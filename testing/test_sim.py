@@ -28,7 +28,7 @@ from util.colors import FAIL, ENDC, OKGREEN
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
     # sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
-    sim_list = [MjDigitSim]
+    sim_list = [MjCassieSim, MjDigitSim]
     num_pass = 0
     failed = False
     for sim in sim_list:

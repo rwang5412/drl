@@ -11,7 +11,6 @@ from env.util.quaternion import (
     quaternion_product
 )
 from pathlib import Path
-from util.colors import FAIL, ENDC
 
 class CassieEnv(GenericEnv):
     def __init__(self,
