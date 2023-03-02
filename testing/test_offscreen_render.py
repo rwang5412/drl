@@ -53,26 +53,26 @@ def test_offscreen_rendering():
 				for _ in range(50):
 					start = time.time()
 					sim.sim_forward()
-				time_raw_sim_list.append(time.time() - start)
-				start_t = time.time()
-				if offscreen:
-					depth = sim.get_depth_image(camera_name)
-				else:
-					render_state = sim.viewer_render()
-					vis2.render(update_depth=True)
-					depth = vis2.depth_image.copy()
-				time_render_depth.append(time.time() - start_t)
-				frames.append(depth)
-				plt.imshow(depth)
-				plt.show()
-	
-				if sim.get_base_position()[2] < 0.5:
-					mean_time_sim = np.mean(np.array(time_raw_sim_list))
-					mean_time_render = np.mean(np.array(time_render_depth))
-					sim_time_avg_list.append(mean_time_sim)
-					render_time_avg_list.append(mean_time_render)
-					time_render_ratio.append(100*mean_time_render / (mean_time_sim+mean_time_render))
-					break
+			time_raw_sim_list.append(time.time() - start)
+			start_t = time.time()
+			if offscreen:
+				depth = sim.get_depth_image(camera_name)
+			else:
+				render_state = sim.viewer_render()
+				vis2.render(update_depth=True)
+				depth = vis2.depth_image.copy()
+			time_render_depth.append(time.time() - start_t)
+			frames.append(depth)
+			plt.imshow(depth)
+			plt.show()
+
+			if sim.get_base_position()[2] < 0.5:
+				mean_time_sim = np.mean(np.array(time_raw_sim_list))
+				mean_time_render = np.mean(np.array(time_render_depth))
+				sim_time_avg_list.append(mean_time_sim)
+				render_time_avg_list.append(mean_time_render)
+				time_render_ratio.append(100*mean_time_render / (mean_time_sim+mean_time_render))
+				break
 	mediapy.write_video("test.mp4", frames, fps=50)
 	fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2)
 	ax1.plot(size, sim_time_avg_list)
