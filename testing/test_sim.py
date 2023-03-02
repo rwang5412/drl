@@ -195,6 +195,8 @@ def test_sim_get_set(sim):
     test_sim.get_dof_damping(name=motor_name[0])
     test_sim.get_geom_friction()
     test_sim.get_geom_friction(name=floor_name)
+    test_sim.get_body_ipos()
+    test_sim.get_body_ipos(name=motor_name[0])
 
     # Test setters
     test_sim.set_joint_position(np.zeros(test_sim.num_joints))
@@ -210,6 +212,8 @@ def test_sim_get_set(sim):
     test_sim.set_dof_damping(np.zeros(1), name=motor_name[0])
     test_sim.set_geom_friction(np.zeros((ngeom, 3)))
     test_sim.set_geom_friction(np.zeros(3), name=floor_name)
+    test_sim.set_body_ipos(np.zeros((nbody, 3)))
+    test_sim.set_body_ipos(np.zeros(3), name=motor_name[0])
 
     print("Pass sim getter and setter functions")
     return True

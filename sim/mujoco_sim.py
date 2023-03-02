@@ -303,6 +303,13 @@ class MujocoSim(GenericSim):
         else:
             return copy.deepcopy(self.model.body_mass)
 
+    def get_body_ipos(self, name: str = None):
+        # If name is None, return all body masses
+        if name:
+            return self.model.body(name).ipos
+        else:
+            return copy.deepcopy(self.model.body_ipos)
+
     def get_dof_damping(self, name: str = None):
         if name:
             return self.model.joint(name).damping
@@ -383,6 +390,20 @@ class MujocoSim(GenericSim):
                 f"{FAIL}set_body_mass got array of shape {mass.shape} but should be shape " \
                 f"({self.model.nbody},).{ENDC}"
             self.model.body_mass = mass
+
+    def set_body_ipos(self, ipos: np.ndarray, name: str = None):
+        # If name is None, expect setting all masses
+        if name:
+            assert ipos.shape == (3,), \
+                f"{FAIL}set_body_ipos got array of shape {ipos.shape} when setting ipos for " \
+                f"single body {name} but should be shape (3,).{ENDC}"
+            self.model.body(name).ipos = ipos
+        else:
+            assert ipos.shape == (self.model.nbody, 3), \
+                f"{FAIL}set_body_mass got array of shape {ipos.shape} but should be shape " \
+                f"({self.model.nbody}, 3).{ENDC}"
+            self.model.body_ipos = ipos
+
 
     def set_dof_damping(self, damp: np.ndarray, name: str = None):
         if name:

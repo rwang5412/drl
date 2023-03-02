@@ -1,4 +1,5 @@
 import argparse
+import json
 import numpy as np
 
 from env.genericenv import GenericEnv
@@ -9,6 +10,7 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
+from pathlib import Path
 from util.colors import FAIL, ENDC
 
 class CassieEnv(GenericEnv):
@@ -59,6 +61,26 @@ class CassieEnv(GenericEnv):
             self.feet_grf_2khz_avg[foot] = self.sim.get_body_contact_force(name=foot)
             self.feet_velocity_2khz_avg[foot] = self.sim.get_body_velocity(name=foot)
 
+        # Dynamics randomization ranges
+        # If any joints/bodies are missing from the json file they just won't be randomized,
+        # DR will still run. Get default ranges for each param too
+        self.dr_ranges = json.load(open(Path(__file__).parent /
+                                    f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
+        self.default_dyn = {}
+        damp = {}
+        for joint_name in self.dr_ranges["damping"].keys():
+            damp[joint_name] = self.sim.get_dof_damping(joint_name)
+        self.default_dyn["damping"] = damp
+        mass = {}
+        for joint_name in self.dr_ranges["mass"].keys():
+            mass[joint_name] = self.sim.get_body_mass(joint_name)
+        self.default_dyn["mass"] = mass
+        ipos = {}
+        for joint_name in self.dr_ranges["ipos"].keys():
+            ipos[joint_name] = self.sim.get_body_ipos(joint_name)
+        self.default_dyn["ipos"] = ipos
+        self.default_dyn["friction"] = self.sim.get_geom_friction("floor")
+
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
         self.motor_mirror_indices = [-5, -6, 7, 8, 9,
@@ -89,6 +111,35 @@ class CassieEnv(GenericEnv):
         Depending on use cases, child class can override this as well.
         """
         self.sim.reset()
+
+    def randomize_dynamics(self):
+        # Damping randomization
+        for joint_name, range in self.dr_ranges["damping"].items():
+            num_dof = len(self.default_dyn["damping"][joint_name])
+            self.sim.set_dof_damping(np.multiply(np.random.uniform(*range, size=num_dof),
+                                                 self.default_dyn["damping"][joint_name]),
+                                     name=joint_name)
+        for body_name, range in self.dr_ranges["mass"].items():
+            self.sim.set_body_mass(np.random.uniform(*range) * self.default_dyn["mass"][body_name][0],
+                                   name=body_name)
+        for body_name, range in self.dr_ranges["ipos"].items():
+            self.sim.set_body_ipos(np.multiply(np.random.uniform(*range, size=3),
+                                               self.default_dyn["ipos"][body_name]),
+                                   name=body_name)
+        self.sim.set_geom_friction(np.multiply(np.random.uniform(*self.dr_ranges["friction"], size=3),
+                                               self.default_dyn["friction"]), name="floor")
+
+    def default_dynamics(self):
+        # Damping randomization
+        for joint_name, default_val in self.default_dyn["damping"].items():
+            self.sim.set_dof_damping(default_val, name=joint_name)
+        for body_name, default_val in self.default_dyn["mass"].items():
+            self.sim.set_body_mass(default_val[0], name=body_name)
+        for body_name, default_val in self.default_dyn["ipos"].items():
+            self.sim.set_body_ipos(self.default_dyn["ipos"][body_name],
+                                   name=body_name)
+        self.sim.set_geom_friction(np.multiply(np.random.uniform(*self.dr_ranges["friction"], size=3),
+                                               self.default_dyn["friction"]), name="floor")
 
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
         """This loop sends actions into control interfaces, update torques, simulate step,
