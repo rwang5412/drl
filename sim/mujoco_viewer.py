@@ -5,6 +5,7 @@ import numpy as np
 
 from threading import Lock
 from util.colors import FAIL, ENDC
+import matplotlib.pyplot as plt
 
 
 """
@@ -160,7 +161,12 @@ class MujocoViewer():
         self._advance_by_one_step = False
         self._hide_menus = False
 
-    def render(self):
+        # Internal buffers.
+        self._rgb_buffer = np.empty((height, width, 3), dtype=np.uint8)
+        self._depth_buffer = np.empty((height, width), dtype=np.float32)
+        self.depth_image = np.empty((height, width), dtype=np.float32)
+
+    def render(self, update_depth=False):
         if glfw.window_should_close(self.window):
             glfw.destroy_window(self.window)
             self.window = None
@@ -245,6 +251,23 @@ class MujocoViewer():
                                str_paused,
                                str_info,
                                self.ctx)
+            if update_depth:
+                mj.mjr_readPixels(self._rgb_buffer, self._depth_buffer, self.viewport, self.ctx)
+                # Get the distances to the near and far clipping planes.
+                extent = self.model.stat.extent
+                near = self.model.vis.map.znear * extent
+                far = self.model.vis.map.zfar * extent
+                # Convert from [0 1] to depth in units of length, see links below:
+                # http://stackoverflow.com/a/6657284/1461210
+                # https://www.khronos.org/opengl/wiki/Depth_Buffer_Precision
+                self.depth_image = near / (1 - self._depth_buffer * (1 - near / far))
+                self.depth_image = np.flipud(self.depth_image)
+                # Shift nearest values to the origin.
+                self.depth_image -= self.depth_image.min()
+                # Scale by 2 mean distances of near rays.
+                self.depth_image /= (2*self.depth_image[self.depth_image <= 1].mean() + 1e-4)
+                # Scale to [0, 255]
+                self.depth_image = 255*np.clip(self.depth_image, 0, 1)
             glfw.swap_buffers(self.window)
         glfw.poll_events()
         return True

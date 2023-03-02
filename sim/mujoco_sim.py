@@ -162,7 +162,8 @@ class MujocoSim(GenericSim):
                 f"that viewer has not been destroyed.{ENDC}")
 
     def init_offscreen_renderer(self, height: int, width: int):
-        """Initialized renderer class for offscreen rendering. Need to change os environ before
+        """Initialized renderer class for rendering. 
+        For offscreen render: Need to change os environ before
         importing all librairies (including mujoco). This does not work alongside with MujocoViewer.
         
         import os
@@ -176,13 +177,14 @@ class MujocoSim(GenericSim):
         # print("Verify the Gl context object, ", self.renderer._gl_context)
 
     def get_depth_image(self, camera_name: str):
-        """ Get depth image given camera name. To use depth offscreen rendering, first call this init_offscreen_renderer() at reset(). And then call this function.
+        """ Get depth image given camera name. To use depth offscreen rendering, 
+        first call this init_offscreen_renderer() at reset(). And then call this function.
         """
         if camera_name is None:
             raise RuntimeError("Specify a camera name.")
         self.renderer.enable_depth_rendering()
         self.renderer.update_scene(self.data, camera=camera_name)
-        depth = self.renderer.render()
+        depth = self.renderer.render().copy()
         # Perform in-place operations with depth values
         # Shift nearest values to the origin.
         depth -= depth.min()
