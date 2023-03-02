@@ -18,17 +18,7 @@ if __name__ == "__main__":
     if evaluation_type == 'test':
         parser = argparse.ArgumentParser()
         parser.add_argument('--env-name', default="CassieEnvClock", type=str)
-        parser.add_argument('--depth', default=False, action='store_true')
         args, env_args = parser.parse_known_args()
-        if args.depth:
-            import os
-            gl_option = 'glx'
-            os.environ['MUJOCO_GL']=gl_option
-            # Check if the env variable is correct
-            if "MUJOCO_GL" in os.environ:
-                assert os.getenv('MUJOCO_GL') == gl_option,\
-                       f"GL option is {os.getenv('MUJOCO_GL')} but want to load {gl_option}."
-
         simple_eval(actor=None, env_name=args.env_name, args=env_args)
         exit()
 
