@@ -2,10 +2,12 @@
 """
 
 def test_offscreen_rendering():
-	offscreen = 0
+
+	OFFSCREEN = 0
+	gl_option = 'egl' if OFFSCREEN else 'glx'
+
 	# Need to update env variable before import mujoco
 	import os
-	gl_option = 'egl' if offscreen else 'glx'
 	os.environ['MUJOCO_GL']=gl_option
 
 	import time
@@ -21,8 +23,8 @@ def test_offscreen_rendering():
 		print("PYOPENGL_PLATFORM =",os.getenv('PYOPENGL_PLATFORM'))
 
 	camera_name = "forward-chest-realsense-d435/depth/image-rect"
-	# size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480]
-	size = [400]
+	size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480]
+	# size = [400]
 	sim_time_avg_list = []
 	render_time_avg_list = []
 	time_render_ratio = []
@@ -32,28 +34,28 @@ def test_offscreen_rendering():
 		sim.reset()
 		sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.5, length=0.3, width=1)
 		sim.adjust_robot_pose()
-		if offscreen:
+		if OFFSCREEN:
 			# Init renderer that reads the same model/data
-			sim.init_renderer(width=s, height=s, offscreen=offscreen)
+			sim.init_renderer(width=s, height=s, offscreen=OFFSCREEN)
 			render_state = True
 		else:
 			sim.viewer_init(height=1024, width=960)
 			render_state = sim.viewer_render()
 			# Create a second viewer that renderes a different view
-			sim.init_renderer(width=400, height=400, offscreen=offscreen)
+			sim.init_renderer(width=400, height=400, offscreen=OFFSCREEN)
 
 		time_raw_sim_list = []
 		time_render_depth = []
 		frames = []
 		while render_state:
-			paused = False if offscreen else sim.viewer_paused()
+			paused = False if OFFSCREEN else sim.viewer_paused()
 			if not paused:
 				for _ in range(50):
 					start = time.time()
 					sim.sim_forward()
 					time_raw_sim_list.append(time.time() - start)
 			start_t = time.time()
-			if not offscreen:
+			if not OFFSCREEN:
 				render_state = sim.viewer_render()
 			depth = sim.get_depth_image(camera_name)
 			time_render_depth.append(time.time() - start_t)
@@ -67,6 +69,7 @@ def test_offscreen_rendering():
 				sim_time_avg_list.append(mean_time_sim)
 				render_time_avg_list.append(mean_time_render)
 				time_render_ratio.append(100*mean_time_render / (mean_time_sim+mean_time_render))
+				sim.renderer.close()
 				break
 	mediapy.write_video("test.mp4", frames, fps=50)
 	fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2)
@@ -81,5 +84,5 @@ def test_offscreen_rendering():
 	ax4.set_title('additional walk clock time [hours]\nfor 300M samples')
 	ax4.set_xlabel('image size')
 	fig.tight_layout()
-	# plt.show()
+	plt.show()
 	print("Passed offscreen rendering test!")
