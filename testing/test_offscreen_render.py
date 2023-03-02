@@ -2,21 +2,22 @@
 """
 
 def test_offscreen_rendering():
+	offscreen = 0
 	# Need to update env variable before import mujoco
 	import os
-	gl_option = 'egl'
+	gl_option = 'egl' if offscreen else 'glx'
 	os.environ['MUJOCO_GL']=gl_option
 
 	import time
 	import numpy as np
 	import matplotlib.pyplot as plt
 	import mediapy
-	import mujoco
-	from sim import MjCassieSim, MujocoViewer
+	from sim import MjCassieSim
 
 	# Check if the env variable is correct
 	if "MUJOCO_GL" in os.environ:
-		assert os.getenv('MUJOCO_GL') == gl_option, f"GL option is {os.getenv('MUJOCO_GL')} but want to load {gl_option}."
+		assert os.getenv('MUJOCO_GL') == gl_option,\
+			   f"GL option is {os.getenv('MUJOCO_GL')} but want to load {gl_option}."
 		print("PYOPENGL_PLATFORM =",os.getenv('PYOPENGL_PLATFORM'))
 
 	camera_name = "forward-chest-realsense-d435/depth/image-rect"
@@ -30,19 +31,16 @@ def test_offscreen_rendering():
 		sim = MjCassieSim()
 		sim.reset()
 		sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.5, length=0.3, width=1)
-		offscreen = True if os.getenv('MUJOCO_GL') == 'egl' else False
+		sim.adjust_robot_pose()
 		if offscreen:
 			# Init renderer that reads the same model/data
-			sim.init_offscreen_renderer(width=s, height=s)
+			sim.init_renderer(width=s, height=s, offscreen=offscreen)
 			render_state = True
 		else:
 			sim.viewer_init(height=1024, width=960)
 			render_state = sim.viewer_render()
 			# Create a second viewer that renderes a different view
-			vis2 = MujocoViewer(sim.model, sim.data, sim.reset_qpos, \
-				camera_id=camera_name, width=400, height=400)
-			vis2.render(update_depth=True)
-			sim.viewer.paused = False
+			sim.init_renderer(width=400, height=400, offscreen=offscreen)
 
 		time_raw_sim_list = []
 		time_render_depth = []
@@ -53,18 +51,15 @@ def test_offscreen_rendering():
 				for _ in range(50):
 					start = time.time()
 					sim.sim_forward()
-			time_raw_sim_list.append(time.time() - start)
+					time_raw_sim_list.append(time.time() - start)
 			start_t = time.time()
-			if offscreen:
-				depth = sim.get_depth_image(camera_name)
-			else:
+			if not offscreen:
 				render_state = sim.viewer_render()
-				vis2.render(update_depth=True)
-				depth = vis2.depth_image.copy()
+			depth = sim.get_depth_image(camera_name)
 			time_render_depth.append(time.time() - start_t)
-			frames.append(depth)
-			plt.imshow(depth)
-			plt.show()
+			frames.append(depth.astype(np.uint8))
+			# plt.imshow(depth)
+			# plt.show()
 
 			if sim.get_base_position()[2] < 0.5:
 				mean_time_sim = np.mean(np.array(time_raw_sim_list))
