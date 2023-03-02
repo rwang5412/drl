@@ -4,7 +4,7 @@
 def test_offscreen_rendering():
 	# Need to update env variable before import mujoco
 	import os
-	gl_option = 'glx'
+	gl_option = 'egl'
 	os.environ['MUJOCO_GL']=gl_option
 
 	import time
@@ -42,12 +42,12 @@ def test_offscreen_rendering():
 			vis2 = MujocoViewer(sim.model, sim.data, sim.reset_qpos, \
 				camera_id=camera_name, width=400, height=400)
 			vis2.render(update_depth=True)
+			sim.viewer.paused = False
 
 		time_raw_sim_list = []
 		time_render_depth = []
 		frames = []
 		while render_state:
-			# sim.viewer.paused = False
 			paused = False if offscreen else sim.viewer_paused()
 			if not paused:
 				for _ in range(50):
