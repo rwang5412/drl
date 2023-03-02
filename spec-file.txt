@@ -144,3 +144,4 @@ https://repo.anaconda.com/pkgs/main/linux-64/numpy-1.23.5-py310hd5efca6_0.tar.bz
 https://repo.anaconda.com/pkgs/main/linux-64/pytorch-1.10.2-cpu_py310h6894f24_0.conda
 https://repo.anaconda.com/pkgs/main/linux-64/scipy-1.10.0-py310hd5efca6_1.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/tensorboard-2.10.0-py310h06a4308_0.tar.bz2
+https://repo.anaconda.com/pkgs/main/linux-64/conda-libmamba-solver-22.12.0-py310h06a4308_0.conda
