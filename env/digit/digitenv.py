@@ -138,24 +138,24 @@ class DigitEnv(GenericEnv):
     def randomize_dynamics(self):
         # Damping randomization
         rand_damp = self.dr_ranges["damping"]["default"]
-        rand_scale = np.random.uniform(self.dr_ranges["damping"]["ranges"][:, 0],
-                                       self.dr_ranges["damping"]["ranges"][:, 1])
+        rand_scale = 1 + np.random.uniform(self.dr_ranges["damping"]["ranges"][:, 0],
+                                           self.dr_ranges["damping"]["ranges"][:, 1])
         rand_damp[self.dr_ranges["damping"]["inds"]] *= rand_scale
         self.sim.set_dof_damping(rand_damp)
         # Mass randomization
         rand_mass = self.dr_ranges["mass"]["default"]
-        rand_scale = np.random.uniform(self.dr_ranges["mass"]["ranges"][:, 0],
-                                       self.dr_ranges["mass"]["ranges"][:, 1])
+        rand_scale = 1 + np.random.uniform(self.dr_ranges["mass"]["ranges"][:, 0],
+                                           self.dr_ranges["mass"]["ranges"][:, 1])
         rand_mass[self.dr_ranges["mass"]["inds"]] *= rand_scale
         self.sim.set_body_mass(rand_mass)
         # Body CoM location randomization
         rand_ipos = self.dr_ranges["ipos"]["default"]
-        rand_scale = np.random.uniform(self.dr_ranges["ipos"]["ranges"][:, 0, :],
-                                       self.dr_ranges["ipos"]["ranges"][:, 1, :])
+        rand_scale = 1 + np.random.uniform(self.dr_ranges["ipos"]["ranges"][:, 0, :],
+                                           self.dr_ranges["ipos"]["ranges"][:, 1, :])
         rand_ipos[self.dr_ranges["ipos"]["inds"]] *= rand_scale
         self.sim.set_body_ipos(rand_ipos)
         # Floor friction randomization
-        self.sim.set_geom_friction(np.multiply(np.random.uniform(
+        self.sim.set_geom_friction(np.multiply(1 + np.random.uniform(
                                    *self.dr_ranges["friction"]["ranges"], size=3),
                                    self.dr_ranges["friction"]["default"]), name="ground")
 
