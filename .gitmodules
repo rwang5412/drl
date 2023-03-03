@@ -1,0 +1,3 @@
+[submodule "drail_drake"]
+	path = drail_drake
+	url = git@github.com:osudrl/drail_drake.git
