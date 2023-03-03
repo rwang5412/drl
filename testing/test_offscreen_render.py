@@ -69,7 +69,11 @@ def test_offscreen_rendering():
 				sim_time_avg_list.append(mean_time_sim)
 				render_time_avg_list.append(mean_time_render)
 				time_render_ratio.append(100*mean_time_render / (mean_time_sim+mean_time_render))
-				sim.renderer.close()
+				try:
+					sim.renderer.close()
+					sim.viewer.close()
+				except:
+					pass
 				break
 	mediapy.write_video("test.mp4", frames, fps=50)
 	fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2)
