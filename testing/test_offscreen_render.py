@@ -54,9 +54,9 @@ def test_offscreen_rendering():
 					start = time.time()
 					sim.sim_forward()
 					time_raw_sim_list.append(time.time() - start)
-			start_t = time.time()
 			if not OFFSCREEN:
 				render_state = sim.viewer_render()
+			start_t = time.time()
 			depth = sim.get_depth_image(camera_name)
 			time_render_depth.append(time.time() - start_t)
 			frames.append(depth.astype(np.uint8))
