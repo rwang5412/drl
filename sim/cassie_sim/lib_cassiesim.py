@@ -22,6 +22,12 @@ class LibCassieSim(GenericSim):
         # self.sim = CassieSim(modelfile=kwargs['modelfile'], terrain=kwargs['terrain'], perception=kwargs['perception'])
         # self.sim = CassieSim(terrain=kwargs['terrain'], perception=kwargs['perception'])
         self.sim = CassieSim()
+        self.nq = self.sim.nq
+        self.nv = self.sim.nv
+        self.nu = self.sim.nu
+        self.nbody = self.sim.nbody
+        self.njnt = self.sim.njnt
+        self.ngeom = self.sim.ngeom
         self.viewer = None
         self.sim_dt = 0.0005    # Assume libcassie sim is always 2kHz
         self.simulator_rate = int(1 / self.sim_dt)
@@ -269,6 +275,15 @@ class LibCassieSim(GenericSim):
         self.sim.get_body_contact_force(total_wrench, name)
         return total_wrench[:3]
 
+    def get_body_mass(self, name: str = None):
+        raise NotImplementedError
+
+    def get_dof_damping(self, name: str = None):
+        raise NotImplementedError
+
+    def get_geom_friction(self, name: str = None):
+        raise NotImplementedError
+
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
                f"{FAIL}set_joint_position got array of shape {position.shape} but " \
@@ -332,3 +347,12 @@ class LibCassieSim(GenericSim):
         curr_qvel = np.array(self.sim.qvel())
         curr_qvel[self.base_angular_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
+
+    def set_body_mass(self, name: str = None):
+        raise NotImplementedError
+
+    def set_dof_damping(self, name: str = None):
+        raise NotImplementedError
+
+    def set_geom_friction(self, name: str = None):
+        raise NotImplementedError

@@ -16,6 +16,12 @@ class MujocoSim(GenericSim):
         super().__init__()
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
+        self.nq = self.model.nq
+        self.nv = self.model.nv
+        self.nu = self.model.nu
+        self.nbody = self.model.nbody
+        self.njnt = self.model.njnt
+        self.ngeom = self.model.ngeom
         self.viewer = None
         # Enforce that necessary constants and index arrays are defined
         check_vars = ["torque_delay_cycles", "torque_efficiency", "motor_position_inds",
