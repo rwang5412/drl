@@ -162,6 +162,9 @@ class MujocoSim(GenericSim):
     def get_joint_dof_adr(self, name: str):
         return self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
 
+    def get_body_adr(self, name: str):
+        return mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+
     def get_simulation_time(self):
         return self.data.time
 

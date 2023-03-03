@@ -66,18 +66,48 @@ class CassieEnv(GenericEnv):
         self.dr_ranges = json.load(open(Path(__file__).parent /
                                     f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
         self.default_dyn = {}
+        self.default_dyn2 = {}
         damp = {}
+        damp_inds = []
+        self.dr_ranges2 = {}
+        damp_ranges = []
         for joint_name in self.dr_ranges["damping"].keys():
             damp[joint_name] = self.sim.get_dof_damping(joint_name)
+            num_dof = len(self.sim.get_dof_damping(joint_name))
+            for i in range(num_dof):
+                damp_inds.append(self.sim.get_joint_dof_adr(joint_name) + i)
+                # print(self.sim.get_dof_damping(joint_name), type(self.sim.get_dof_damping(joint_name)))
+                damp_ranges += self.sim.get_dof_damping(joint_name).tolist()
+        damp_ranges = np.array(damp_ranges)
+        # print("damp", damp_ranges)
+        # exit()
+        damp2 = {"inds":damp_inds, "default":self.sim.get_dof_damping(), "ranges":damp_ranges}
+        self.default_dyn2["damping"] = damp2
         self.default_dyn["damping"] = damp
+
         mass = {}
-        for joint_name in self.dr_ranges["mass"].keys():
-            mass[joint_name] = self.sim.get_body_mass(joint_name)
+        mass_inds = []
+        mass_ranges = []
+        for body_name in self.dr_ranges["mass"].keys():
+            mass[body_name] = self.sim.get_body_mass(body_name)
+            mass_inds.append(self.sim.get_body_adr(body_name))
+            mass_ranges += self.sim.get_body_mass(body_name)
+        mass_ranges = np.array(mass_ranges)
         self.default_dyn["mass"] = mass
+        mass2 = {"inds":mass_inds, "default":self.sim.get_body_mass(), "ranges":mass_ranges}
+        self.default_dyn2["mass"] = mass2
+
         ipos = {}
-        for joint_name in self.dr_ranges["ipos"].keys():
-            ipos[joint_name] = self.sim.get_body_ipos(joint_name)
+        ipos_inds = []
+        ipos_ranges = []
+        for body_name in self.dr_ranges["ipos"].keys():
+            ipos[body_name] = self.sim.get_body_ipos(body_name)
+            ipos_inds.append(self.sim.get_body_adr(body_name))
+            ipos_ranges.append(self.sim.get_body_ipos(body_name))
         self.default_dyn["ipos"] = ipos
+        ipos_ranges = np.array(ipos_ranges)
+        ipos2 = {"inds":ipos_inds, "default":self.sim.get_body_ipos(), "ranges":ipos_ranges}
+        self.default_dyn2["ipos"] = ipos2
         self.default_dyn["friction"] = self.sim.get_geom_friction("floor")
 
         # Mirror indices and make sure complete test_mirror when changes made below
@@ -112,6 +142,23 @@ class CassieEnv(GenericEnv):
         self.sim.reset()
 
     def randomize_dynamics(self):
+        # Damping randomization
+        for joint_name, range in self.dr_ranges["damping"].items():
+            num_dof = len(self.default_dyn["damping"][joint_name])
+            self.sim.set_dof_damping(np.multiply(np.random.uniform(*range, size=num_dof),
+                                                 self.default_dyn["damping"][joint_name]),
+                                     name=joint_name)
+        for body_name, range in self.dr_ranges["mass"].items():
+            self.sim.set_body_mass(np.random.uniform(*range) * self.default_dyn["mass"][body_name][0],
+                                   name=body_name)
+        for body_name, range in self.dr_ranges["ipos"].items():
+            self.sim.set_body_ipos(np.multiply(np.random.uniform(*range, size=3),
+                                               self.default_dyn["ipos"][body_name]),
+                                   name=body_name)
+        self.sim.set_geom_friction(np.multiply(np.random.uniform(*self.dr_ranges["friction"], size=3),
+                                               self.default_dyn["friction"]), name="floor")
+
+    def randomize_dynamics2(self):
         # Damping randomization
         for joint_name, range in self.dr_ranges["damping"].items():
             num_dof = len(self.default_dyn["damping"][joint_name])
