@@ -62,53 +62,47 @@ class CassieEnv(GenericEnv):
 
         # Dynamics randomization ranges
         # If any joints/bodies are missing from the json file they just won't be randomized,
-        # DR will still run. Get default ranges for each param too
-        self.dr_ranges = json.load(open(Path(__file__).parent /
-                                    f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
-        self.default_dyn = {}
-        self.default_dyn2 = {}
-        damp = {}
-        damp_inds = []
-        self.dr_ranges2 = {}
-        damp_ranges = []
-        for joint_name in self.dr_ranges["damping"].keys():
-            damp[joint_name] = self.sim.get_dof_damping(joint_name)
-            num_dof = len(self.sim.get_dof_damping(joint_name))
-            for i in range(num_dof):
-                damp_inds.append(self.sim.get_joint_dof_adr(joint_name) + i)
-                # print(self.sim.get_dof_damping(joint_name), type(self.sim.get_dof_damping(joint_name)))
-                damp_ranges += self.sim.get_dof_damping(joint_name).tolist()
-        damp_ranges = np.array(damp_ranges)
-        # print("damp", damp_ranges)
-        # exit()
-        damp2 = {"inds":damp_inds, "default":self.sim.get_dof_damping(), "ranges":damp_ranges}
-        self.default_dyn2["damping"] = damp2
-        self.default_dyn["damping"] = damp
-
-        mass = {}
-        mass_inds = []
-        mass_ranges = []
-        for body_name in self.dr_ranges["mass"].keys():
-            mass[body_name] = self.sim.get_body_mass(body_name)
-            mass_inds.append(self.sim.get_body_adr(body_name))
-            mass_ranges += self.sim.get_body_mass(body_name)
-        mass_ranges = np.array(mass_ranges)
-        self.default_dyn["mass"] = mass
-        mass2 = {"inds":mass_inds, "default":self.sim.get_body_mass(), "ranges":mass_ranges}
-        self.default_dyn2["mass"] = mass2
-
-        ipos = {}
-        ipos_inds = []
-        ipos_ranges = []
-        for body_name in self.dr_ranges["ipos"].keys():
-            ipos[body_name] = self.sim.get_body_ipos(body_name)
-            ipos_inds.append(self.sim.get_body_adr(body_name))
-            ipos_ranges.append(self.sim.get_body_ipos(body_name))
-        self.default_dyn["ipos"] = ipos
-        ipos_ranges = np.array(ipos_ranges)
-        ipos2 = {"inds":ipos_inds, "default":self.sim.get_body_ipos(), "ranges":ipos_ranges}
-        self.default_dyn2["ipos"] = ipos2
-        self.default_dyn["friction"] = self.sim.get_geom_friction("floor")
+        # DR will still run. Get default ranges for each param too. We grab the indicies of the
+        # relevant joints/bodies to avoid using named access later (vectorized access is faster)
+        if self.__class__.__name__.lower() != "cassieenv":
+            dyn_rand_data = json.load(open(Path(__file__).parent /
+                                        f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
+            self.dr_ranges = {}
+            # Damping
+            damp_inds = []
+            damp_ranges = []
+            for joint_name, rand_range in dyn_rand_data["damping"].items():
+                num_dof = len(self.sim.get_dof_damping(joint_name))
+                for i in range(num_dof):
+                    damp_inds.append(self.sim.get_joint_dof_adr(joint_name) + i)
+                    damp_ranges.append(rand_range)
+            damp_ranges = np.array(damp_ranges)
+            self.dr_ranges["damping"] = {"inds":damp_inds,
+                                        "default":self.sim.get_dof_damping(),
+                                        "ranges":damp_ranges}
+            # Mass
+            mass_inds = []
+            mass_ranges = []
+            for body_name, rand_range in dyn_rand_data["mass"].items():
+                mass_inds.append(self.sim.get_body_adr(body_name))
+                mass_ranges.append(rand_range)
+            mass_ranges = np.array(mass_ranges)
+            self.dr_ranges["mass"] = {"inds":mass_inds,
+                                    "default":self.sim.get_body_mass(),
+                                    "ranges":mass_ranges}
+            # CoM location
+            ipos_inds = []
+            ipos_ranges = []
+            for body_name, rand_range in dyn_rand_data["ipos"].items():
+                ipos_inds.append(self.sim.get_body_adr(body_name))
+                ipos_ranges.append(np.repeat(np.array(rand_range)[:, np.newaxis], 3, axis=1))
+            ipos_ranges = np.array(ipos_ranges)
+            self.dr_ranges["ipos"] = {"inds":ipos_inds,
+                                    "default":self.sim.get_body_ipos(),
+                                    "ranges":ipos_ranges}
+            # Friction
+            self.dr_ranges["friction"] = {"default": self.sim.get_geom_friction("floor"),
+                                        "ranges": dyn_rand_data["friction"]}
 
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
@@ -143,49 +137,33 @@ class CassieEnv(GenericEnv):
 
     def randomize_dynamics(self):
         # Damping randomization
-        for joint_name, range in self.dr_ranges["damping"].items():
-            num_dof = len(self.default_dyn["damping"][joint_name])
-            self.sim.set_dof_damping(np.multiply(np.random.uniform(*range, size=num_dof),
-                                                 self.default_dyn["damping"][joint_name]),
-                                     name=joint_name)
-        for body_name, range in self.dr_ranges["mass"].items():
-            self.sim.set_body_mass(np.random.uniform(*range) * self.default_dyn["mass"][body_name][0],
-                                   name=body_name)
-        for body_name, range in self.dr_ranges["ipos"].items():
-            self.sim.set_body_ipos(np.multiply(np.random.uniform(*range, size=3),
-                                               self.default_dyn["ipos"][body_name]),
-                                   name=body_name)
-        self.sim.set_geom_friction(np.multiply(np.random.uniform(*self.dr_ranges["friction"], size=3),
-                                               self.default_dyn["friction"]), name="floor")
-
-    def randomize_dynamics2(self):
-        # Damping randomization
-        for joint_name, range in self.dr_ranges["damping"].items():
-            num_dof = len(self.default_dyn["damping"][joint_name])
-            self.sim.set_dof_damping(np.multiply(np.random.uniform(*range, size=num_dof),
-                                                 self.default_dyn["damping"][joint_name]),
-                                     name=joint_name)
-        for body_name, range in self.dr_ranges["mass"].items():
-            self.sim.set_body_mass(np.random.uniform(*range) * self.default_dyn["mass"][body_name][0],
-                                   name=body_name)
-        for body_name, range in self.dr_ranges["ipos"].items():
-            self.sim.set_body_ipos(np.multiply(np.random.uniform(*range, size=3),
-                                               self.default_dyn["ipos"][body_name]),
-                                   name=body_name)
-        self.sim.set_geom_friction(np.multiply(np.random.uniform(*self.dr_ranges["friction"], size=3),
-                                               self.default_dyn["friction"]), name="floor")
+        rand_damp = self.dr_ranges["damping"]["default"]
+        rand_scale = np.random.uniform(self.dr_ranges["damping"]["ranges"][:, 0],
+                                       self.dr_ranges["damping"]["ranges"][:, 1])
+        rand_damp[self.dr_ranges["damping"]["inds"]] *= rand_scale
+        self.sim.set_dof_damping(rand_damp)
+        # Mass randomization
+        rand_mass = self.dr_ranges["mass"]["default"]
+        rand_scale = np.random.uniform(self.dr_ranges["mass"]["ranges"][:, 0],
+                                       self.dr_ranges["mass"]["ranges"][:, 1])
+        rand_mass[self.dr_ranges["mass"]["inds"]] *= rand_scale
+        self.sim.set_body_mass(rand_mass)
+        # Body CoM location randomization
+        rand_ipos = self.dr_ranges["ipos"]["default"]
+        rand_scale = np.random.uniform(self.dr_ranges["ipos"]["ranges"][:, 0, :],
+                                       self.dr_ranges["ipos"]["ranges"][:, 1, :])
+        rand_ipos[self.dr_ranges["ipos"]["inds"]] *= rand_scale
+        self.sim.set_body_ipos(rand_ipos)
+        # Floor friction randomization
+        self.sim.set_geom_friction(np.multiply(np.random.uniform(
+                                   *self.dr_ranges["friction"]["ranges"], size=3),
+                                   self.dr_ranges["friction"]["default"]), name="floor")
 
     def default_dynamics(self):
-        # Damping randomization
-        for joint_name, default_val in self.default_dyn["damping"].items():
-            self.sim.set_dof_damping(default_val, name=joint_name)
-        for body_name, default_val in self.default_dyn["mass"].items():
-            self.sim.set_body_mass(default_val[0], name=body_name)
-        for body_name, default_val in self.default_dyn["ipos"].items():
-            self.sim.set_body_ipos(self.default_dyn["ipos"][body_name],
-                                   name=body_name)
-        self.sim.set_geom_friction(np.multiply(np.random.uniform(*self.dr_ranges["friction"], size=3),
-                                               self.default_dyn["friction"]), name="floor")
+        self.sim.set_dof_damping(self.dr_ranges["damping"]["default"])
+        self.sim.set_body_mass(self.dr_ranges["mass"]["default"])
+        self.sim.set_body_ipos(self.dr_ranges["ipos"]["default"])
+        self.sim.set_geom_friction(self.dr_ranges["friction"]["default"], name="floor")
 
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
         """This loop sends actions into control interfaces, update torques, simulate step,
