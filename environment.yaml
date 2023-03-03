@@ -149,5 +149,6 @@ dependencies:
       - ray==2.2.0
       - setuptools==59.5.0
       - wandb==0.13.10
+      - drake==1.13.0
    
 prefix: /home/drail/miniconda3/envs/new_rr_env
