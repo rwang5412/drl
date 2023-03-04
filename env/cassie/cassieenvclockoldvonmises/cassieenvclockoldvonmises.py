@@ -44,6 +44,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         self.observation_size += 3 # XYYaw velocity command
         self.observation_size += 2 # swing ratio
         self.observation_size += 2 # input clock
+        self.state_dim = len(self.get_robot_state())
+        self.nonstate_dim = 7
         self.action_size = self.sim.num_actuators
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():

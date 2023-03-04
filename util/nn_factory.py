@@ -55,18 +55,18 @@ def nn_factory(args, env_fn=None):
                         nonlinearity=args.nonlinearity)
         critic = FFCritic(args.obs_dim, layers=layers)
     elif args.arch == 'mix':
-        policy = MixActor(obs_dim=35,
+        policy = MixActor(obs_dim=args.obs_dim,
                           state_dim=env_fn().state_dim,
                           nonstate_dim=env_fn().nonstate_dim,
                           action_dim=args.action_dim,
-                          lstm_layers=[64,64],
-                          ff_layers=[64,64],
-                          bounded=False,
-                          learn_std=False,
-                          std=0.13,
-                          nonstate_encoder_dim=8,
-                          nonstate_encoder_on=False)
-        critic = LSTMCritic(42, layers=[64,64])
+                          lstm_layers=layers,
+                          ff_layers=layers,
+                          bounded=args.bounded,
+                          learn_std=args.learn_stddev,
+                          std=std,
+                          nonstate_encoder_dim=args.nonstate_encoder_dim,
+                          nonstate_encoder_on=args.nonstate_encoder_on)
+        critic = LSTMCritic(input_dim=args.obs_dim, layers=layers)
     else:
         raise RuntimeError(f"Arch {args.arch} is not included, check the entry point.")
 

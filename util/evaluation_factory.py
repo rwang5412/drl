@@ -6,7 +6,7 @@ import numpy as np
 
 from util.env_factory import env_factory
 
-def simple_eval(actor, env_name, env_args, episode_length_max=300):
+def simple_eval(actor, env_fn, episode_length_max=300):
     """Simply evaluating policy without UI via terminal
 
     Args:
@@ -15,9 +15,7 @@ def simple_eval(actor, env_name, env_args, episode_length_max=300):
         args: Arguments for environment.
         episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
     """
-    # Load environment
-    env = env_factory(env_name, env_args)()
-
+    env = env_fn()
     with torch.no_grad():
         state = env.reset()
         done = False
