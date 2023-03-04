@@ -78,11 +78,3 @@ CASSIE_MOTOR_NAME = [
 
 CASSIE_JOINT_NAME = ["left-shin", "left-tarsus", "right-shin", "right-tarsus"]
 
-# Number constants for bodies, joints, geom, etc.
-CASSIE_NUM_BODY = 26
-CASSIE_NV = 32
-CASSIE_NUM_GEOM = 56
-
-DIGIT_NUM_BODY = 38
-DIGIT_NV = 54
-DIGIT_NUM_GEOM = 76

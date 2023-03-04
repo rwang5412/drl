@@ -14,12 +14,6 @@ from .common import (
     DIGIT_JOINT_NAME,
     CASSIE_MOTOR_NAME,
     CASSIE_JOINT_NAME,
-    CASSIE_NUM_BODY,
-    CASSIE_NUM_GEOM,
-    CASSIE_NV,
-    DIGIT_NUM_BODY,
-    DIGIT_NUM_GEOM,
-    DIGIT_NV
 )
 
 from env.util.quaternion import quaternion2euler
@@ -33,19 +27,18 @@ def test_all_sim():
     for sim in sim_list:
         num_pass = 0
         print(f"Testing {sim.__name__}")
-        test_sim_get_set(sim)
-        # num_pass += test_sim_init(sim)
-        # num_pass += test_sim_sim_forward(sim)
-        # num_pass += test_sim_viewer(sim)
-        # num_pass += test_sim_glfw_multiple_viewer(sim)
-        # num_pass += test_sim_PD(sim)
-        # num_pass += test_sim_get_set(sim)
-        # num_pass += test_sim_indexes(sim)
-        # num_pass += test_sim_body_pose(sim)
-        # num_pass += test_sim_body_velocity(sim)
-        # num_pass += test_sim_body_acceleration(sim)
-        # num_pass += test_sim_body_contact_force(sim)
-        # num_pass += test_sim_relative_pose(sim)
+        num_pass += test_sim_init(sim)
+        num_pass += test_sim_sim_forward(sim)
+        num_pass += test_sim_viewer(sim)
+        num_pass += test_sim_glfw_multiple_viewer(sim)
+        num_pass += test_sim_PD(sim)
+        num_pass += test_sim_get_set(sim)
+        num_pass += test_sim_indexes(sim)
+        num_pass += test_sim_body_pose(sim)
+        num_pass += test_sim_body_velocity(sim)
+        num_pass += test_sim_body_acceleration(sim)
+        num_pass += test_sim_body_contact_force(sim)
+        num_pass += test_sim_relative_pose(sim)
         if num_pass == 12:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
@@ -175,9 +168,6 @@ def test_sim_get_set(sim):
     print("Testing sim getter and setter functions")
     motor_name = CASSIE_MOTOR_NAME if 'cassie' in sim.__name__.lower() else DIGIT_MOTOR_NAME
     floor_name = "floor" if 'cassie' in sim.__name__.lower() else "ground"
-    nbody = CASSIE_NUM_BODY if 'cassie' in sim.__name__.lower() else DIGIT_NUM_BODY
-    nv = CASSIE_NV if 'cassie' in sim.__name__.lower() else DIGIT_NV
-    ngeom = CASSIE_NUM_GEOM if 'cassie' in sim.__name__.lower() else DIGIT_NUM_GEOM
     test_sim = sim()
     test_sim.reset()
     # Test getters
