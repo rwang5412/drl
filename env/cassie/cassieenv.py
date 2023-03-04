@@ -25,7 +25,8 @@ class CassieEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
-            terrain (str): Type of terrain generation [stone, stair, obstacle]
+            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside 
+                           each subenv class to support individual use case.
         """
         super().__init__()
         self.dynamics_randomization = dynamics_randomization
@@ -33,7 +34,7 @@ class CassieEnv(GenericEnv):
         self.terrain = terrain
         # Select simulator
         if simulator_type == "mujoco":
-            self.sim = MjCassieSim(terrain=self.terrain)
+            self.sim = MjCassieSim()
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
         else:
@@ -172,6 +173,7 @@ class CassieEnv(GenericEnv):
             f"Check observation size = {self.observation_size}," \
             f"but get_state() returns with size {len(self.get_state())}"
         assert len(self.get_observation_mirror_indices()) == self.observation_size, \
-            "State mirror inds size mismatch with observation size."
+            f"State mirror inds size {len(self.get_observation_mirror_indices())} mismatch " \
+            f"with observation size {self.observation_size}."
         assert len(self.get_action_mirror_indices()) == self.action_size, \
             "Action mirror inds size mismatch with action size."
