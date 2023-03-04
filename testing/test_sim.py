@@ -27,8 +27,7 @@ from util.colors import FAIL, ENDC, OKGREEN
 
 def test_all_sim():
     # TODO: Add other sims to this list after implemented
-    # sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
-    sim_list = [MjCassieSim, MjDigitSim]
+    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
     num_pass = 0
     failed = False
     for sim in sim_list:
@@ -206,13 +205,13 @@ def test_sim_get_set(sim):
     test_sim.set_base_orientation(np.array([0, 0.6987058, 0.2329019, 0.6764369]))
     test_sim.set_base_angular_velocity(np.zeros(3))
     test_sim.set_torque(np.zeros(test_sim.num_actuators))
-    test_sim.set_body_mass(np.zeros(nbody))
+    test_sim.set_body_mass(np.zeros(test_sim.nbody))
     test_sim.set_body_mass(0, name=motor_name[0])
-    test_sim.set_dof_damping(np.zeros(nv))
-    test_sim.set_dof_damping(np.zeros(1), name=motor_name[0])
-    test_sim.set_geom_friction(np.zeros((ngeom, 3)))
+    test_sim.set_dof_damping(np.zeros(test_sim.nv))
+    test_sim.set_dof_damping(1, name=motor_name[0])
+    test_sim.set_geom_friction(np.zeros((test_sim.ngeom, 3)))
     test_sim.set_geom_friction(np.zeros(3), name=floor_name)
-    test_sim.set_body_ipos(np.zeros((nbody, 3)))
+    test_sim.set_body_ipos(np.zeros((test_sim.nbody, 3)))
     test_sim.set_body_ipos(np.zeros(3), name=motor_name[0])
 
     print("Pass sim getter and setter functions")
@@ -381,20 +380,3 @@ def test_sim_relative_pose(sim):
 
     print("Passed sim get_relative_pose")
     return True
-
-def test_sim_dr(sim):
-    test_sim = sim()
-    # print(test_sim.get_dof_damping(name="left-hip-roll"))
-    # print(test_sim.get_dof_damping(name="left-achilles-rod"))
-    # foo = test_sim.get_body_mass(name="left-hip-roll")
-    foo = test_sim.get_dof_damping(name="left-hip-roll")
-    print(foo)
-    foo = 5
-    print(test_sim.get_dof_damping(name="left-hip-roll"))
-    test_sim.set_geom_friction(np.zeros(10), name="floor")
-    exit()
-    # print(test_sim.get_body_mass(name="left-hip-roll"))
-    foo = test_sim.get_joint_position()
-    # print(foo)
-    foo[0] = 5
-    # print(test_sim.get_joint_position())

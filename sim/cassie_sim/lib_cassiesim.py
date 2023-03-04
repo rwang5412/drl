@@ -196,6 +196,9 @@ class LibCassieSim(GenericSim):
     def get_joint_dof_adr(self, name: str):
         return self.sim.jnt_dofadr()[self.sim.mj_name2id("joint", name)]
 
+    def get_body_adr(self, name: str):
+        return self.sim.mj_name2id("body", name)
+
     def get_simulation_time(self):
         return self.sim.time()
 

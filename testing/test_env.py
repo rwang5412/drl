@@ -20,8 +20,6 @@ def test_all_env():
     child_env_list = [[CassieEnvClock, "mujoco"], [DigitEnvClock, "mujoco"],
                       [CassieEnvClock, "libcassie"], [CassieEnvClockOld, "mujoco"],
                       [CassieEnvClockOldFF, "mujoco"], [CassieEnvClockOldVonMises, "mujoco"]]
-    child_env_list = [[CassieEnvClock, "mujoco"], [DigitEnvClock, "mujoco"], [CassieEnvClockOld, "mujoco"],
-                      [CassieEnvClockOldFF, "mujoco"], [CassieEnvClockOldVonMises, "mujoco"]]
     reward_list = [["linear", "locomotion_linear_clock_reward"],
                    ["von_mises", "locomotion_vonmises_clock_reward"],
                    ["linear", "stand_reward"]]
