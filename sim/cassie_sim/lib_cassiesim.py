@@ -276,13 +276,16 @@ class LibCassieSim(GenericSim):
         return total_wrench[:3]
 
     def get_body_mass(self, name: str = None):
-        raise NotImplementedError
+        return self.sim.get_body_mass(name)
+
+    def get_body_ipos(self, name: str = None):
+        return self.sim.get_body_ipos(name)
 
     def get_dof_damping(self, name: str = None):
-        raise NotImplementedError
+        return self.sim.get_dof_damping(name)
 
     def get_geom_friction(self, name: str = None):
-        raise NotImplementedError
+        return self.sim.get_geom_friction(name)
 
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
@@ -348,11 +351,57 @@ class LibCassieSim(GenericSim):
         curr_qvel[self.base_angular_velocity_inds] = velocity
         self.sim.set_qvel(curr_qvel)
 
-    def set_body_mass(self, name: str = None):
-        raise NotImplementedError
+    def set_body_mass(self, mass: float | int | np.ndarray, name: str = None):
+        if name:
+            assert isinstance(mass, (float, int)), \
+                f"{FAIL}set_body_mass got a {type(mass)} instead of a single float when setting " \
+                f"mass for a single body {name}.{ENDC}"
+        else:
+            assert mass.shape == (self.nbody,), \
+                f"{FAIL}set_body_mass got array of shape {mass.shape} but should be shape " \
+                f"({self.nbody},).{ENDC}"
+        self.sim.set_body_mass(mass, name)
 
-    def set_dof_damping(self, name: str = None):
-        raise NotImplementedError
+    def set_body_ipos(self, ipos: np.ndarray, name: str = None):
+        if name:
+            assert ipos.shape == (3,), \
+                f"{FAIL}set_body_ipos got array of shape {ipos.shape} when setting ipos for " \
+                f"single body {name} but should be shape (3,).{ENDC}"
+        else:
+            assert ipos.shape == (self.nbody, 3), \
+                f"{FAIL}set_body_mass got array of shape {ipos.shape} but should be shape " \
+                f"({self.nbody}, 3).{ENDC}"
+            ipos = ipos.flatten()
+        self.sim.set_body_ipos(ipos, name)
 
-    def set_geom_friction(self, name: str = None):
-        raise NotImplementedError
+
+    def set_dof_damping(self, damp: np.ndarray, name: str = None):
+        if name:
+            num_dof = self.sim.get_joint_num_dof(name)
+            if num_dof == 1:
+                assert isinstance(damp, (float, int)), \
+                    f"{FAIL}set_dof_damping got a {type(damp)} when setting damping for single dof " \
+                    f"{name} but should be a float or int.{ENDC}"
+            else:
+                assert damp.shape == (num_dof,), \
+                    f"{FAIL}set_dof_damping got array of shape {damp.shape} when setting damping " \
+                    f"for single dof {name} but should be shape ({num_dof},).{ENDC}"
+        else:
+            assert damp.shape == (self.nv,), \
+                f"{FAIL}set_dof_damping got array of shape {damp.shape} when setting all joint " \
+                f"dofs but should be shape ({self.nv},).{ENDC}"
+            damp = damp.flatten()
+        self.sim.set_dof_damping(damp, name)
+
+    def set_geom_friction(self, fric: np.ndarray, name: str = None):
+        if name:
+            assert fric.shape == (3, ), \
+                f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting friction " \
+                f"for single geom {name} but should be shape (3,).{ENDC}"
+        else:
+            print("set all fric")
+            assert fric.shape == (self.ngeom, 3), \
+                f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting all geom " \
+                f"friction but should be shape ({self.ngeom}, 3).{ENDC}"
+            fric = fric.flatten()
+        self.sim.set_geom_friction(fric, name)

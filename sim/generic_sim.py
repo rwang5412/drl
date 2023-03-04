@@ -101,27 +101,33 @@ class GenericSim(object):
 
     def get_body_velocity(self, name: str, local_frame=True):
         raise NotImplementedError
-    
+
     def get_body_acceleration(self, name: str, local_frame=True):
         raise NotImplementedError
 
     def get_body_contact_force(self, name: str):
         raise NotImplementedError
-    
+
     def get_body_mass(self, name: str = None):
         raise NotImplementedError
-    
+
+    def set_body_mass(self, mass: float | int | np.ndarray, name: str = None):
+        raise NotImplementedError
+
+    def get_body_ipos(self, name: str = None):
+        raise NotImplementedError
+
+    def set_body_ipos(self, ipos: np.ndarray, name: str = None):
+        raise NotImplementedError
+
     def get_dof_damping(self, name: str = None):
         raise NotImplementedError
-    
+
+    def set_dof_damping(self, damp: float | int | np.ndarray, name: str = None):
+        raise NotImplementedError
+
     def get_geom_friction(self, name: str = None):
         raise NotImplementedError
-    
-    def set_body_mass(self, name: str = None):
-        raise NotImplementedError
-    
-    def set_dof_damping(self, name: str = None):
-        raise NotImplementedError
-    
-    def set_geom_friction(self, name: str = None):
+
+    def set_geom_friction(self, fric: np.ndarray, name: str = None):
         raise NotImplementedError

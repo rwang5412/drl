@@ -387,11 +387,11 @@ class MujocoSim(GenericSim):
         self.data.qvel[self.base_angular_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
-    def set_body_mass(self, mass: float | np.ndarray, name: str = None):
+    def set_body_mass(self, mass: float | int | np.ndarray, name: str = None):
         # If name is None, expect setting all masses
         if name:
             assert isinstance(mass, (float, int)), \
-                f"{FAIL}set_body_mass got a np array instead of a single float when setting mass " \
+                f"{FAIL}set_body_mass got a {type(mass)} instead of a single float when setting mass " \
                 f"for single body {name}.{ENDC}"
             self.model.body(name).mass = mass
         else:
@@ -401,7 +401,6 @@ class MujocoSim(GenericSim):
             self.model.body_mass = mass
 
     def set_body_ipos(self, ipos: np.ndarray, name: str = None):
-        # If name is None, expect setting all masses
         if name:
             assert ipos.shape == (3,), \
                 f"{FAIL}set_body_ipos got array of shape {ipos.shape} when setting ipos for " \
@@ -414,12 +413,17 @@ class MujocoSim(GenericSim):
             self.model.body_ipos = ipos
 
 
-    def set_dof_damping(self, damp: np.ndarray, name: str = None):
+    def set_dof_damping(self, damp: float | int | np.ndarray, name: str = None):
         if name:
             num_dof = len(self.model.joint(name).damping)
-            assert damp.shape == (num_dof,), \
-                f"{FAIL}set_dof_damping got array of shape {damp.shape} when setting damping for " \
-                f"single dof {name} but should be shape ({num_dof},).{ENDC}"
+            if num_dof == 1:
+                assert isinstance(damp, (float, int)), \
+                    f"{FAIL}set_dof_damping got a {type(damp)} when setting damping for single dof " \
+                    f"{name} but should be a float or int.{ENDC}"
+            else:
+                assert damp.shape == (num_dof,), \
+                    f"{FAIL}set_dof_damping got array of shape {damp.shape} when setting damping " \
+                    f"for single dof {name} but should be shape ({num_dof},).{ENDC}"
             self.model.joint(name).damping = damp
         else:
             assert damp.shape == (self.model.nv,), \
