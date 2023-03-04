@@ -8,6 +8,9 @@ from util.env_factory import env_factory
 from types import SimpleNamespace
 from collections import OrderedDict
 
+"""Convert old roadrunner models into comptabile one.
+To use this file, change nn_args, env_args, and all_args for SimpleNamespace.
+"""
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
