@@ -107,7 +107,7 @@ class CassieStone(CassieEnv):
         _, stones = self.generate_fixed_stones(z_step=self.z_step)
         for s in range(len(self.sim.geom_generator.geoms)):
             stone_size = 0.15 if s < 2 else 0.1
-            self.sim.geom_generator._create_stone(f'box{s}', *stones[s], rise=.1,
+            self.sim.geom_generator._create_geom(f'box{s}', *stones[s], rise=.1,
                                                   length=stone_size, width=stone_size)
         # self.sim.set_geom_color('box0',np.array([255, 0, 0, 1]))
         self.sim.adjust_robot_pose()
