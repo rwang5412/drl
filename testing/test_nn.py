@@ -46,14 +46,14 @@ def test_base_module(base_partial):
 def test_actor_module(actor_partial):
 
     if actor_partial == FFActor:
-        ff_actor = FFActor(input_dim=state_size, action_dim=action_size, layers=ff_layers,
-                           bounded=False, learn_std=False, std=0.1, nonlinearity=torch.tanh)
+        ff_actor = FFActor(obs_dim=state_size, action_dim=action_size, layers=ff_layers,
+                           bounded=False, learn_std=False, std=0.1, nonlinearity='tanh')
         action = ff_actor.forward(x, deterministic=False, update_normalization_param=False)
         assert action.size(dim=0) == action_size, f"{ff_actor.__class__.__name__} output wrong size."
         test_actor_forward(ff_actor)
         print("Pass forward test for FF Actor")
     elif actor_partial == LSTMActor:
-        lstm_actor = LSTMActor(input_dim=state_size, action_dim=action_size, layers=lstm_layers,
+        lstm_actor = LSTMActor(obs_dim=state_size, action_dim=action_size, layers=lstm_layers,
                                bounded=False, learn_std=False, std=0.1)
         action = lstm_actor.forward(x, deterministic=False, update_normalization_param=False)
         assert action.size(dim=0) == action_size, f"{lstm_actor.__class__.__name__} output wrong size."
@@ -64,7 +64,7 @@ def test_actor_module(actor_partial):
         test_actor_forward(lstm_actor)
         print("Pass forward test for LSTM Actor")
     elif actor_partial == MixActor:
-        mix_actor = MixActor(input_dim=state_size, state_dim=40, nonstate_dim=10, action_dim=action_size,
+        mix_actor = MixActor(obs_dim=state_size, state_dim=40, nonstate_dim=10, action_dim=action_size,
                              lstm_layers=lstm_layers, ff_layers=ff_layers, bounded=True,
                              learn_std=False, std=0.1, nonstate_encoder_dim=10, nonstate_encoder_on=True)
         action = mix_actor.forward(x, deterministic=False, update_normalization_param=False)
