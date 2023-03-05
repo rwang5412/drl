@@ -3,6 +3,8 @@
 ## Setup Instructions
 A working conda environment is also provided and can be created from the included `spec-file.txt` (check the conda [guide](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#building-identical-conda-environments) for specific instructions). 
 
+Conda is required to run the setup script included with this repository. To install conda on your machine, visit [this page](https://docs.conda.io/en/latest/miniconda.html#linux-installers) for download links. 
+
 To create a fresh conda env with all the necessary dependencies, simply run 
 ```
 source setup.sh

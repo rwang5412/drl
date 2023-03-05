@@ -1,5 +1,7 @@
 echo enter name for new conda environment
 read varname
+#update conda
+conda update -n base conda
 #build conda env
 conda env create --name $varname --file environment.yaml
 eval "$(conda shell.bash hook)"
