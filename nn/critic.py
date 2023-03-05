@@ -92,7 +92,7 @@ class MixCritic(MixBase, Critic):
         self.lstm_layers = lstm_layers
         self.ff_layers = ff_layers
         self.nonstate_dim = nonstate_dim
-        self.nonstate_encoder_on = self.nonstate_encoder_on
+        self.nonstate_encoder_on = nonstate_encoder_on
 
         MixBase.__init__(self,
                           in_dim=input_dim, 

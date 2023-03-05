@@ -3,6 +3,7 @@ import mujoco as mj
 
 from .generic_sim import GenericSim
 from .mujoco_viewer import MujocoViewer
+from .mujoco_render import MujocoRender
 from util.colors import FAIL, WARNING, ENDC
 from sim.util.geom import Geom
 
@@ -161,6 +162,42 @@ class MujocoSim(GenericSim):
         else:
             raise RuntimeError(f"{FAIL}Error: Viewer not alive, can not check paused status. Check "
                 f"that viewer has not been destroyed.{ENDC}")
+
+    def init_renderer(self, offscreen: bool, height: int, width: int):
+        """Initialized renderer class for rendering. 
+        For offscreen render: Need to change os environ before
+        importing all librairies (including mujoco). This does not work alongside with MujocoViewer.
+        
+        import os
+        gl_option = 'egl' or 'glx' or 'osmesa'
+        os.environ['MUJOCO_GL']=gl_option
+
+        OSMesa has problems see, https://github.com/deepmind/mujoco/issues/700
+        Args: height and width of image size. Once set, cannot change.
+        """
+        if offscreen:
+            self.renderer = mj.Renderer(self.model, height=height, width=width)
+            # print("Verify the Gl context object, ", self.renderer._gl_context)
+        else:
+            self.renderer = MujocoRender(self.model, height=height, width=width)
+
+    def get_depth_image(self, camera_name: str):
+        """ Get depth image given camera name. To use depth offscreen rendering, 
+        first call this init_offscreen_renderer() at reset(). And then call this function.
+        """
+        if camera_name is None:
+            raise RuntimeError("Specify a camera name.")
+        self.renderer.enable_depth_rendering()
+        self.renderer.update_scene(self.data, camera=camera_name)
+        depth = self.renderer.render().copy()
+        # Perform in-place operations with depth values
+        # Shift nearest values to the origin.
+        depth -= depth.min()
+        # Scale by 2 mean distances of near rays.
+        depth /= (2*depth[depth <= 1].mean())
+        # Scale to [0, 255]
+        depth = 255*np.clip(depth, 0, 1)
+        return depth.astype(np.uint8)
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
