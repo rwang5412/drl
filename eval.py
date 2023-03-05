@@ -15,6 +15,13 @@ if __name__ == "__main__":
     except:
         raise RuntimeError("Choose evaluation type from ['simple','ui']. Or add a new one.")
 
+    if evaluation_type == 'test':
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--env-name', default="CassieEnvClock", type=str)
+        args, env_args = parser.parse_known_args()
+        simple_eval(actor=None, env_name=args.env_name, args=env_args)
+        exit()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str)
     args = parser.parse_args()

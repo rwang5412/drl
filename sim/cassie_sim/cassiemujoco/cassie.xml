@@ -6,10 +6,10 @@
   <!-- Timestep is set to 0.0005 because our controller runs at 2 kHz -->
   <!-- Larger values still have stable dynamics -->
 
-  <!-- <visual>
+  <visual>
     <quality shadowsize='4096'/>
     <map znear='0.01' zfar='5'/>
-  </visual> -->
+  </visual>
 
   <default>
     <joint limited='true'/>
@@ -251,12 +251,12 @@
     <geom name='box17' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
     <geom name='box18' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
     <geom name='box19' pos='-10 0 -2'  size='1 1 1' type='box' condim='3' conaffinity='15'/>
-  
+
     <!-- <body name='boxx0'  pos='0 0 -5'>
       <freejoint/>
       <geom name='box' size='1 1 1' type='box' condim='3' conaffinity='15'/>
     </body> -->
-    
+
   </worldbody>
 
   <equality>
