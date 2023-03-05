@@ -20,29 +20,26 @@ if __name__ == "__main__":
     actor_checkpoint = torch.load(model_path, map_location='cpu')
     print(actor_checkpoint['model_state_dict'].keys())
     print(actor_checkpoint)
-    input()
+    input("Inspect loaded checkpoint information before continuing...\nHit ENTER to continue")
     actor_checkpoint["obs_dim"] = 42
 
-    nn_args = SimpleNamespace(arch="mix",
+    nn_args = SimpleNamespace(arch="lstm",
                             obs_dim=42,
                             action_dim=10,
-                            state_dim=38,
-                            nonstate_dim=7,
-                            layers="64,64",
+                            layers="128,128",
                             bounded=False,
                             learn_stddev=False,
                             std=0.13,
                             std_array="",
-                            nonstate_encoder_dim=8,
-                            nonstate_encoder_on=True,
     )
 
     env_args = SimpleNamespace(
         simulator_type = "mujoco",
-        terrain = "",
+        terrain = "stair",
         policy_rate = 40,
         dynamics_randomization = True,
-        reward_name = "locomotion_vonmises_clock_reward"
+        clock_type='von_mises',
+        reward_name = "locomotion_vonmises_clock_reward",
     )
 
     ppo_args = SimpleNamespace(
@@ -105,6 +102,3 @@ if __name__ == "__main__":
         for key, val in arg_dict.items():
             file.write("%s: %s" % (key, val))
             file.write('\n')
-
-    # actor.eval()
-    # actor.training = False

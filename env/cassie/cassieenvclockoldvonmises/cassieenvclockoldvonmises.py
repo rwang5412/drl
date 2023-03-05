@@ -20,6 +20,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
             f"{FAIL}CassieEnvClockOld received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
 
+        self.terrain = terrain
+
         super().__init__(clock_type=clock_type,
                          reward_name=reward_name,
                          simulator_type=simulator_type,
@@ -61,6 +63,7 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Randomize commands
         self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
         self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.turn_rate = np.random.uniform(-0.001 * np.pi, 0.001 * np.pi)
         self.orient_add = 0
 
         # Update clock
@@ -74,6 +77,13 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
 
+        # Generate geom for stairs
+        if self.terrain =='stair':
+            init_position = self.sim.get_base_position()
+            init_position[2] = 0
+            self.sim.geom_generator.create_stairs(*init_position)
+            self.sim.adjust_robot_pose()
+
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
@@ -82,7 +92,7 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
                               [self.clock.get_swing_ratios()[0], 1-self.clock.get_swing_ratios()[0]],
-                              [self.x_velocity, self.y_velocity, self.orient_add],
+                              [self.x_velocity, self.y_velocity, self.turn_rate],
                               self.clock.input_sine_only_clock()))
         return out
 
@@ -119,7 +129,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (40, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "reward-name" : ("locomotion_vonmises_clock_reward", "Which reward to use"),
-        "clock-type" : ("von_mises", "Which clock to use (\"linear\" or \"von_mises\")")
+        "clock-type" : ("von_mises", "Which clock to use (\"linear\" or \"von_mises\")"),
     }
     if isinstance(parser, argparse.ArgumentParser):
         env_group = parser.add_argument_group("Env arguments")

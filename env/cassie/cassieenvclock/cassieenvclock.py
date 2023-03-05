@@ -86,8 +86,9 @@ class CassieEnvClock(CassieEnv):
         """
         self.reset_simulation()
         # Randomize commands
-        self.x_velocity = 0#np.random.uniform(*self._x_velocity_bounds)
-        self.y_velocity = 0#np.random.uniform(*self._y_velocity_bounds)
+        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
+        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.turn_rate = np.random.uniform(-0.001 * np.pi, 0.001 * np.pi)
         self.orient_add = 0
 
         # Update clock
@@ -111,6 +112,8 @@ class CassieEnvClock(CassieEnv):
             self.policy_rate = self.default_policy_rate + np.random.randint(-5, 6)
         else:
             self.policy_rate = self.default_policy_rate
+
+        self.orient_add += self.turn_rate
 
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
