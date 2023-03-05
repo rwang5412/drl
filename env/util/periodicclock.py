@@ -21,18 +21,10 @@ class PeriodicClock:
         self._swing_ratios = swing_ratios
         self._period_shifts = period_shifts
         self._von_mises_buf = None
-        self._phase = np.random.uniform(0, self._cycle_time)
+        self._phase = 0
 
-    def increment(self, phase_add: float=None):
-        """Increment phase by phase_add
-
-        Args:
-            phase_add (float, optional): Use externally defined phase_add if given. Defaults to None.
-        """
-        if phase_add:
-            self._phase += phase_add
-        else:
-            self._phase += self._phase_add
+    def increment(self):
+        self._phase += self._phase_add
         if self._phase > self._cycle_time:
             self._phase -= self._cycle_time
 
@@ -212,8 +204,3 @@ class PeriodicClock:
         if self._von_mises_buf is not None:
             self.precompute_von_mises()
 
-    def is_stance(self, threshold=0.05):
-        return [i < threshold for i in self.linear_clock(percent_transition=0.01)]
-
-    def is_swing(self):
-        return [not i for i in self.is_stance()]

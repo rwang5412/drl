@@ -52,6 +52,7 @@ class CassieEnvClockOld(CassieEnvClock):
         else:
             self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
         self.orient_add = 0
+        self.turn_rate = 0
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds

@@ -20,8 +20,6 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
             f"{FAIL}CassieEnvClockOld received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
 
-        self.terrain = terrain
-
         super().__init__(clock_type=clock_type,
                          reward_name=reward_name,
                          simulator_type=simulator_type,
@@ -46,8 +44,6 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         self.observation_size += 3 # XYYaw velocity command
         self.observation_size += 2 # swing ratio
         self.observation_size += 2 # input clock
-        self.state_dim = len(self.get_robot_state())
-        self.nonstate_dim = 7
         self.action_size = self.sim.num_actuators
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
@@ -76,13 +72,6 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
-
-        # Generate geom for stairs
-        if self.terrain =='stair':
-            init_position = self.sim.get_base_position()
-            init_position[2] = 0
-            self.sim.geom_generator.create_stairs(*init_position)
-            self.sim.adjust_robot_pose()
 
         # Reset env counter variables
         self.traj_idx = 0

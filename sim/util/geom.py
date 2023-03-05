@@ -135,8 +135,8 @@ class Geom:
               box_d, box_w, box_h = self.sim.get_geom_size(name=box)
               box_x, box_y, box_z = self.sim.get_geom_pose(name=box)[0:3]
 
-              if x <= box_x + box_d and x >= box_x - box_d and \
-                  y <= box_y + box_w and y >= box_y - box_w:
+              if x < box_x + box_d and x > box_x - box_d and \
+                  y < box_y + box_w and y > box_y - box_w:
 
                   ret_z = box_z + box_h
                   box_num = i
