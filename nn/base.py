@@ -180,7 +180,9 @@ class MixBase(Net):
         else:
             nonstate_ft_dim = nonstate_dim
         self.lstm = LSTMBase(in_dim=state_dim, layers=lstm_layers)
-        self.ff = FFBase(in_dim=lstm_layers[-1]+nonstate_ft_dim, layers=ff_layers, nonlinearity='relu')
+        self.ff = FFBase(in_dim=lstm_layers[-1]+nonstate_ft_dim,
+                         layers=ff_layers,
+                         nonlinearity='relu')
         self.latent_space = FFBase(in_dim=lstm_layers[-1], layers=ff_layers)
 
     def init_hidden_state(self, batch_size=1):

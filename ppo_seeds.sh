@@ -1,5 +1,5 @@
 source activate rr_refactor
-cd ~/clone/roadrunner_refactor
-python ~/clone/roadrunner_refactor/run_ppo.py --seed=$s
+cd ~/roadrunner_refactor
+python ~/roadrunner_refactor/run_ppo.py --seed=$s
 
 
