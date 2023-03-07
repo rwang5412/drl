@@ -17,7 +17,8 @@ class DigitEnv(GenericEnv):
                  simulator_type: str,
                  terrain: bool,
                  policy_rate: int,
-                 dynamics_randomization: bool):
+                 dynamics_randomization: bool,
+                 state_noise: float = 0.0):
         """Template class for Digit with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
