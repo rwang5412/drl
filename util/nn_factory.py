@@ -6,14 +6,14 @@ from nn.actor import FFActor, LSTMActor, GRUActor, MixActor
 from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 
-def nn_factory(args, env_fn=None):
+def nn_factory(args, env=None):
     """The nn_factory initializes a model class (actor, critic etc) by args (from saved pickle file
     or fresh new training). More cases can be added here to support different class types and init
     methods.
 
     Args:
         args (Namespace): Arguments for model class init.
-        env_fn (Callable object, optional): Env callable object to get any env-relevant info to 
+        env (Env object, optional): Env object to get any env-relevant info to 
             initialize modules. Defaults to None.
 
     Returns: actor and critic
@@ -56,8 +56,8 @@ def nn_factory(args, env_fn=None):
         critic = FFCritic(args.obs_dim, layers=layers)
     elif args.arch == 'mix':
         policy = MixActor(obs_dim=args.obs_dim,
-                          state_dim=env_fn().state_dim,
-                          nonstate_dim=env_fn().nonstate_dim,
+                          state_dim=env.state_dim,
+                          nonstate_dim=env.nonstate_dim,
                           action_dim=args.action_dim,
                           lstm_layers=layers,
                           ff_layers=layers,
