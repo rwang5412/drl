@@ -20,7 +20,6 @@ from env.util.quaternion import quaternion2euler
 from util.colors import FAIL, ENDC, OKGREEN
 
 def test_all_sim():
-    # TODO: Add other sims to this list after implemented
     sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
     num_pass = 0
     failed = False

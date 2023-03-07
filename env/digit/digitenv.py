@@ -15,7 +15,7 @@ from pathlib import Path
 class DigitEnv(GenericEnv):
     def __init__(self,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float = 0.0):
@@ -27,21 +27,18 @@ class DigitEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
+            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside 
+                           each subenv class to support individual use case.
         """
         super().__init__()
-
         self.dynamics_randomization = dynamics_randomization
         self.default_policy_rate = policy_rate
+        self.terrain = terrain
         # Select simulator
         if simulator_type == "mujoco":
             self.sim = MjDigitSim()
-            # Handle simulation features, such as heightmap
-            if terrain:
-                pass
         elif simulator_type == 'ar':
             self.sim = ArDigitSim()
-            if terrain:
-                pass
         else:
             raise RuntimeError(f"Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'ar'.")

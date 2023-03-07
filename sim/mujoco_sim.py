@@ -4,7 +4,9 @@ import mujoco as mj
 
 from .generic_sim import GenericSim
 from .mujoco_viewer import MujocoViewer
+from .mujoco_render import MujocoRender
 from util.colors import FAIL, WARNING, ENDC
+from sim.util.geom import Geom
 
 class MujocoSim(GenericSim):
     """
@@ -12,7 +14,7 @@ class MujocoSim(GenericSim):
     This class explicitly avoids robot-specific names.
     """
 
-    def __init__(self, model_path):
+    def __init__(self, model_path, terrain=None):
         super().__init__()
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
@@ -23,6 +25,7 @@ class MujocoSim(GenericSim):
         self.njnt = self.model.njnt
         self.ngeom = self.model.ngeom
         self.viewer = None
+        self.terrain = terrain
         # Enforce that necessary constants and index arrays are defined
         check_vars = ["torque_delay_cycles", "torque_efficiency", "motor_position_inds",
             "motor_velocity_inds", "joint_position_inds", "joint_velocity_inds",
@@ -38,6 +41,20 @@ class MujocoSim(GenericSim):
             f"{FAIL}Env {self.__class__.__name__} must have non-zeron torque_delay_cycles. Note " \
             f"that delay cycle of 1 corresponds to no delay (specifies size of the torque buffer.{ENDC}"
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
+
+        # Load geoms/bodies for hfield/box/obstacle/stone/stair
+        self.load_fixed_object()
+        # self.load_movable_object()
+
+    def load_fixed_object(self, num_geoms_in_xml=20):
+        """Load any geoms. can add more types, such as non box types, but is limited at compile.
+        """
+        try:
+            self.box_geoms = [f'box{i}' for i in range(num_geoms_in_xml)]
+            self.geom_generator = Geom(self)
+        except:
+            print(f"No box-typed geom listed in XML.\n"
+                  f"Or num of geoms is not equal to {num_geoms_in_xml}.")
 
     def reset(self, qpos: np.ndarray=None):
         mj.mj_resetData(self.model, self.data)
@@ -101,6 +118,25 @@ class MujocoSim(GenericSim):
         for i in range(3, 6):
             self.model.dof_damping[i] = 1e5
 
+    def adjust_robot_pose(self):
+        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms. Make sure to call if env is updating the model.
+        """
+        # Make sure all kinematics are updated
+        mj.mj_kinematics(self.model, self.data)
+        # Check iteratively if robot is colliding with geom in XY and move robot up in Z
+        lfoot_pos  = self.get_site_pose(self.feet_site_name[0])[0:3]
+        rfoot_pos  = self.get_site_pose(self.feet_site_name[1])[0:3]
+        z_deltas = []
+        for (x,y,z) in [lfoot_pos, rfoot_pos]:
+            box_id, heel_hgt = self.geom_generator.check_step(x - 0.1, y, 0)
+            box_id, toe_hgt  = self.geom_generator.check_step(x + 0.1, y, 0)
+            z_hgt = max(heel_hgt, toe_hgt)
+            z_deltas.append((z_hgt-z))
+        base_position = self.get_base_position()
+        delta = max(z_deltas)
+        base_position[2] += delta + 1e-3
+        self.set_base_position(base_position)
+
     def release(self):
         """Zero stiffness/damping for base 6DOF
         """
@@ -132,6 +168,42 @@ class MujocoSim(GenericSim):
         else:
             raise RuntimeError(f"{FAIL}Error: Viewer not alive, can not check paused status. Check "
                 f"that viewer has not been destroyed.{ENDC}")
+
+    def init_renderer(self, offscreen: bool, height: int, width: int):
+        """Initialized renderer class for rendering.
+        For offscreen render: Need to change os environ before
+        importing all librairies (including mujoco). This does not work alongside with MujocoViewer.
+
+        import os
+        gl_option = 'egl' or 'glx' or 'osmesa'
+        os.environ['MUJOCO_GL']=gl_option
+
+        OSMesa has problems see, https://github.com/deepmind/mujoco/issues/700
+        Args: height and width of image size. Once set, cannot change.
+        """
+        if offscreen:
+            self.renderer = mj.Renderer(self.model, height=height, width=width)
+            # print("Verify the Gl context object, ", self.renderer._gl_context)
+        else:
+            self.renderer = MujocoRender(self.model, height=height, width=width)
+
+    def get_depth_image(self, camera_name: str):
+        """ Get depth image given camera name. To use depth offscreen rendering,
+        first call this init_offscreen_renderer() at reset(). And then call this function.
+        """
+        if camera_name is None:
+            raise RuntimeError("Specify a camera name.")
+        self.renderer.enable_depth_rendering()
+        self.renderer.update_scene(self.data, camera=camera_name)
+        depth = self.renderer.render().copy()
+        # Perform in-place operations with depth values
+        # Shift nearest values to the origin.
+        depth -= depth.min()
+        # Scale by 2 mean distances of near rays.
+        depth /= (2*depth[depth <= 1].mean())
+        # Scale to [0, 255]
+        depth = 255*np.clip(depth, 0, 1)
+        return depth.astype(np.uint8)
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
@@ -215,6 +287,17 @@ class MujocoSim(GenericSim):
         pose[:3] = self.data.geom(name).xpos
         mj.mju_mat2Quat(pose[3:7], self.data.geom(name).xmat)
         return pose
+
+    def get_geom_size(self, name: str):
+        """Get geom size by name
+
+        Args:
+            name (str): geom name
+
+        Returns:
+            ndarray: size [3x]
+        """
+        return self.model.geom(name).size
 
     def get_relative_pose(self, pose1: np.ndarray, pose2: np.ndarray):
         """Computes relative pose of object2 in the frame of object1.
@@ -412,7 +495,6 @@ class MujocoSim(GenericSim):
                 f"({self.model.nbody}, 3).{ENDC}"
             self.model.body_ipos = ipos
 
-
     def set_dof_damping(self, damp: float | int | np.ndarray, name: str = None):
         if name:
             num_dof = len(self.model.joint(name).damping)
@@ -442,3 +524,18 @@ class MujocoSim(GenericSim):
                 f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting all geom " \
                 f"friction but should be shape ({self.model.ngeom}, 3).{ENDC}"
             self.model.geom_friction = fric
+    """The following setters are meant during simulation or reset, so should not advance simulation by itself.
+    """
+    def set_geom_pose(self, name: str, pose: np.ndarray):
+        self.model.geom(name).pos = pose[0:3]
+        self.model.geom(name).quat = pose[3:7]
+
+    def set_geom_size(self, name: str, size: np.ndarray):
+        self.model.geom(name).size = size
+
+    def set_geom_color(self, name: str, color: np.ndarray):
+        self.model.geom(name).rgba = color
+
+    def set_body_pose(self, name: str, pose: np.ndarray):
+        self.data.body(name).xpos = pose[0:3]
+        self.data.body(name).xquat = pose[3:7]
