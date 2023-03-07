@@ -2,9 +2,6 @@ import numpy as np
 from scipy.stats import vonmises
 from typing import List
 
-# I'm actually not sure if we want this to be a class or not. We could make class and then have it
-# hold on to the variables, or just make them all functions have things like phase, phaselen, etc.
-# be inputs to the function.
 class PeriodicClock:
 
     """
@@ -12,7 +9,6 @@ class PeriodicClock:
     """
 
     def __init__(self, cycle_time: float, phase_add: float, swing_ratios: List[float], period_shifts: List[float]):
-        # Should be class variables or be pushed into the env itself?
         assert len(swing_ratios) == 2, \
                f"PeriodicClock got swing_ratios input of length {len(swing_ratios)}, but should " \
                f"be of length 2."
@@ -70,6 +66,7 @@ class PeriodicClock:
         x_clock = []
         phases = []
         for i in range(2):
+            actual_phase = self._phase + self._period_shifts[i] * self._cycle_time
             swing_time = self._cycle_time * self._swing_ratios[i]
             stance_time = self._cycle_time * (1 - self._swing_ratios[i])
             trans_time = swing_time * percent_transition
@@ -77,12 +74,11 @@ class PeriodicClock:
             y_clock.append([0, 0, 1, 1, 0])
             x_clock.append([0, stance_time, stance_time + trans_time / 2,
                     stance_time + trans_time / 2 + swing_time, self._cycle_time])
-            if self._phase + self._period_shifts[i] > self._cycle_time:
-                phases.append(self._phase + self._period_shifts[i] - self._cycle_time)
+            if actual_phase > self._cycle_time:
+                phases.append(actual_phase - self._cycle_time)
             else:
-                phases.append(self._phase + self._period_shifts[i])
+                phases.append(actual_phase)
         return np.interp(phases[0], x_clock[0], y_clock[0]), np.interp(phases[1], x_clock[1], y_clock[1])
-
 
     def von_mises(self, std: float = 0.1):
         # Von Mises clock function, but with hard coded coeff values of [0, 1]. This is chosen to

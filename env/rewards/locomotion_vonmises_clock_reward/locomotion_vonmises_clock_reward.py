@@ -76,7 +76,7 @@ def compute_reward(self, action):
 
     ### Sim2real stability rewards ###
     base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
-    q["stable_base"] = np.abs(base_vel[3:]).sum() + np.abs(base_acc[0:2]).sum()
+    q["stable_base"] = np.abs(base_vel[3:]).sum() + np.abs(base_acc[0:3]).sum()
     if self.last_action is not None:
         q["ctrl_penalty"] = sum(np.abs(self.last_action - action)) / len(action)
     else:
@@ -97,10 +97,8 @@ def compute_reward(self, action):
 
 # Termination condition: If orientation too far off terminate
 def compute_done(self):
-    base_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
+    base_quat = self.rotate_to_heading(self.sim.get_base_orientation())
     target_quat = np.array([1, 0, 0, 0])
-    command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
-    target_quat = quaternion_product(target_quat, command_quat)
     orientation_error = 3 * quaternion_distance(base_quat, target_quat)
     if np.exp(-orientation_error) < 0.8:
         return True
