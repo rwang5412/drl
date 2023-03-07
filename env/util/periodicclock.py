@@ -21,7 +21,7 @@ class PeriodicClock:
         self._swing_ratios = swing_ratios
         self._period_shifts = period_shifts
         self._von_mises_buf = None
-        self._phase = 0
+        self._phase = np.random.uniform(0, self._cycle_time)
 
     def increment(self):
         self._phase += self._phase_add

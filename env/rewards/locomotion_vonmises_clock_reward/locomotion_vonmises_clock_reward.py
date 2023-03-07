@@ -19,7 +19,7 @@ def compute_reward(self, action):
     q = {}
 
     ### Cyclic foot force/velocity reward ###
-    l_force, r_force = self.clock.von_mises()
+    l_force, r_force = self.clock.get_von_mises_values()
     l_stance = 1 - l_force
     r_stance = 1 - r_force
 
