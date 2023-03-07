@@ -13,7 +13,7 @@ class CassieEnvClockOld(CassieEnvClock):
                  clock_type: str,
                  reward_name: str,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
@@ -52,6 +52,7 @@ class CassieEnvClockOld(CassieEnvClock):
         else:
             self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
         self.orient_add = 0
+        self.turn_rate = 0
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
@@ -105,7 +106,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
     """
     args = {
         "simulator-type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\")"),
-        "terrain" : (False, "What terrain to train with (default is flat terrain)"),
+        "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),

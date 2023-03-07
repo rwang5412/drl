@@ -13,7 +13,7 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
                  clock_type: str,
                  reward_name: str,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
@@ -30,8 +30,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Command randomization ranges
         self._x_velocity_bounds = [0.5, 1.5]
         self._y_velocity_bounds = [-0.2, 0.2]
-        self._swing_ratio_bounds = [0.5, 0.65]
-        self._cycle_time_bounds = [0.75, 1.0]
+        self._swing_ratio_bounds = [0.4, 0.55]
+        self._cycle_time_bounds = [0.65, 1.0]
 
         self.reset()
 
@@ -59,12 +59,13 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Randomize commands
         self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
         self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.turn_rate = np.random.uniform(-0.001 * np.pi, 0.001 * np.pi)
         self.orient_add = 0
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         ratio = np.random.uniform(*self._swing_ratio_bounds)
-        swing_ratios = [1 - ratio, ratio]
+        swing_ratios = [ratio, ratio]
         period_shifts = [0.0, 0.5]
         self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
@@ -79,8 +80,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
 
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
-                              self.clock.get_swing_ratios(),
-                              [self.x_velocity, self.y_velocity, self.orient_add],
+                              [self.clock.get_swing_ratios()[0], 1-self.clock.get_swing_ratios()[0]],
+                              [self.x_velocity, self.y_velocity, self.turn_rate],
                               self.clock.input_sine_only_clock()))
         return out
 
@@ -113,11 +114,11 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
     """
     args = {
         "simulator-type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\")"),
-        "terrain" : (False, "What terrain to train with (default is flat terrain)"),
-        "policy-rate" : (50, "Rate at which policy runs in Hz"),
+        "terrain" : ("", "What terrain to train with (default is flat terrain)"),
+        "policy-rate" : (40, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
-        "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
-        "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
+        "reward-name" : ("locomotion_vonmises_clock_reward", "Which reward to use"),
+        "clock-type" : ("von_mises", "Which clock to use (\"linear\" or \"von_mises\")"),
     }
     if isinstance(parser, argparse.ArgumentParser):
         env_group = parser.add_argument_group("Env arguments")

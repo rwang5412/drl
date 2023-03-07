@@ -19,7 +19,7 @@ class CassieEnvClock(CassieEnv):
                  clock_type: str,
                  reward_name: str,
                  simulator_type: str,
-                 terrain: bool,
+                 terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
@@ -37,6 +37,7 @@ class CassieEnvClock(CassieEnv):
         # Command randomization ranges
         self._x_velocity_bounds = [0.0, 3.0]
         self._y_velocity_bounds = [-0.3, 0.3]
+        self._turn_rate_bounds = [-np.pi/8, -np.pi/8] # rad/s
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
         self._cycle_time_bounds = [0.75, 1.2]
@@ -55,7 +56,7 @@ class CassieEnvClock(CassieEnv):
             if weight_sum != 1:
                 print(f"{WARNING}WARNING: Reward weightings do not sum up to 1, renormalizing.{ENDC}")
                 for name, weight_dict in self.reward_weight.items():
-                    weight_dict["weighting"] /= weight_sum
+                    weight_dict["weighting"] /= float(weight_sum)
             self._compute_reward = reward_module.compute_reward
             self._compute_done = reward_module.compute_done
         except ModuleNotFoundError:
@@ -86,16 +87,17 @@ class CassieEnvClock(CassieEnv):
         """
         self.reset_simulation()
         # Randomize commands
-        self.x_velocity = 0#np.random.uniform(*self._x_velocity_bounds)
-        self.y_velocity = 0#np.random.uniform(*self._y_velocity_bounds)
+        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
+        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.turn_rate = np.random.uniform(*self._turn_rate_bounds)
         self.orient_add = 0
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         swing_ratio = np.random.uniform(*self._swing_ratio_bounds)
         swing_ratios = [swing_ratio, swing_ratio]
-        period_shifts = [0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
-        self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
+        period_shifts = [0, np.random.uniform(*self._period_shift_bounds)]
+        self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":
@@ -111,6 +113,9 @@ class CassieEnvClock(CassieEnv):
             self.policy_rate = self.default_policy_rate + np.random.randint(-5, 6)
         else:
             self.policy_rate = self.default_policy_rate
+
+        # Offset global zero heading by turn rate per policy step
+        self.orient_add += self.turn_rate / (self.sim.simulator_rate / self.default_policy_rate)
 
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
@@ -135,7 +140,7 @@ class CassieEnvClock(CassieEnv):
 
     def get_state(self):
         out = np.concatenate((self.get_robot_state(),
-                              [self.x_velocity, self.y_velocity],
+                              [self.x_velocity, self.y_velocity, self.turn_rate],
                               self.clock.get_swing_ratios(),
                               self.clock.get_period_shifts(),
                               self.clock.input_clock()))
@@ -178,7 +183,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
     """
     args = {
         "simulator-type" : ("mujoco", "Which simulator to use (\"mujoco\" or \"libcassie\")"),
-        "terrain" : (False, "What terrain to train with (default is flat terrain)"),
+        "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
