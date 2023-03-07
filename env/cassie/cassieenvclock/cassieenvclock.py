@@ -40,7 +40,7 @@ class CassieEnvClock(CassieEnv):
         self._turn_rate_bounds = [-np.pi/8, -np.pi/8] # rad/s
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
-        self._cycle_time_bounds = [0.75, 1.2]
+        self._cycle_time_bounds = [0.75, 1.5]
 
         # Load reward module
         self.reward_name = reward_name
