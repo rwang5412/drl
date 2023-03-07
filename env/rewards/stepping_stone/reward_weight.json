@@ -34,5 +34,9 @@
     "trq_penalty": {
         "weighting": 0.025,
         "scaling": 0.05
+    },
+    "footstep": {
+        "weighting": 3,
+        "scaling": 10
     }
 }

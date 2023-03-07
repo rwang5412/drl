@@ -13,6 +13,12 @@ def compute_reward(self, action):
     assert self.clock is not None, \
         f"{FAIL}Clock has not been initialized, is still None.{ENDC}"
 
+    vars_to_check = ['steps_target_global', 'steps_active_idx', 'last_base_position',
+                     'touchdown_by_clock_flag', 'steps_order']
+    for var in vars_to_check:
+        assert hasattr(self, var), \
+            f"{FAIL}Environment {self.__class__.__name__} does not have a {var} object.{ENDC}"    
+
     q = {}
 
     ### Cyclic foot force/velocity reward ###
@@ -36,8 +42,11 @@ def compute_reward(self, action):
     ### Floating-base rewards ###
     base_vel = self.sim.get_body_velocity(self.sim.base_body_name)
     base_pose = self.sim.get_body_pose(self.sim.base_body_name)
-    base_disance2target_prev = np.linalg.norm(self.steps_target_global[self.steps_active_idx][0:2] - self.last_base_position[0:2])
-    base_disance2target_curr = np.linalg.norm(self.steps_target_global[self.steps_active_idx][0:2] - base_pose[0:2])
+    base_disance2target_prev = \
+        np.linalg.norm(self.steps_target_global[self.steps_active_idx][0:2] -\
+                       self.last_base_position[0:2])
+    base_disance2target_curr = \
+        np.linalg.norm(self.steps_target_global[self.steps_active_idx][0:2] - base_pose[0:2])
     base_change = base_disance2target_prev - base_disance2target_curr
     footstep_distance = np.linalg.norm(self.steps_commands_pelvis[0:2])
     if footstep_distance < 0.1:
@@ -87,10 +96,13 @@ def compute_reward(self, action):
         footstep_error = np.linalg.norm(\
             self.sim.get_site_pose(self.sim.feet_site_name[side])[0:2] - \
             self.steps_target_global[self.steps_active_idx][0:2])
-        footstep_reward = np.exp(-10*footstep_error)
+        q['footstep'] = footstep_error
+        footstep_reward = self.reward_weight[name]["weighting"] * \
+                       kernel(self.reward_weight[name]["scaling"] * q[name])
         self.reward += footstep_reward
-        # print(f"check side={side}, distance error {footstep_error}, reward is {footstep_reward}.")
-        # input()
+        print(f"check side={side}, distance error {footstep_error}, reward is {footstep_reward}.\n"
+              f"step target in global {self.steps_target_global[self.steps_active_idx][0:2]}")
+        input()
     return self.reward
 
 # Termination condition: If orientation too far off terminate
