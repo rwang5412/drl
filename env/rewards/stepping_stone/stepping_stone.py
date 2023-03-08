@@ -100,19 +100,22 @@ def compute_reward(self, action):
         footstep_reward = self.reward_weight[name]["weighting"] * \
                        kernel(self.reward_weight[name]["scaling"] * q[name])
         self.reward += footstep_reward
-        print(f"check side={side}, distance error {footstep_error}, reward is {footstep_reward}.\n"
-              f"step target in global {self.steps_target_global[self.steps_active_idx][0:2]}")
-        input()
+        print(f"episode index = {self.traj_idx}. TD clock {self.touchdown_by_clock_flag}\n"
+              f"target footstep {self.steps_target_global[self.steps_active_idx][0:2]} "
+              f"actual footstep {self.sim.get_site_pose(self.sim.feet_site_name[side])[0:2]}\n"
+              f"check side={side}, distance error {footstep_error}, reward is {footstep_reward}.\n")
+        print()
     return self.reward
 
 # Termination condition: If orientation too far off terminate
 def compute_done(self):
-    base_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
+    base_pose = self.sim.get_body_pose(self.sim.base_body_name)[3:]
     target_quat = np.array([1, 0, 0, 0])
     command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
     target_quat = quaternion_product(target_quat, command_quat)
-    orientation_error = 3 * quaternion_distance(base_quat, target_quat)
-    if np.exp(-orientation_error) < 0.8:
+    orientation_error = 3 * quaternion_distance(base_pose[3:], target_quat)
+    base_height = base_pose[2]
+    if np.exp(-orientation_error) < 0.8 or base_height < 0.5:
         return True
     else:
         return False
