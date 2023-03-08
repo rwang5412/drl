@@ -130,36 +130,6 @@ class CassieEnv(GenericEnv):
         """
         self.sim.reset()
 
-    def randomize_dynamics(self):
-        # Damping randomization
-        rand_damp = self.dr_ranges["damping"]["default"]
-        rand_scale = 1 + np.random.uniform(self.dr_ranges["damping"]["ranges"][:, 0],
-                                           self.dr_ranges["damping"]["ranges"][:, 1])
-        rand_damp[self.dr_ranges["damping"]["inds"]] *= rand_scale
-        self.sim.set_dof_damping(rand_damp)
-        # Mass randomization
-        rand_mass = self.dr_ranges["mass"]["default"]
-        rand_scale = 1 + np.random.uniform(self.dr_ranges["mass"]["ranges"][:, 0],
-                                           self.dr_ranges["mass"]["ranges"][:, 1])
-        rand_mass[self.dr_ranges["mass"]["inds"]] *= rand_scale
-        self.sim.set_body_mass(rand_mass)
-        # Body CoM location randomization
-        rand_ipos = self.dr_ranges["ipos"]["default"]
-        rand_scale = 1 + np.random.uniform(self.dr_ranges["ipos"]["ranges"][:, 0, :],
-                                           self.dr_ranges["ipos"]["ranges"][:, 1, :])
-        rand_ipos[self.dr_ranges["ipos"]["inds"]] *= rand_scale
-        self.sim.set_body_ipos(rand_ipos)
-        # Floor friction randomization
-        self.sim.set_geom_friction(np.multiply(1 + np.random.uniform(
-                                   *self.dr_ranges["friction"]["ranges"], size=3),
-                                   self.dr_ranges["friction"]["default"]), name="floor")
-
-    def default_dynamics(self):
-        self.sim.set_dof_damping(self.dr_ranges["damping"]["default"])
-        self.sim.set_body_mass(self.dr_ranges["mass"]["default"])
-        self.sim.set_body_ipos(self.dr_ranges["ipos"]["default"])
-        self.sim.set_geom_friction(self.dr_ranges["friction"]["default"], name="floor")
-
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
         """This loop sends actions into control interfaces, update torques, simulate step,
         and update 2kHz simulation states.

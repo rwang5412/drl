@@ -132,10 +132,10 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         env_group = parser.add_argument_group("Env arguments")
         for arg, (default, help_str) in args.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                env_group.add_argument("--" + arg, default = default, action = "store_" + \
-                                    str(not default).lower(), help = help_str)
+                env_group.add_argument("--" + arg, action=argparse.BooleanOptionalAction)
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+        env_group.set_defaults(dynamics_randomization=True)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")
