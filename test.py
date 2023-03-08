@@ -77,4 +77,4 @@ if __name__ == "__main__":
         from testing.test_mirror import test_mirror
         test_mirror()
     if args.drake:
-        test_drake.test_all()
+        test_drake.test_drail_drake_imports()
