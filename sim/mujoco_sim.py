@@ -42,6 +42,11 @@ class MujocoSim(GenericSim):
             f"that delay cycle of 1 corresponds to no delay (specifies size of the torque buffer.{ENDC}"
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
 
+        self.default_dyn_params = {"damping": self.get_dof_damping(),
+                                   "mass": self.get_body_mass(),
+                                   "ipos": self.get_body_ipos(),
+                                   "friction": self.get_geom_friction("floor")}
+
         # Load geoms/bodies for hfield/box/obstacle/stone/stair
         self.load_fixed_object()
         # self.load_movable_object()

@@ -78,7 +78,6 @@ class DigitEnv(GenericEnv):
                     damp_ranges.append(rand_range)
             damp_ranges = np.array(damp_ranges)
             self.dr_ranges["damping"] = {"inds":damp_inds,
-                                        "default":self.sim.get_dof_damping(),
                                         "ranges":damp_ranges}
             # Mass
             mass_inds = []
@@ -88,7 +87,6 @@ class DigitEnv(GenericEnv):
                 mass_ranges.append(rand_range)
             mass_ranges = np.array(mass_ranges)
             self.dr_ranges["mass"] = {"inds":mass_inds,
-                                    "default":self.sim.get_body_mass(),
                                     "ranges":mass_ranges}
             # CoM location
             ipos_inds = []
@@ -98,11 +96,9 @@ class DigitEnv(GenericEnv):
                 ipos_ranges.append(np.repeat(np.array(rand_range)[:, np.newaxis], 3, axis=1))
             ipos_ranges = np.array(ipos_ranges)
             self.dr_ranges["ipos"] = {"inds":ipos_inds,
-                                    "default":self.sim.get_body_ipos(),
                                     "ranges":ipos_ranges}
             # Friction
-            self.dr_ranges["friction"] = {"default": self.sim.get_geom_friction("ground"),
-                                          "ranges": dyn_rand_data["friction"]}
+            self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
         self.state_noise = state_noise
 
         # Mirror indices and make sure complete test_mirror when changes made below

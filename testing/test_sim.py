@@ -166,7 +166,6 @@ def test_sim_drop(sim):
 def test_sim_get_set(sim):
     print("Testing sim getter and setter functions")
     motor_name = CASSIE_MOTOR_NAME if 'cassie' in sim.__name__.lower() else DIGIT_MOTOR_NAME
-    floor_name = "floor" if 'cassie' in sim.__name__.lower() else "ground"
     test_sim = sim()
     test_sim.reset()
     # Test getters
@@ -182,7 +181,7 @@ def test_sim_get_set(sim):
     test_sim.get_dof_damping()
     test_sim.get_dof_damping(name=motor_name[0])
     test_sim.get_geom_friction()
-    test_sim.get_geom_friction(name=floor_name)
+    test_sim.get_geom_friction(name="floor")
     test_sim.get_body_ipos()
     test_sim.get_body_ipos(name=motor_name[0])
 
@@ -199,7 +198,7 @@ def test_sim_get_set(sim):
     test_sim.set_dof_damping(np.zeros(test_sim.nv))
     test_sim.set_dof_damping(1, name=motor_name[0])
     test_sim.set_geom_friction(np.zeros((test_sim.ngeom, 3)))
-    test_sim.set_geom_friction(np.zeros(3), name=floor_name)
+    test_sim.set_geom_friction(np.zeros(3), name="floor")
     test_sim.set_body_ipos(np.zeros((test_sim.nbody, 3)))
     test_sim.set_body_ipos(np.zeros(3), name=motor_name[0])
 

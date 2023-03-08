@@ -61,9 +61,9 @@ class CassieEnvClockOldFF(CassieEnvClock):
         self.turn_rate = 0
 
         if self.dynamics_randomization:
-            self.randomize_dynamics()
+            self.sim.randomize_dynamics(self.dr_ranges)
         else:
-            self.default_dynamics()
+            self.sim.default_dynamics()
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds

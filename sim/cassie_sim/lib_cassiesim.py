@@ -61,6 +61,11 @@ class LibCassieSim(GenericSim):
                     -0.0045, 0, 0.4973, 0.9786, 0.00386, -0.01524, -0.2051,
                     -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968])
 
+        self.default_dyn_params = {"damping": self.get_dof_damping(),
+                                   "mass": self.get_body_mass(),
+                                   "ipos": self.get_body_ipos(),
+                                   "friction": self.get_geom_friction("floor")}
+
     def reset(self, qpos: np.ndarray=None):
         self.sim.set_const()
         if qpos:
