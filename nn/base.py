@@ -146,7 +146,7 @@ class MixBase(Net):
                  lstm_layers,
                  ff_layers,
                  nonstate_encoder_dim,
-                 nonlinearity=torch.nn.functional.relu,
+                 nonlinearity='relu',
                  nonstate_encoder_on=True):
         """
         Base class for mixing LSTM and FF for actor.
@@ -174,11 +174,15 @@ class MixBase(Net):
         # Construct model
         if nonstate_encoder_on: # use a FF encoder to encode commands
             nonstate_ft_dim = nonstate_encoder_dim # single layer encoder
-            self.nonstate_encoder = FFBase(in_dim=nonstate_dim, layers=[nonstate_encoder_dim,nonstate_encoder_dim])
+            self.nonstate_encoder = FFBase(in_dim=nonstate_dim,
+                                           layers=[nonstate_dim, nonstate_ft_dim],
+                                           nonlinearity='relu')
         else:
             nonstate_ft_dim = nonstate_dim
         self.lstm = LSTMBase(in_dim=state_dim, layers=lstm_layers)
-        self.ff = FFBase(in_dim=lstm_layers[-1]+nonstate_ft_dim, layers=ff_layers)
+        self.ff = FFBase(in_dim=lstm_layers[-1]+nonstate_ft_dim,
+                         layers=ff_layers,
+                         nonlinearity='relu')
         self.latent_space = FFBase(in_dim=lstm_layers[-1], layers=ff_layers)
 
     def init_hidden_state(self, batch_size=1):
@@ -190,29 +194,23 @@ class MixBase(Net):
     def set_hidden_state(self, hidden, cells):
         self.lstm.set_hidden_state(hidden=hidden, cells=cells)
 
-    def nonstate_encoder_forward(self, x):
-        return self.nonstate_encoder._base_forward(x)
-
     def _base_forward(self, x):
         size = x.size()
         dims = len(size)
         if dims == 3: # for optimizaton with batch of trajectories
             state = x[:,:,:self.state_dim]
             nonstate = x[:,:,self.state_dim:]
-            # lstm_feature = self.lstm_forward(state)
             lstm_feature = self.lstm._base_forward(state)
             if self.nonstate_encoder_on:
-                nonstate = self.nonstate_encoder_forward(nonstate)
+                nonstate = self.nonstate_encoder._base_forward(nonstate)
             ff_input = torch.cat((lstm_feature, nonstate), dim=2)
         elif dims == 1: # for model forward
             state = x[:self.state_dim]
             nonstate = x[self.state_dim:]
-            # lstm_feature = self.lstm_forward(state)
             lstm_feature = self.lstm._base_forward(state)
             if self.nonstate_encoder_on:
-                nonstate = self.nonstate_encoder_forward(nonstate)
+                nonstate = self.nonstate_encoder._base_forward(nonstate)
             ff_input = torch.cat((lstm_feature, nonstate))
-        # ff_feature = self.ff_forward(ff_input)
         ff_feature = self.ff._base_forward(ff_input)
         return ff_feature
 
