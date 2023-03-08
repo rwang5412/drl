@@ -21,7 +21,8 @@ class DigitEnvClock(DigitEnv):
                  simulator_type: str,
                  terrain: str,
                  policy_rate: int,
-                 dynamics_randomization: bool):
+                 dynamics_randomization: bool,
+                 state_noise: float):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -29,7 +30,8 @@ class DigitEnvClock(DigitEnv):
         super().__init__(simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization)
+                         dynamics_randomization=dynamics_randomization,
+                         state_noise=state_noise)
 
         # Clock variables
         self.clock_type = clock_type
@@ -191,6 +193,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
+        "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
     }

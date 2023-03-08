@@ -18,7 +18,7 @@ class DigitEnv(GenericEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float = 0.0):
+                 state_noise: float):
         """Template class for Digit with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
@@ -27,7 +27,7 @@ class DigitEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
-            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside 
+            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside
                            each subenv class to support individual use case.
         """
         super().__init__()
@@ -103,6 +103,7 @@ class DigitEnv(GenericEnv):
             # Friction
             self.dr_ranges["friction"] = {"default": self.sim.get_geom_friction("ground"),
                                           "ranges": dyn_rand_data["friction"]}
+        self.state_noise = state_noise
 
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py

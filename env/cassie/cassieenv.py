@@ -18,7 +18,7 @@ class CassieEnv(GenericEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float = 0.0):
+                 state_noise: float):
         """Template class for Cassie with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
@@ -102,6 +102,7 @@ class CassieEnv(GenericEnv):
             self.dr_ranges["friction"] = {"default": self.sim.get_geom_friction("floor"),
                                         "ranges": dyn_rand_data["friction"]}
         self.state_noise = state_noise
+        print("state noise", self.state_noise)
 
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
