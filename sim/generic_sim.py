@@ -42,7 +42,9 @@ class GenericSim(object):
         should contain ranges and indicies for damping/mass/ipos values to be randomized, along with
         the default values for all the values as well. Note that if a joint/mass index is not in the
         dictionary it will not be randomized. This dictionary input should typically come from an
-        environment's loaded in json file.
+        environment's loaded in json file. Range values should be given as +- percent of the default
+        value. So a range of [-0.1, 0.1] will randomize +- 10% of the default value (randomize in
+        the range [0.9*default, 1.1*default]).
 
         Args:
             dr_ranges (dictionary): Dictionary object containing all of the randomization info:

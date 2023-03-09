@@ -382,7 +382,6 @@ class LibCassieSim(GenericSim):
             ipos = ipos.flatten()
         self.sim.set_body_ipos(ipos, name)
 
-
     def set_dof_damping(self, damp: np.ndarray, name: str = None):
         if name:
             num_dof = self.sim.get_joint_num_dof(name)
@@ -407,7 +406,6 @@ class LibCassieSim(GenericSim):
                 f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting friction " \
                 f"for single geom {name} but should be shape (3,).{ENDC}"
         else:
-            print("set all fric")
             assert fric.shape == (self.ngeom, 3), \
                 f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting all geom " \
                 f"friction but should be shape ({self.ngeom}, 3).{ENDC}"

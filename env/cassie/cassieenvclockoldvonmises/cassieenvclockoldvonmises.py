@@ -64,11 +64,6 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         self.turn_rate = np.random.uniform(-0.001 * np.pi, 0.001 * np.pi)
         self.orient_add = 0
 
-        if self.dynamics_randomization:
-            self.sim.randomize_dynamics(self.dr_ranges)
-        else:
-            self.sim.default_dynamics()
-
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
         ratio = np.random.uniform(*self._swing_ratio_bounds)

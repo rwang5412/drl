@@ -129,6 +129,10 @@ class DigitEnv(GenericEnv):
         Depending on use cases, child class can override this as well.
         """
         self.sim.reset()
+        if self.dynamics_randomization:
+            self.sim.randomize_dynamics(self.dr_ranges)
+        else:
+            self.sim.default_dynamics()
 
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
         """This loop sends actions into control interfaces, update torques, simulate step,
