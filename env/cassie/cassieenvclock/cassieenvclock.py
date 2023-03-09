@@ -70,7 +70,7 @@ class CassieEnvClock(CassieEnv):
 
         # Define env specifics after reset
         self.observation_size = len(self.get_robot_state())
-        self.observation_size += 2 # XY velocity command
+        self.observation_size += 3 # XY velocity and turn command
         self.observation_size += 2 # swing ratio
         self.observation_size += 2 # period shift
         self.observation_size += 2 # input clock
@@ -155,7 +155,7 @@ class CassieEnvClock(CassieEnv):
     def get_observation_mirror_indices(self):
         mirror_inds = self.robot_state_mirror_indices
         # XY velocity command
-        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1)]
+        mirror_inds += [len(mirror_inds), -(len(mirror_inds) + 1), -(len(mirror_inds) + 2)]
         # swing ratio
         mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # period shift

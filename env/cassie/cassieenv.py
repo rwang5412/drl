@@ -9,7 +9,7 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
-from util.colors import FAIL, ENDC
+from util.colors import FAIL, WARNING, ENDC
 
 class CassieEnv(GenericEnv):
     def __init__(self,
@@ -25,7 +25,7 @@ class CassieEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
-            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside 
+            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside
                            each subenv class to support individual use case.
         """
         super().__init__()
@@ -48,8 +48,20 @@ class CassieEnv(GenericEnv):
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.orient_add = 0
-        self.trackers = [self.update_tracker_grf,
-                         self.update_tracker_velocity]
+        # self.trackers = [self.update_tracker_grf,
+                        #  self.update_tracker_velocity]
+        self.trackers = {self.update_tracker_grf: {"frequency": 50},
+                         self.update_tracker_velocity: {"frequency": 50}
+                        }
+        # Double check tracker frequencies and convert to number of sim steps
+        for tracker, tracker_dict in self.trackers.items():
+            freq = tracker_dict["frequency"]
+            num_step = int(self.sim.simulator_rate // freq)
+            if num_step != self.sim.simulator_rate / freq:
+                print(f"{WARNING}WARNING: tracker frequency for {tracker.__name__} of {freq}Hz " \
+                      f"does not fit evenly into simulator rate of {self.sim.simulator_rate}.{ENDC}")
+            tracker_dict["num_step"] = num_step
+
         self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
         self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
         for foot in self.sim.feet_body_name:
@@ -105,8 +117,12 @@ class CassieEnv(GenericEnv):
             # step simulation
             self.sim.sim_forward()
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
-            for tracker in self.trackers:
-                tracker(weighting=1/simulator_repeat_steps, sim_step=sim_step)
+            for tracker_fn, tracker_dict in self.trackers.items():
+                if sim_step % tracker_dict["num_step"] == 0:
+                    tracker_fn(weighting = 1 / tracker_dict["num_step"], sim_step = sim_step)
+
+            # for tracker in self.trackers:
+            #     tracker(weighting=1/simulator_repeat_steps, sim_step=sim_step)
 
     def get_robot_state(self):
         """Get standard robot prorioceptive states. Sub-env can override this function to define its
