@@ -21,15 +21,16 @@ class CassieEnvClock(CassieEnv):
                  simulator_type: str,
                  terrain: str,
                  policy_rate: int,
-                 dynamics_randomization: bool):
+                 dynamics_randomization: bool,
+                 state_noise: float):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
-
         super().__init__(simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization)
+                         dynamics_randomization=dynamics_randomization,
+                         state_noise=state_noise)
 
         # Clock variables
         self.clock_type = clock_type
@@ -70,7 +71,7 @@ class CassieEnvClock(CassieEnv):
 
         # Define env specifics after reset
         self.observation_size = len(self.get_robot_state())
-        self.observation_size += 2 # XY velocity command
+        self.observation_size += 3 # XY velocity and turn command
         self.observation_size += 2 # swing ratio
         self.observation_size += 2 # period shift
         self.observation_size += 2 # input clock
@@ -155,7 +156,7 @@ class CassieEnvClock(CassieEnv):
     def get_observation_mirror_indices(self):
         mirror_inds = self.robot_state_mirror_indices
         # XY velocity command
-        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1)]
+        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1), - (len(mirror_inds) + 2)]
         # swing ratio
         mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # period shift
@@ -186,6 +187,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
+        "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
     }
@@ -193,10 +195,10 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         env_group = parser.add_argument_group("Env arguments")
         for arg, (default, help_str) in args.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                env_group.add_argument("--" + arg, default = default, action = "store_" + \
-                                    str(not default).lower(), help = help_str)
+                env_group.add_argument("--" + arg, action=argparse.BooleanOptionalAction)
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+        env_group.set_defaults(dynamics_randomization=True)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

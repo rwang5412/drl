@@ -34,6 +34,55 @@ class GenericSim(object):
     def viewer_draw(self):
         raise NotImplementedError
 
+    """Dynamics randomization functions
+    """
+    def randomize_dynamics(self, dr_ranges):
+        """
+        Applies dynamics randomization according to the inputted dictionary of values. Dictionary
+        should contain ranges and indicies for damping/mass/ipos values to be randomized, along with
+        the default values for all the values as well. Note that if a joint/mass index is not in the
+        dictionary it will not be randomized. This dictionary input should typically come from an
+        environment's loaded in json file. Range values should be given as +- percent of the default
+        value. So a range of [-0.1, 0.1] will randomize +- 10% of the default value (randomize in
+        the range [0.9*default, 1.1*default]).
+
+        Args:
+            dr_ranges (dictionary): Dictionary object containing all of the randomization info:
+                ranges, indicies, and default values for damping, mass, ipos (body center of mass
+                location), and floor friction.
+        """
+        # Damping randomization
+        rand_damp = self.default_dyn_params["damping"]
+        rand_scale = 1 + np.random.uniform(dr_ranges["damping"]["ranges"][:, 0],
+                                           dr_ranges["damping"]["ranges"][:, 1])
+        rand_damp[dr_ranges["damping"]["inds"]] *= rand_scale
+        self.set_dof_damping(rand_damp)
+        # Mass randomization
+        rand_mass = self.default_dyn_params["mass"]
+        rand_scale = 1 + np.random.uniform(dr_ranges["mass"]["ranges"][:, 0],
+                                           dr_ranges["mass"]["ranges"][:, 1])
+        rand_mass[dr_ranges["mass"]["inds"]] *= rand_scale
+        self.set_body_mass(rand_mass)
+        # Body CoM location randomization
+        rand_ipos = self.default_dyn_params["ipos"]
+        rand_scale = 1 + np.random.uniform(dr_ranges["ipos"]["ranges"][:, 0, :],
+                                           dr_ranges["ipos"]["ranges"][:, 1, :])
+        rand_ipos[dr_ranges["ipos"]["inds"]] *= rand_scale
+        self.set_body_ipos(rand_ipos)
+        # Floor friction randomization
+        self.set_geom_friction(np.multiply(1 + np.random.uniform(
+                                   *dr_ranges["friction"]["ranges"], size=3),
+                                   self.default_dyn_params["friction"]), name="floor")
+
+    def default_dynamics(self):
+        """
+        Resets all dynamics parameters to their default values.
+        """
+        self.set_dof_damping(self.default_dyn_params["damping"])
+        self.set_body_mass(self.default_dyn_params["mass"])
+        self.set_body_ipos(self.default_dyn_params["ipos"])
+        self.set_geom_friction(self.default_dyn_params["friction"], name="floor")
+
     """Getter/Setter to unify across simulators
     """
     def get_joint_position(self):
@@ -101,9 +150,33 @@ class GenericSim(object):
 
     def get_body_velocity(self, name: str, local_frame=True):
         raise NotImplementedError
-    
+
     def get_body_acceleration(self, name: str, local_frame=True):
         raise NotImplementedError
 
     def get_body_contact_force(self, name: str):
+        raise NotImplementedError
+
+    def get_body_mass(self, name: str = None):
+        raise NotImplementedError
+
+    def set_body_mass(self, mass: float | int | np.ndarray, name: str = None):
+        raise NotImplementedError
+
+    def get_body_ipos(self, name: str = None):
+        raise NotImplementedError
+
+    def set_body_ipos(self, ipos: np.ndarray, name: str = None):
+        raise NotImplementedError
+
+    def get_dof_damping(self, name: str = None):
+        raise NotImplementedError
+
+    def set_dof_damping(self, damp: float | int | np.ndarray, name: str = None):
+        raise NotImplementedError
+
+    def get_geom_friction(self, name: str = None):
+        raise NotImplementedError
+
+    def set_geom_friction(self, fric: np.ndarray, name: str = None):
         raise NotImplementedError

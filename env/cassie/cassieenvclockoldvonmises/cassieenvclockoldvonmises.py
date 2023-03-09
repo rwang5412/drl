@@ -15,7 +15,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
                  simulator_type: str,
                  terrain: str,
                  policy_rate: int,
-                 dynamics_randomization: bool):
+                 dynamics_randomization: bool,
+                 state_noise: float):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClockOld received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -27,7 +28,8 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
                          simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization)
+                         dynamics_randomization=dynamics_randomization,
+                         state_noise=state_noise)
 
         # Command randomization ranges
         self._x_velocity_bounds = [0.5, 1.5]
@@ -128,6 +130,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (40, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
+        "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
         "reward-name" : ("locomotion_vonmises_clock_reward", "Which reward to use"),
         "clock-type" : ("von_mises", "Which clock to use (\"linear\" or \"von_mises\")"),
     }
@@ -135,10 +138,10 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         env_group = parser.add_argument_group("Env arguments")
         for arg, (default, help_str) in args.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                env_group.add_argument("--" + arg, default = default, action = "store_" + \
-                                    str(not default).lower(), help = help_str)
+                env_group.add_argument("--" + arg, action=argparse.BooleanOptionalAction)
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+        env_group.set_defaults(dynamics_randomization=True)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

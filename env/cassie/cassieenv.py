@@ -1,4 +1,5 @@
 import argparse
+import json
 import numpy as np
 
 from env.genericenv import GenericEnv
@@ -9,14 +10,15 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
-from util.colors import FAIL, ENDC
+from pathlib import Path
 
 class CassieEnv(GenericEnv):
     def __init__(self,
                  simulator_type: str,
                  terrain: str,
                  policy_rate: int,
-                 dynamics_randomization: bool):
+                 dynamics_randomization: bool,
+                 state_noise: float):
         """Template class for Cassie with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
@@ -25,7 +27,7 @@ class CassieEnv(GenericEnv):
             clock (bool): "linear" or "von-Mises" or None
             policy_rate (int): Control frequency of the policy in Hertz
             dynamics_randomization (bool): True, enable dynamics randomization.
-            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside 
+            terrain (str): Type of terrain generation [stone, stair, obstacle...]. Initialize inside
                            each subenv class to support individual use case.
         """
         super().__init__()
@@ -55,6 +57,47 @@ class CassieEnv(GenericEnv):
         for foot in self.sim.feet_body_name:
             self.feet_grf_2khz_avg[foot] = self.sim.get_body_contact_force(name=foot)
             self.feet_velocity_2khz_avg[foot] = self.sim.get_body_velocity(name=foot)
+
+        # Dynamics randomization ranges
+        # If any joints/bodies are missing from the json file they just won't be randomized,
+        # DR will still run. Get default ranges for each param too. We grab the indicies of the
+        # relevant joints/bodies to avoid using named access later (vectorized access is faster)
+        if self.__class__.__name__.lower() != "cassieenv":
+            dyn_rand_data = json.load(open(Path(__file__).parent /
+                                        f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
+            self.dr_ranges = {}
+            # Damping
+            damp_inds = []
+            damp_ranges = []
+            for joint_name, rand_range in dyn_rand_data["damping"].items():
+                num_dof = len(self.sim.get_dof_damping(joint_name))
+                for i in range(num_dof):
+                    damp_inds.append(self.sim.get_joint_dof_adr(joint_name) + i)
+                    damp_ranges.append(rand_range)
+            damp_ranges = np.array(damp_ranges)
+            self.dr_ranges["damping"] = {"inds":damp_inds,
+                                        "ranges":damp_ranges}
+            # Mass
+            mass_inds = []
+            mass_ranges = []
+            for body_name, rand_range in dyn_rand_data["mass"].items():
+                mass_inds.append(self.sim.get_body_adr(body_name))
+                mass_ranges.append(rand_range)
+            mass_ranges = np.array(mass_ranges)
+            self.dr_ranges["mass"] = {"inds":mass_inds,
+                                    "ranges":mass_ranges}
+            # CoM location
+            ipos_inds = []
+            ipos_ranges = []
+            for body_name, rand_range in dyn_rand_data["ipos"].items():
+                ipos_inds.append(self.sim.get_body_adr(body_name))
+                ipos_ranges.append(np.repeat(np.array(rand_range)[:, np.newaxis], 3, axis=1))
+            ipos_ranges = np.array(ipos_ranges)
+            self.dr_ranges["ipos"] = {"inds":ipos_inds,
+                                    "ranges":ipos_ranges}
+            # Friction
+            self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
+        self.state_noise = state_noise
 
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
@@ -86,6 +129,11 @@ class CassieEnv(GenericEnv):
         Depending on use cases, child class can override this as well.
         """
         self.sim.reset()
+
+        if self.dynamics_randomization:
+            self.sim.randomize_dynamics(self.dr_ranges)
+        else:
+            self.sim.default_dynamics()
 
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
         """This loop sends actions into control interfaces, update torques, simulate step,
@@ -123,6 +171,7 @@ class CassieEnv(GenericEnv):
             self.sim.get_joint_position(),
             self.sim.get_joint_velocity()
         ])
+        robot_state += np.random.normal(0, self.state_noise, size = robot_state.shape)
         return robot_state
 
     def update_tracker_grf(self, weighting: float, sim_step: int):

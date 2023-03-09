@@ -13,7 +13,7 @@ from .common import (
     DIGIT_MOTOR_NAME,
     DIGIT_JOINT_NAME,
     CASSIE_MOTOR_NAME,
-    CASSIE_JOINT_NAME
+    CASSIE_JOINT_NAME,
 )
 
 from env.util.quaternion import quaternion2euler
@@ -165,6 +165,7 @@ def test_sim_drop(sim):
 
 def test_sim_get_set(sim):
     print("Testing sim getter and setter functions")
+    motor_name = CASSIE_MOTOR_NAME if 'cassie' in sim.__name__.lower() else DIGIT_MOTOR_NAME
     test_sim = sim()
     test_sim.reset()
     # Test getters
@@ -175,6 +176,14 @@ def test_sim_get_set(sim):
     test_sim.get_base_orientation()
     test_sim.get_base_angular_velocity()
     test_sim.get_torque()
+    test_sim.get_body_mass()
+    test_sim.get_body_mass(name=motor_name[0])
+    test_sim.get_dof_damping()
+    test_sim.get_dof_damping(name=motor_name[0])
+    test_sim.get_geom_friction()
+    test_sim.get_geom_friction(name="floor")
+    test_sim.get_body_ipos()
+    test_sim.get_body_ipos(name=motor_name[0])
 
     # Test setters
     test_sim.set_joint_position(np.zeros(test_sim.num_joints))
@@ -184,6 +193,14 @@ def test_sim_get_set(sim):
     test_sim.set_base_orientation(np.array([0, 0.6987058, 0.2329019, 0.6764369]))
     test_sim.set_base_angular_velocity(np.zeros(3))
     test_sim.set_torque(np.zeros(test_sim.num_actuators))
+    test_sim.set_body_mass(np.zeros(test_sim.nbody))
+    test_sim.set_body_mass(0, name=motor_name[0])
+    test_sim.set_dof_damping(np.zeros(test_sim.nv))
+    test_sim.set_dof_damping(1, name=motor_name[0])
+    test_sim.set_geom_friction(np.zeros((test_sim.ngeom, 3)))
+    test_sim.set_geom_friction(np.zeros(3), name="floor")
+    test_sim.set_body_ipos(np.zeros((test_sim.nbody, 3)))
+    test_sim.set_body_ipos(np.zeros(3), name=motor_name[0])
 
     print("Pass sim getter and setter functions")
     return True
