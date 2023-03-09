@@ -124,7 +124,8 @@ class MujocoSim(GenericSim):
             self.model.dof_damping[i] = 1e5
 
     def adjust_robot_pose(self):
-        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms. Make sure to call if env is updating the model.
+        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms.
+        Make sure to call if env is updating the model.
         """
         # Make sure all kinematics are updated
         mj.mj_kinematics(self.model, self.data)
@@ -133,8 +134,8 @@ class MujocoSim(GenericSim):
         rfoot_pos  = self.get_site_pose(self.feet_site_name[1])[0:3]
         z_deltas = []
         for (x,y,z) in [lfoot_pos, rfoot_pos]:
-            box_id, heel_hgt = self.geom_generator.check_step(x - 0.1, y, 0)
-            box_id, toe_hgt  = self.geom_generator.check_step(x + 0.1, y, 0)
+            box_id, heel_hgt = self.geom_generator.check_step(x - 0.09, y, 0)
+            box_id, toe_hgt  = self.geom_generator.check_step(x + 0.09, y, 0)
             z_hgt = max(heel_hgt, toe_hgt)
             z_deltas.append((z_hgt-z))
         base_position = self.get_base_position()
