@@ -3,6 +3,9 @@ import sys
 import numpy as np
 
 from duality.digit.digit_arm_diff_ik import DigitArmDiffInverseKinematics
+from duality.digit.full_digit_ik import FullDigitInverseKinematics
+from pydrake.all import DiagramBuilder, RigidTransform
+
 from util.colors import OKGREEN, FAIL, ENDC
 
 def test_duality_imports():
@@ -23,6 +26,8 @@ def test_duality_diff_ik_constructor():
         digit.wire_arm_V_G_tracking_diff_ik()
         assert(digit.plant is not None)
         assert(digit.plant_context is not None)
+        digit = FullDigitInverseKinematics()
+
     except ImportError:
         print(f"{FAIL}")
 
