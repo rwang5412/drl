@@ -155,7 +155,7 @@ class CassieEnvClock(CassieEnv):
         return self.motor_mirror_indices
 
     def get_observation_mirror_indices(self):
-        mirror_inds = copy.deepcopy(self.robot_state_mirror_indices)
+        mirror_inds = [x for x in self.robot_state_mirror_indices]
         # XY velocity command
         mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1), - (len(mirror_inds) + 2)]
         # swing ratio
