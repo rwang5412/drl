@@ -1,4 +1,5 @@
 import argparse
+import copy
 import json
 import numpy as np
 import os
@@ -217,7 +218,7 @@ class CassieStone(CassieEnv):
         return mirror_inds
 
     def get_observation_mirror_indices(self):
-        mirror_inds = self.robot_state_mirror_indices
+        mirror_inds = copy.deepcopy(self.robot_state_mirror_indices)
         # XYZ footstep + distance
         mirror_inds += [len(mirror_inds), -(len(mirror_inds)+1), len(mirror_inds) + 2, len(mirror_inds) + 3]
         # orientation
