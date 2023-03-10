@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import mujoco as mj
 
@@ -17,6 +18,12 @@ class MujocoSim(GenericSim):
         super().__init__()
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
+        self.nq = self.model.nq
+        self.nv = self.model.nv
+        self.nu = self.model.nu
+        self.nbody = self.model.nbody
+        self.njnt = self.model.njnt
+        self.ngeom = self.model.ngeom
         self.viewer = None
         self.terrain = terrain
         # Enforce that necessary constants and index arrays are defined
@@ -34,6 +41,11 @@ class MujocoSim(GenericSim):
             f"{FAIL}Env {self.__class__.__name__} must have non-zeron torque_delay_cycles. Note " \
             f"that delay cycle of 1 corresponds to no delay (specifies size of the torque buffer.{ENDC}"
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
+
+        self.default_dyn_params = {"damping": self.get_dof_damping(),
+                                   "mass": self.get_body_mass(),
+                                   "ipos": self.get_body_ipos(),
+                                   "friction": self.get_geom_friction("floor")}
 
         # Load geoms/bodies for hfield/box/obstacle/stone/stair
         self.load_fixed_object()
@@ -234,6 +246,9 @@ class MujocoSim(GenericSim):
     def get_joint_dof_adr(self, name: str):
         return self.model.jnt_dofadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
 
+    def get_body_adr(self, name: str):
+        return mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+
     def get_simulation_time(self):
         return self.data.time
 
@@ -379,6 +394,32 @@ class MujocoSim(GenericSim):
         # Since condim=3, let's keep XYZ for now
         return total_wrench[:3]
 
+    def get_body_mass(self, name: str = None):
+        # If name is None, return all body masses
+        if name:
+            return self.model.body(name).mass
+        else:
+            return copy.deepcopy(self.model.body_mass)
+
+    def get_body_ipos(self, name: str = None):
+        # If name is None, return all body masses
+        if name:
+            return self.model.body(name).ipos
+        else:
+            return copy.deepcopy(self.model.body_ipos)
+
+    def get_dof_damping(self, name: str = None):
+        if name:
+            return self.model.joint(name).damping
+        else:
+            return copy.deepcopy(self.model.dof_damping)
+
+    def get_geom_friction(self, name: str = None):
+        if name:
+            return self.model.geom(name).friction
+        else:
+            return copy.deepcopy(self.model.geom_friction)
+
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
                f"{FAIL}set_joint_position got array of shape {position.shape} but " \
@@ -435,6 +476,60 @@ class MujocoSim(GenericSim):
         self.data.qvel[self.base_angular_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
+    def set_body_mass(self, mass: float | int | np.ndarray, name: str = None):
+        # If name is None, expect setting all masses
+        if name:
+            assert isinstance(mass, (float, int)), \
+                f"{FAIL}set_body_mass got a {type(mass)} instead of a single float when setting mass " \
+                f"for single body {name}.{ENDC}"
+            self.model.body(name).mass = mass
+        else:
+            assert mass.shape == (self.model.nbody,), \
+                f"{FAIL}set_body_mass got array of shape {mass.shape} but should be shape " \
+                f"({self.model.nbody},).{ENDC}"
+            self.model.body_mass = mass
+
+    def set_body_ipos(self, ipos: np.ndarray, name: str = None):
+        if name:
+            assert ipos.shape == (3,), \
+                f"{FAIL}set_body_ipos got array of shape {ipos.shape} when setting ipos for " \
+                f"single body {name} but should be shape (3,).{ENDC}"
+            self.model.body(name).ipos = ipos
+        else:
+            assert ipos.shape == (self.model.nbody, 3), \
+                f"{FAIL}set_body_mass got array of shape {ipos.shape} but should be shape " \
+                f"({self.model.nbody}, 3).{ENDC}"
+            self.model.body_ipos = ipos
+
+    def set_dof_damping(self, damp: float | int | np.ndarray, name: str = None):
+        if name:
+            num_dof = len(self.model.joint(name).damping)
+            if num_dof == 1:
+                assert isinstance(damp, (float, int)), \
+                    f"{FAIL}set_dof_damping got a {type(damp)} when setting damping for single dof " \
+                    f"{name} but should be a float or int.{ENDC}"
+            else:
+                assert damp.shape == (num_dof,), \
+                    f"{FAIL}set_dof_damping got array of shape {damp.shape} when setting damping " \
+                    f"for single dof {name} but should be shape ({num_dof},).{ENDC}"
+            self.model.joint(name).damping = damp
+        else:
+            assert damp.shape == (self.model.nv,), \
+                f"{FAIL}set_dof_damping got array of shape {damp.shape} when setting all joint " \
+                f"dofs but should be shape ({self.model.nv},).{ENDC}"
+            self.model.dof_damping = damp
+
+    def set_geom_friction(self, fric: np.ndarray, name: str = None):
+        if name:
+            assert fric.shape == (3, ), \
+                f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting friction " \
+                f"for single geom {name} but should be shape (3,).{ENDC}"
+            self.model.geom(name).friction = fric
+        else:
+            assert fric.shape == (self.model.ngeom, 3), \
+                f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting all geom " \
+                f"friction but should be shape ({self.model.ngeom}, 3).{ENDC}"
+            self.model.geom_friction = fric
     """The following setters are meant during simulation or reset, so should not advance simulation by itself.
     """
     def set_geom_pose(self, name: str, pose: np.ndarray):

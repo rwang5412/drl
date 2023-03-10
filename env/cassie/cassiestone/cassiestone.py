@@ -1,4 +1,5 @@
 import argparse
+import copy
 import json
 import numpy as np
 import os
@@ -22,6 +23,7 @@ class CassieStone(CassieEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
+                 state_noise: float,
                  z_step: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
@@ -30,7 +32,8 @@ class CassieStone(CassieEnv):
         super().__init__(simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
-                         dynamics_randomization=dynamics_randomization)
+                         dynamics_randomization=dynamics_randomization,
+                         state_noise=state_noise)
 
         # Clock variables
         self.clock_type = clock_type
@@ -215,7 +218,7 @@ class CassieStone(CassieEnv):
         return mirror_inds
 
     def get_observation_mirror_indices(self):
-        mirror_inds = self.robot_state_mirror_indices
+        mirror_inds = [x for x in self.robot_state_mirror_indices]
         # XYZ footstep + distance
         mirror_inds += [len(mirror_inds), -(len(mirror_inds)+1), len(mirror_inds) + 2, len(mirror_inds) + 3]
         # orientation
@@ -367,6 +370,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
+        "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
         "reward-name" : ("stepping_stone", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")"),
         "z-step" : (False, ""),
@@ -375,11 +379,11 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         env_group = parser.add_argument_group("Env arguments")
         for arg, (default, help_str) in args.items():
             if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                env_group.add_argument("--" + arg, default = default, action = "store_" + \
-                                    str(not default).lower(), help = help_str)
+                env_group.add_argument("--" + arg, action=argparse.BooleanOptionalAction)
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
-    elif isinstance(parser, SimpleNamespace) or isinstance(parser, argparse.Namespace):
+        env_group.set_defaults(dynamics_randomization=True)
+    elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")
             if not hasattr(parser, arg):
