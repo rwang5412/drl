@@ -50,8 +50,8 @@ class CassieEnv(GenericEnv):
         self.orient_add = 0
         # self.trackers = [self.update_tracker_grf,
                         #  self.update_tracker_velocity]
-        self.trackers = {self.update_tracker_grf: {"frequency": 500},
-                         self.update_tracker_velocity: {"frequency": 100}
+        self.trackers = {self.update_tracker_grf: {"frequency": 50},
+                         self.update_tracker_velocity: {"frequency": 50}
                         }
         # Double check tracker frequencies and convert to number of sim steps
         for tracker, tracker_dict in self.trackers.items():
@@ -108,7 +108,6 @@ class CassieEnv(GenericEnv):
         Args:
             action (np.ndarray): Actions from policy inference.
         """
-        count = 0
         # Reset trackers
         for tracker_fn, tracker_dict in self.trackers.items():
             tracker_fn(weighting = 0, sim_step = 0)
@@ -123,7 +122,6 @@ class CassieEnv(GenericEnv):
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
             for tracker_fn, tracker_dict in self.trackers.items():
                 if (sim_step + 1) % tracker_dict["num_step"] == 0:
-                    count += 1
                     tracker_fn(weighting = 1 / (simulator_repeat_steps / tracker_dict["num_step"]),
                                sim_step = sim_step)
 
