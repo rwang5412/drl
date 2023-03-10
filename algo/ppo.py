@@ -263,8 +263,8 @@ class PPO(AlgoWorker):
 
         self.state_mirror_indices = None
         self.action_mirror_indices = None
-        if hasattr(self.env, 'get_state_mirror_indices'):
-            self.state_mirror_indices = self.env.get_state_mirror_indices()
+        if hasattr(self.env, 'get_observation_mirror_indices'):
+            self.state_mirror_indices = self.env.get_observation_mirror_indices()
         if hasattr(self.env, 'get_action_mirror_indices'):
             self.action_mirror_indices = self.env.get_action_mirror_indices()
 
@@ -394,7 +394,7 @@ def add_algo_args(parser):
         "grad-clip"          : (0.05, "Gradient clip value (maximum allowed gradient norm)"),
         "batch-size"         : (64, "Minibatch size to use during optimization"),
         "epochs"             : (3, "Number of epochs to optimize for each iteration"),
-        "mirror"             : (0, "Mirror loss coefficient"),
+        "mirror"             : (1, "Mirror loss coefficient"),
         "workers"            : (4, "Number of parallel workers to use for sampling"),
         "redis"              : (None, "Ray redis address"),
         "previous"           : ("", "Previous model to bootstrap from"),

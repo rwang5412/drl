@@ -26,7 +26,8 @@ def test_ppo():
                            traj_len     = 100,
                            timesteps    = 200,
                            num_steps    = 100,
-                           workers      = 2)
+                           workers      = 2,
+                           mirror       = 1)
     env_args = SimpleNamespace()
 
     add_algo_args(args)

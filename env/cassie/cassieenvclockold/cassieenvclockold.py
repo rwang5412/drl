@@ -1,4 +1,5 @@
 import argparse
+import copy
 import numpy as np
 import os
 
@@ -82,7 +83,7 @@ class CassieEnvClockOld(CassieEnvClock):
         return out
 
     def get_observation_mirror_indices(self):
-        mirror_inds = self.robot_state_mirror_indices
+        mirror_inds = [x for x in self.robot_state_mirror_indices]
         # input clock sin/cos
         mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         # X velocity command
