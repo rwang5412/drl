@@ -30,27 +30,15 @@ def is_variable_valid(x):
 
     # Check by type
     if isinstance(x, torch.Tensor):
-        for i in x:
-            if i is None:
-                print(f"{FAIL}is_variable_valid gets None input as {x}.{ENDC}")
-                return False
-            if isinstance(i, str):
-                print(f"{FAIL}is_variable_valid gets String as {x}.{ENDC}")
-                return False
-            if not torch.isfinite(i).all():
-                return False
-        return True
+        if not torch.isfinite(x).all():
+            return False
+        else:
+            return True
     elif isinstance(x, numpy.ndarray):
-        for i in x:
-            if i is None:
-                print(f"{FAIL}is_variable_valid gets None input as {x}.{ENDC}")
-                return False
-            if isinstance(i, str):
-                print(f"{FAIL}is_variable_valid gets String as {x}.{ENDC}")
-                return False
-            if not numpy.isfinite(i).all():
-                return False
-        return True
+        if not numpy.isfinite(x).all():
+            return False
+        else:
+            return True
     else:
         print(f"{FAIL}is_variable_valid gets not qualified input type of {type(x)} for {x}.{ENDC}")
         return False

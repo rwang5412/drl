@@ -65,8 +65,9 @@ class DigitEnv(GenericEnv):
         # DR will still run. Get default ranges for each param too. We grab the indicies of the
         # relevant joints/bodies to avoid using named access later (vectorized access is faster)
         if self.__class__.__name__.lower() != "digitenv":
-            dyn_rand_data = json.load(open(Path(__file__).parent /
-                                        f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
+            dyn_rand_file = open(Path(__file__).parent /
+                                 f"{self.__class__.__name__.lower()}/dynamics_randomization.json")
+            dyn_rand_data = json.load(dyn_rand_file)
             self.dr_ranges = {}
             # Damping
             damp_inds = []
@@ -99,6 +100,7 @@ class DigitEnv(GenericEnv):
                                     "ranges":ipos_ranges}
             # Friction
             self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
+            dyn_rand_file.close()
         self.state_noise = state_noise
 
         # Mirror indices and make sure complete test_mirror when changes made below
