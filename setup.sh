@@ -3,14 +3,14 @@ echo $mode
 if [ "$mode" == "u" ]; then
     conda config --set solver classic
     conda env update --file environment.yaml --prune
-    return 
+    exit 0
 elif [ "$mode" == "c" ]; then
     echo enter name for new conda environment
     read varname
     #update conda
     conda update -n base conda
     #build conda env
-    conda env create --name $varname --file environment.yaml
+    conda env create -n $varname --file environment.yaml
     eval "$(conda shell.bash hook)"
     #set solver to use libmamba
     #known bug with conda update https://github.com/ContinuumIO/anaconda-issues/issues/13123
@@ -33,11 +33,13 @@ elif [ "$mode" == "c" ]; then
     echo cloning into duality and installing as pip package to current environment
     git clone git@github.com:osudrl/duality.git
     cd duality
+    pip uninstall duality
     python setup.py bdist_wheel
     pip install ./dist/*.whl
     cd ..
     rm -rf duality
 else
     echo Choice not recognized.
+    exit 1
 fi
-return 
+exit 0

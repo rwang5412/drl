@@ -11,7 +11,7 @@ if __name__ == "__main__":
     parser.add_argument("--nn", default=False, action='store_true')
     parser.add_argument("--mirror", default=False, action='store_true')
     parser.add_argument("--render", default=False, action='store_true')
-    parser.add_argument("--drake", default=False, action='store_true')
+    parser.add_argument("--duality", default=False, action='store_true')
     parser.add_argument("--all", default=False, action='store_true')
     args = parser.parse_args()
 
@@ -58,6 +58,6 @@ if __name__ == "__main__":
     if args.mirror:
         from testing.test_mirror import test_mirror
         test_mirror()
-    if args.drake:
-        from testing.test_drake_integration import test_all
+    if args.duality:
+        from testing.test_duality_integration import test_all
         test_all()

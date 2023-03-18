@@ -10,7 +10,7 @@ conda activate "$ENV_NAME"
 # Check if the environment is activated
 if [[ $CONDA_DEFAULT_ENV != "$ENV_NAME" ]]; then
   echo "Error: Conda environment $ENV_NAME not found."
-  return 
+  exit 1
 fi
 
 PACKAGE_NAME="duality"
@@ -29,4 +29,4 @@ python setup.py bdist_wheel
 pip install ./dist/*.whl
 cd ..
 rm -rf duality
-return 
+exit 0
