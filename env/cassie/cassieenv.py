@@ -51,10 +51,8 @@ class CassieEnv(GenericEnv):
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.orient_add = 0
-        # self.trackers = [self.update_tracker_grf,
-                        #  self.update_tracker_velocity]
-        self.trackers = {self.update_tracker_grf: {"frequency": 50},
-                         self.update_tracker_velocity: {"frequency": 50}
+        self.trackers = {self.update_tracker_grf: {"frequency": 500},
+                         self.update_tracker_velocity: {"frequency": 100}
                         }
         # Double check tracker frequencies and convert to number of sim steps
         for tracker, tracker_dict in self.trackers.items():
