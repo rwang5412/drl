@@ -37,13 +37,10 @@ args = SimpleNamespace(simulator_type = "libcassie",
                        dynamics_randomization = False)
 lib_env = env_factory("CassieEnvClock", args)()
 
-env_steps = 1000#num_steps // int(mj_env.sim.simulator_rate / mj_env.policy_rate)
-# if env_steps != num_steps / int(mj_env.sim.simulator_rate / mj_env.policy_rate):
-    # print("Policy rate does not fit evenly into the selected number of sim test steps")
-    # exit(1)
+# Test env sampling speed
+env_steps = 1000
 total_time = 0
 mj_sim_per_step = int(mj_env.sim.simulator_rate / mj_env.default_policy_rate)
-# mj_env.trackers = []
 for i in range(env_steps):
     act = np.random.uniform(size=(10,))
     start_t = time.time()

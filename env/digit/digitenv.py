@@ -155,6 +155,8 @@ class DigitEnv(GenericEnv):
         Args:
             action (np.ndarray): Actions from policy inference.
         """
+        for tracker_fn, tracker_dict in self.trackers.items():
+            tracker_fn(weighting = 0, sim_step = 0)
         for sim_step in range(simulator_repeat_steps):
             # Explore around neutral offset
             setpoint = action + self.offset
