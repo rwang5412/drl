@@ -2,21 +2,28 @@ import argparse, time, pickle, platform
 import os, sys, datetime
 import select, termios, tty, atexit
 from math import floor
+
 import numpy as np
 import torch
 from multiprocessing import Process
-from envs.cassie.cassiemujoco.cassieUDP import *
-from envs.cassie.cassiemujoco.cassiemujoco_ctypes import *
-from util.env import env_factory
-from util.quat import *
-from nn.base import *
+from sim.cassie_sim.cassiemujoco.cassieUDP import *
+from sim.cassie_sim.cassiemujoco.cassiemujoco_ctypes import *
+from env.util.quaternion import (
+    euler2quat,
+    inverse_quaternion,
+    rotate_by_quaternion,
+    quaternion_product,
+    quaternion2euler
+)
 
+from util.nn_factory import load_checkpoint, nn_factory
+from util.env_factory import env_factory
 
 # entry file for run a specified udp setup
 # cassie-async (sim), digit-ar-control-async (sim), cassie-real, digit-real
 
 def save_log():
-    global log_hf_ind, log_lf_ind, logdir, part_num, sto_num, time_hf_log, output_log, state_log, target_log, traj_log, speed_log, orient_log, phaseadd_log, time_lf_log, input_log
+    global log_hf_ind, log_lf_ind, logdir, part_num, sto_num, time_hf_log, output_log, state_log, target_log, speed_log, orient_log, phaseadd_log, time_lf_log, input_log
 
     filename = "logdata_part" + str(part_num) + "_sto" + str(sto_num) + ".pkl"
     filename = os.path.join(logdir, filename)
@@ -30,7 +37,6 @@ def save_log():
             "input": input_log[:log_lf_ind],
             "state": state_log[:log_hf_ind],
             "target": target_log[:log_hf_ind],
-            "trajectory": traj_log[:log_hf_ind],
             "speed": speed_log[:log_hf_ind],
             "orient": orient_log[:log_hf_ind],
             "phase_add": phaseadd_log[:log_hf_ind],
@@ -44,23 +50,15 @@ def isData():
 
 # 2 kHz execution : PD control with or without baseline action
 def PD_step(cassie_udp, cassie_env, action):
-    start_t = time.monotonic()
-    target = action[:10] + cassie_env.offset
-    p_add  = np.zeros(10)
-    d_add  = np.zeros(10)
-
-    if len(action) > 10:
-        p_add = action[10:20]
-    if len(action) > 20:
-        d_add = action[20:30]
+    target = action[:] + cassie_env.offset
 
     u = pd_in_t()
     for i in range(5):
-        u.leftLeg.motorPd.pGain[i]  = cassie_env.P[i] + p_add[i]
-        u.rightLeg.motorPd.pGain[i] = cassie_env.P[i] + p_add[i + 5]
+        u.leftLeg.motorPd.pGain[i]  = cassie_env.kp[i]
+        u.rightLeg.motorPd.pGain[i] = cassie_env.kp[i + 5]
 
-        u.leftLeg.motorPd.dGain[i]  = cassie_env.D[i] + d_add[i]
-        u.rightLeg.motorPd.dGain[i] = cassie_env.D[i] + d_add[i + 5]
+        u.leftLeg.motorPd.dGain[i]  = cassie_env.kd[i]
+        u.rightLeg.motorPd.dGain[i] = cassie_env.kd[i + 5]
 
         u.leftLeg.motorPd.torque[i]  = 0  # Feedforward torque
         u.rightLeg.motorPd.torque[i] = 0
@@ -76,8 +74,8 @@ def PD_step(cassie_udp, cassie_env, action):
     # return log data
     return target
 
-def execute(policy, env, run_args, do_log, exec_rate=1):
-    global log_size, log_hf_ind, log_lf_ind, part_num, sto_num, save_dict, time_hf_log, output_log, state_log, target_log, traj_log, speed_log, orient_log, phaseadd_log, time_lf_log, input_log
+def execute(policy, env, args, do_log, exec_rate=1):
+    global log_size, log_hf_ind, log_lf_ind, part_num, sto_num, save_dict, time_hf_log, output_log, state_log, target_log, speed_log, orient_log, phaseadd_log, time_lf_log, input_log
 
     # Determine whether running in simulation or on the robot
     if platform.node() == 'cassie':
@@ -89,12 +87,12 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
     if hasattr(policy, 'init_hidden_state'):
         policy.init_hidden_state()
 
-    if exec_rate > env.default_simrate:
+    if exec_rate > env.default_policy_rate:
         print("Error: Execution rate can not be greater than simrate")
         exit()
     # Lock exec_rate to even dividend of simrate
-    rem = env.default_simrate // exec_rate
-    exec_rate = env.default_simrate // rem
+    rem = env.default_policy_rate // exec_rate
+    exec_rate = env.default_policy_rate // rem
     print("Execution rate: {} ({:.2f} Hz)".format(exec_rate, 2000/exec_rate))
 
     # ESTOP position. True means ESTOP enabled and robot is not running.
@@ -103,6 +101,14 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
     part_num = 0
     sto_num = 0
     save_log_p = None
+    env.reset()
+    env.turn_rate = 0
+    env.y_velocity = 0
+    env.x_velocity = 0
+    env.clock._phase = 0
+    env.clock._cycle_time = 0.8
+    env.clock._swing_ratios = [0.4, 0.4]
+    env.clock._period_shifts = [0, 0.5]
 
     # 0: walking
     # 1: standing
@@ -123,9 +129,9 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
         empty_u.rightLeg.motorPd.pTarget[i] = 0.0
 
         damp_u.leftLeg.motorPd.pGain[i] = 0.0
-        damp_u.leftLeg.motorPd.dGain[i] = D_mult*env.D[i]
+        damp_u.leftLeg.motorPd.dGain[i] = D_mult*env.kd[i]
         damp_u.rightLeg.motorPd.pGain[i] = 0.0
-        damp_u.rightLeg.motorPd.dGain[i] = D_mult*env.D[i]
+        damp_u.rightLeg.motorPd.dGain[i] = D_mult*env.kd[i + 5]
         damp_u.leftLeg.motorPd.pTarget[i] = 0.0
         damp_u.rightLeg.motorPd.pTarget[i] = 0.0
 
@@ -176,17 +182,17 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
                 if state.radio.channel[8] < 0:
                     STO = True
                     env.robot_state = state
-                    env.orient_add = quaternion2euler(env.robot_state.pelvis.orientation[:])[2]
+                    env.orient_add = quaternion2euler(env.sim.robot_state.pelvis.orientation[:])[2]
                 else:
                     STO = False
                     logged = False
 
                 # Orientation control (Do manually instead of turn_rate)
-                env.orient_add -= state.radio.channel[3] / (60.0*env.default_simrate)
-                env.cmd_dict['turn_rate'] = 0
+                env.orient_add -= state.radio.channel[3] / (60.0*env.default_policy_rate)
+                env.turn_rate = 0
                 # X and Y speed control
-                env.cmd_dict['x_vel'] += state.radio.channel[0] / (60.0*env.default_simrate)
-                env.cmd_dict['y_vel'] += state.radio.channel[1] / (60.0*env.default_simrate)
+                env.x_velocity += state.radio.channel[0] / (60.0*env.default_policy_rate)
+                env.y_velocity += state.radio.channel[1] / (60.0*env.default_policy_rate)
                 # Example of setting things manually instead. Reference to what radio channel corresponds to what joystick/knob:
                 # https://github.com/agilityrobotics/cassie-doc/wiki/Radio#user-content-input-configuration
                 # env.cmd_dict['step_freq'] = 1 + state.radio.channel[5]
@@ -204,25 +210,14 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
                     if c == 'x':
                         if hasattr(policy, 'init_hidden_state'):
                             policy.init_hidden_state()
-                            m_policy.init_hidden_state()
                     elif c == 't':
                         STO = True
                         print("\nESTOP enabled")
                     else:
                         env.interactive_control(c)
 
-            env.cmd_dict['x_vel'] = max(args.min_x, env.cmd_dict['x_vel'])
-            env.cmd_dict['x_vel'] = min(args.max_x, env.cmd_dict['x_vel'])
-            env.cmd_dict['y_vel'] = max(args.min_y, env.cmd_dict['y_vel'])
-            env.cmd_dict['y_vel'] = min(args.max_y, env.cmd_dict['y_vel'])
-
-            # Update step_freq/ratio/shift
-            if 1 < env.cmd_dict['x_vel'] < 3:
-                env.cmd_dict['step_freq'] = 1 + 0.5*(env.cmd_dict['x_vel'] - 1)/2
-            elif env.cmd_dict['x_vel'] > 3:
-                env.cmd_dict['step_freq'] = 1.5
-            else:
-                env.cmd_dict['step_freq'] = 1.0
+            env.x_velocity = np.clip(env.x_velocity, args.min_x, args.max_x)
+            env.y_velocity = np.clip(env.y_velocity, args.min_y, args.max_y)
 
             if STO:
                 if not logged:
@@ -247,21 +242,22 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
                 count += 1
                 update_time = time.monotonic() - pol_time
 
-                if first or update_time > env.default_simrate/2000:
+                if first or update_time > 1 / env.default_policy_rate:
 
                     lt = 0
                     new_time = time.time()
                     """
                         Low frequency (40 Hz) Section. Update policy action
                     """
-                    env.robot_state = state
-                    RL_state = env.get_full_state()
-                    action = policy.forward(torch.tensor(RL_state).float(), deterministic=True).detach().numpy()
+                    env.sim.robot_state = state
+                    RL_state = env.get_state()
+                    with torch.no_grad():
+                        action = policy(torch.tensor(RL_state).float(), deterministic=True).numpy()
                     target = PD_step(cassieudp, env, action)
                     pol_time = time.monotonic()
-                    env.phase_add = int((env.default_simrate) * env.cmd_dict['step_freq'])
-                    env.update_phase()
-                    env.time += 1
+                    # Update env quantities
+                    env.orient_add += env.turn_rate / (2000 / 50)
+                    env.clock.increment()
 
                     if do_log:
                         time_lf_log[log_lf_ind] = time.time()
@@ -272,9 +268,9 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
                     # Measure delay
                     # print('delay: {:6.1f} ms'.format((time.monotonic() - t) * 1000))
                     # print("compute time:", (time.time() - new_time)*1000)
-                    measured_delay = (update_time - env.default_simrate/2000) * 1000
+                    measured_delay = (update_time - 1 / env.default_policy_rate) * 1000
                     if not first:
-                        sys.stdout.write("Speed: {:.2f}\t count : {:02d}/{:02d} \tdelay: {:2.2f} ms\r".format(env.cmd_dict['x_vel'], count, env.default_simrate//exec_rate, measured_delay))
+                        sys.stdout.write("Speed: {:.2f}\t count : {:02d}/{:02d} \tdelay: {:2.2f} ms\r".format(env.x_velocity, count, env.default_policy_rate//exec_rate, measured_delay))
                         sys.stdout.flush()
                     first = False
                     count = 0
@@ -289,9 +285,9 @@ def execute(policy, env, run_args, do_log, exec_rate=1):
                     time_hf_log[log_hf_ind] = time.time()
                     output_log[log_hf_ind] = action
                     state_log[log_hf_ind] = state
-                    speed_log[log_hf_ind] = env.cmd_dict['x_vel']
+                    speed_log[log_hf_ind] = env.x_velocity
                     orient_log[log_hf_ind] = env.orient_add
-                    phaseadd_log[log_hf_ind] = env.phase_add
+                    phaseadd_log[log_hf_ind] = env.clock._cycle_time
                     log_hf_ind += 1
 
                 if log_hf_ind == log_size and do_log:
@@ -347,6 +343,8 @@ actor_checkpoint = torch.load(os.path.join(model_path, 'actor.pt'), map_location
 args = parser.parse_args()
 
 # Load environment
+previous_args_dict['env_args'].simulator_type = "libcassie"
+previous_args_dict['env_args'].state_est = True
 env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
 
 # Load model class and checkpoint
@@ -370,8 +368,8 @@ log_lf_ind = 0
 log_hf_ind = 0
 time_lf_log   = [time.time()] * log_size # time stamp
 time_hf_log   = [time.time()] * log_size # time stamp
-input_log  = [np.ones(policy.obs_dim)] * log_size # network inputs
-output_log = [np.ones(policy.action_dim)] * log_size # network outputs
+input_log  = [np.ones(actor.obs_dim)] * log_size # network inputs
+output_log = [np.ones(actor.action_dim)] * log_size # network outputs
 state_log  = [state_out_t()] * log_size  # cassie state
 target_log = [np.ones(10)] * log_size  # PD target log
 speed_log  = [0.0] * log_size # speed input commands
@@ -383,4 +381,4 @@ sto_num = 0
 
 if args.do_log:
     atexit.register(save_log)
-execute(policy, env, run_args, args.do_log, args.exec_rate)
+execute(actor, env, args, args.do_log, args.exec_rate)

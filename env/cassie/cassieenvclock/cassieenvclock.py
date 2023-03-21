@@ -44,7 +44,7 @@ class CassieEnvClock(CassieEnv):
         self._turn_rate_bounds = [-np.pi/8, -np.pi/8] # rad/s
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
-        self._cycle_time_bounds = [0.75, 1.5]
+        self._cycle_time_bounds = [0.75, 1.2]
 
         # Load reward module
         self.reward_name = reward_name
@@ -167,6 +167,41 @@ class CassieEnvClock(CassieEnv):
         # input clock sin/cos
         mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         return mirror_inds
+
+    def interactive_control(self, c):
+        ##############
+        # WASD group #
+        ##############
+        if c == 'w':
+            self.x_velocity += 0.1
+        if c == 's':
+            self.x_velocity -= 0.1
+        if c == 'd':
+            self.y_velocity += 0.1
+        if c == 'a':
+            self.y_velocity -= 0.1
+
+        if c == 'e':
+            self.turn_rate -= 0.001 * np.pi/4
+        if c == 'q':
+            self.turn_rate += 0.001 * np.pi/4
+
+        if c == 'o':
+            self.clock._cycle_time = np.clip(self.clock._cycle_time + 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
+        if c == 'u':
+            self.clock._cycle_time = np.clip(self.clock._cycle_time - 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
+
+        ###############
+        # punct group #
+        ###############
+        if c == ']':
+            new_ratio = np.clip(self.clock._swing_ratios[i] + 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
+            self.clock._swing_ratios[0] = new_ratio
+            self.clock._swing_ratios[1] = new_ratio
+        if c == '[':
+            new_ratio = np.clip(self.clock._swing_ratios[i] - 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
+            self.clock._swing_ratios[0] = new_ratio
+            self.clock._swing_ratios[1] = new_ratio
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """
