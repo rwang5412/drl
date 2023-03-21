@@ -59,13 +59,16 @@ class CassieEnvClockOld(CassieEnvClock):
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        swing_ratios = [0.5, 0.5]#np.random.uniform(*self._swing_ratio_bounds, 2)
+        swing_ratios = [0.4, 0.4]#np.random.uniform(*self._swing_ratio_bounds, 2)
         period_shifts = [0.0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
         self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
         if 1 < self.x_velocity <= 3:
+            new_ratio = 0.4 + .4*(self.x_velocity - 1) / 3
+            swing_ratios = [new_ratio, new_ratio]
             phase_add *= 1 + 0.5*(self.x_velocity - 1)/2
         elif self.x_velocity > 3:
+            swing_ratios = [0.8, 0.8]
             phase_add *= 1.5
         self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
         if self.clock_type == "von_mises":

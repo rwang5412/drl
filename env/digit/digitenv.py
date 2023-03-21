@@ -52,8 +52,18 @@ class DigitEnv(GenericEnv):
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.orient_add = 0
-        self.trackers = [self.update_tracker_grf,
-                         self.update_tracker_velocity]
+        self.trackers = {self.update_tracker_grf: {"frequency": 500},
+                         self.update_tracker_velocity: {"frequency": 100}
+                        }
+        # Double check tracker frequencies and convert to number of sim steps
+        for tracker, tracker_dict in self.trackers.items():
+            freq = tracker_dict["frequency"]
+            num_step = int(self.sim.simulator_rate // freq)
+            if num_step != self.sim.simulator_rate / freq:
+                print(f"{WARNING}WARNING: tracker frequency for {tracker.__name__} of {freq}Hz " \
+                      f"does not fit evenly into simulator rate of {self.sim.simulator_rate}.{ENDC}")
+            tracker_dict["num_step"] = num_step
+
         self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
         self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
         for foot in self.sim.feet_body_name:
@@ -65,8 +75,9 @@ class DigitEnv(GenericEnv):
         # DR will still run. Get default ranges for each param too. We grab the indicies of the
         # relevant joints/bodies to avoid using named access later (vectorized access is faster)
         if self.__class__.__name__.lower() != "digitenv":
-            dyn_rand_data = json.load(open(Path(__file__).parent /
-                                        f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
+            dyn_rand_file = open(Path(__file__).parent /
+                                 f"{self.__class__.__name__.lower()}/dynamics_randomization.json")
+            dyn_rand_data = json.load(dyn_rand_file)
             self.dr_ranges = {}
             # Damping
             damp_inds = []
@@ -99,6 +110,7 @@ class DigitEnv(GenericEnv):
                                     "ranges":ipos_ranges}
             # Friction
             self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
+            dyn_rand_file.close()
         self.state_noise = state_noise
 
         # Mirror indices and make sure complete test_mirror when changes made below
@@ -143,6 +155,8 @@ class DigitEnv(GenericEnv):
         Args:
             action (np.ndarray): Actions from policy inference.
         """
+        for tracker_fn, tracker_dict in self.trackers.items():
+            tracker_fn(weighting = 0, sim_step = 0)
         for sim_step in range(simulator_repeat_steps):
             # Explore around neutral offset
             setpoint = action + self.offset
@@ -153,7 +167,9 @@ class DigitEnv(GenericEnv):
             self.sim.sim_forward()
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
             for tracker in self.trackers:
-                tracker(weighting=1/simulator_repeat_steps, sim_step=sim_step)
+                if (sim_step + 1) % tracker_dict["num_step"] == 0:
+                    tracker_fn(weighting = 1 / (simulator_repeat_steps / tracker_dict["num_step"]),
+                               sim_step = sim_step)
 
     def get_robot_state(self):
         """Get standard robot prorioceptive states. Sub-env can override this function to define its
