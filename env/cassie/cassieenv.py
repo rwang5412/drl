@@ -18,7 +18,8 @@ class CassieEnv(GenericEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float):
+                 state_noise: float,
+                 state_est: bool):
         """Template class for Cassie with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
@@ -35,10 +36,14 @@ class CassieEnv(GenericEnv):
         self.default_policy_rate = policy_rate
         self.terrain = terrain
         # Select simulator
+        if state_est and not simulator_type == 'libcassie':
+            raise RuntimeError(f"State estimator input can only be used with libcassie sim.")
+        self.simulator_type = simulator_type
         if simulator_type == "mujoco":
             self.sim = MjCassieSim()
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
+            self.state_est = state_est
         else:
             raise RuntimeError(f"Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'libcassie'.")
@@ -163,14 +168,24 @@ class CassieEnv(GenericEnv):
         Returns:
             robot_state (np.ndarray): robot state
         """
-        robot_state = np.concatenate([
-            self.rotate_to_heading(self.sim.get_base_orientation()),
-            self.sim.get_base_angular_velocity(),
-            self.sim.get_motor_position(),
-            self.sim.get_motor_velocity(),
-            self.sim.get_joint_position(),
-            self.sim.get_joint_velocity()
-        ])
+        if self.simulator_type:
+            robot_state = np.concatenate([
+                self.rotate_to_heading(self.sim.get_base_orientation(state_est = self.state_est)),
+                self.sim.get_base_angular_velocity(state_est = self.state_est),
+                self.sim.get_motor_position(state_est = self.state_est),
+                self.sim.get_motor_velocity(state_est = self.state_est),
+                self.sim.get_joint_position(state_est = self.state_est),
+                self.sim.get_joint_velocity(state_est = self.state_est)
+            ])
+        else:
+            robot_state = np.concatenate([
+                self.rotate_to_heading(self.sim.get_base_orientation()),
+                self.sim.get_base_angular_velocity(),
+                self.sim.get_motor_position(),
+                self.sim.get_motor_velocity(),
+                self.sim.get_joint_position(),
+                self.sim.get_joint_velocity()
+            ])
         robot_state += np.random.normal(0, self.state_noise, size = robot_state.shape)
         return robot_state
 

@@ -17,7 +17,8 @@ class CassieEnvClockOldFF(CassieEnvClock):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float):
+                 state_noise: float,
+                 state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -28,7 +29,8 @@ class CassieEnvClockOldFF(CassieEnvClock):
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
-                         state_noise=state_noise)
+                         state_noise=state_noise,
+                         state_est=state_est)
 
         # Define env specifics
         self.sim.kp = np.array([80,  80,  88,  96,  50, 80,  80,  88,  96,  50])
@@ -81,28 +83,35 @@ class CassieEnvClockOldFF(CassieEnvClock):
         return self.get_state()
 
     def get_robot_state(self):
-        motor_pos = self.sim.get_motor_position()
-        joint_pos = self.sim.get_joint_position()
-
-        motor_vel = self.sim.get_motor_velocity()
-        joint_vel = self.sim.get_joint_velocity()
-
-        base_pos = self.sim.get_base_position()
-        l_foot_pos = self.sim.get_site_pose(self.sim.feet_site_name[0])[:3] - base_pos
-        r_foot_pos = self.sim.get_site_pose(self.sim.feet_site_name[1])[:3] - base_pos
-        # l_foot_pos = self.sim.get_body_pose(self.sim.feet_body_name[0])[:3] - base_pos
-        # r_foot_pos = self.sim.get_body_pose(self.sim.feet_body_name[1])[:3] - base_pos
+        if self.state_est:
+            motor_pos = self.sim.get_motor_position(state_est=self.state_est)
+            joint_pos = self.sim.get_joint_position(state_est=self.state_est)
+            motor_vel = self.sim.get_motor_velocity(state_est=self.state_est)
+            joint_vel = self.sim.get_joint_velocity(state_est=self.state_est)
+            foot_pos = self.sim.get_foot_pos_relative_base(state_est=self.state_est)
+            pel_orient = self.sim.get_base_orientation(state_est=self.state_est)
+            pel_lin_vel = self.sim.get_base_linear_velocity(state_est=self.state_est)
+            pel_ang_vel = self.sim.get_base_angular_velocity(state_est=self.state_est)
+        else:
+            motor_pos = self.sim.get_motor_position()
+            joint_pos = self.sim.get_joint_position()
+            motor_vel = self.sim.get_motor_velocity()
+            joint_vel = self.sim.get_joint_velocity()
+            foot_pos = self.sim.get_foot_pos_relative_base()
+            pel_orient = self.sim.get_base_orientation()
+            pel_lin_vel = self.sim.get_base_linear_velocity()
+            pel_ang_vel = self.sim.get_base_angular_velocity()
 
         # For feedforward policies, cannot internally estimate pelvis translational velocity, so need additional information
         # including foot position (relative to pelvis) and translational acceleration.
         # Can try inputting state estimated pelvis translational velocity, but this sometimes causes sim2real problems
         robot_state = np.concatenate([
-            l_foot_pos,                                          # Left foot position
-            r_foot_pos,                                         # Right foot position
-            self.sim.get_base_orientation(),                 # Pelvis orientation
+            foot_pos[:3],                                          # Left foot position
+            foot_pos[3:],                                         # Right foot position
+            pel_orient,                 # Pelvis orientation
             motor_pos,                                                                      # Actuated joint positions
-            self.rotate_to_heading(self.sim.get_base_linear_velocity()),       # Pelvis translational velocity
-            self.sim.get_base_angular_velocity(),                                  # Pelvis rotational velocity
+            self.rotate_to_heading(pel_lin_vel),       # Pelvis translational velocity
+            pel_ang_vel,                                  # Pelvis rotational velocity
             motor_vel,                                                                      # Actuated joint velocities
             joint_pos,                                                                      # Unactuated joint positions
             joint_vel                                                                       # Unactuated joint velocities
@@ -146,6 +155,8 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
+                       libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
     }
@@ -157,6 +168,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
         env_group.set_defaults(dynamics_randomization=True)
+        env_group.set_defaults(state_est=False)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

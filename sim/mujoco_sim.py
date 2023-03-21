@@ -105,6 +105,7 @@ class MujocoSim(GenericSim):
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds])
         # Explicit damping
         torque += kd * velocity
+        # torque += kd * (velocity - self.data.qvel[self.motor_velocity_inds])
         # Implicit damping
         self.model.dof_damping[self.motor_velocity_inds] = kd
         self.set_torque(torque)
@@ -236,6 +237,16 @@ class MujocoSim(GenericSim):
 
     def get_base_angular_velocity(self):
         return self.data.qvel[self.base_angular_velocity_inds]
+
+    def get_foot_pos_relative_base(self):
+        """
+        Returns the foot position relative to base position
+        """
+        base_pos = self.sim.get_base_position()
+        l_foot_pos = self.get_site_pose(self.feet_site_name[0])[:3] - base_pos
+        r_foot_pos = self.get_site_pose(self.feet_site_name[1])[:3] - base_pos
+        output = np.concatenate([l_foot_pos, r_foot_pos])
+        return output
 
     def get_torque(self):
         return self.data.ctrl[:]
