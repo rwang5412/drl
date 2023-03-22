@@ -188,8 +188,7 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     logged = False
 
                 # Orientation control (Do manually instead of turn_rate)
-                env.orient_add -= state.radio.channel[3] / (60.0*env.default_policy_rate)
-                env.turn_rate = 0
+                env.turn_rate = state.radio.channel[3] * np.pi/8
                 # X and Y speed control
                 env.x_velocity += state.radio.channel[0] / (60.0*env.default_policy_rate)
                 env.y_velocity += state.radio.channel[1] / (60.0*env.default_policy_rate)

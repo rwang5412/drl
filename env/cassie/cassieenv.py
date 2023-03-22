@@ -186,7 +186,7 @@ class CassieEnv(GenericEnv):
         Returns:
             robot_state (np.ndarray): robot state
         """
-        if self.simulator_type:
+        if self.simulator_type == "libcassie" and self.state_est:
             robot_state = np.concatenate([
                 self.rotate_to_heading(self.sim.get_base_orientation(state_est = self.state_est)),
                 self.sim.get_base_angular_velocity(state_est = self.state_est),

@@ -17,7 +17,8 @@ class CassieEnvClockOld(CassieEnvClock):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float):
+                 state_noise: float,
+                 state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClockOld received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -28,7 +29,8 @@ class CassieEnvClockOld(CassieEnvClock):
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
-                         state_noise=state_noise)
+                         state_noise=state_noise,
+                         state_est=state_est)
 
         self.reset()
 

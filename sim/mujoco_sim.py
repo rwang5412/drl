@@ -90,7 +90,14 @@ class MujocoSim(GenericSim):
         self.data.ctrl[:] = self.torque_buffer[0, :]
         # Shift torque buffer values and append new command at the end
         self.torque_buffer = np.roll(self.torque_buffer, -1, axis = 0)
-        self.torque_buffer[-1, :] = self.torque_efficiency * torque / self.model.actuator_gear[:, 0]
+
+        # Torque limit based on motor speed
+        tmax = self.model.actuator_ctrlrange[:, 1]
+        w = self.data.actuator_velocity[:]
+        wmax = self.model.actuator_user[:, 0] * 2 * np.pi / 60
+        tlim = np.clip(2 * tmax * (1 - abs(w) / wmax), 0, tmax)
+        actual_torque = self.torque_efficiency * np.minimum(tlim, torque / self.model.actuator_gear[:, 0])
+        self.torque_buffer[-1, :] = actual_torque
 
     def set_PD(self,
                setpoint: np.ndarray,
@@ -211,6 +218,15 @@ class MujocoSim(GenericSim):
         # Scale to [0, 255]
         depth = 255*np.clip(depth, 0, 1)
         return depth.astype(np.uint8)
+
+    def self_collision(self):
+        """ Check for self collisions. Returns True if there are self collisions, and False otherwise
+        """
+        for contact_id, contact_struct in enumerate(self.data.contact):
+            if self.model.geom_group[contact_struct.geom1] == 1 and \
+               self.model.geom_group[contact_struct.geom2] == 1:
+                return True
+        return False
 
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
