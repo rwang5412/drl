@@ -1,4 +1,3 @@
-import copy
 import numpy as np
 
 class GenericSim(object):

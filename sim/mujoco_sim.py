@@ -112,7 +112,6 @@ class MujocoSim(GenericSim):
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds])
         # Explicit damping
         torque += kd * velocity
-        # torque += kd * (velocity - self.data.qvel[self.motor_velocity_inds])
         # Implicit damping
         self.model.dof_damping[self.motor_velocity_inds] = kd
         self.set_torque(torque)
