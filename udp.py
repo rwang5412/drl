@@ -243,10 +243,8 @@ def execute(policy, env, args, do_log, exec_rate=1):
 
                 if first or update_time > 1 / env.default_policy_rate:
 
-                    lt = 0
-                    new_time = time.time()
                     """
-                        Low frequency (40 Hz) Section. Update policy action
+                        Low frequency (Policy Rate) Section. Update policy action
                     """
                     env.sim.robot_state = state
                     RL_state = env.get_state()
@@ -269,7 +267,7 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     # print("compute time:", (time.time() - new_time)*1000)
                     measured_delay = (update_time - 1 / env.default_policy_rate) * 1000
                     if not first:
-                        sys.stdout.write("Speed: {:.2f}\t count : {:02d}/{:02d} \tdelay: {:2.2f} ms\r".format(env.x_velocity, count, env.default_policy_rate//exec_rate, measured_delay))
+                        sys.stdout.write("Speed: {:.2f}\t count : {:02d}/{:02d} \tdelay: {:2.2f} ms\r".format(env.x_velocity, count, (2000//env.default_policy_rate)//exec_rate, measured_delay))
                         sys.stdout.flush()
                     first = False
                     count = 0

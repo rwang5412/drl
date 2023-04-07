@@ -53,7 +53,7 @@ class LibCassieSim(GenericSim):
         self.joint_limits_high = np.array([ 0.24, 0.25,  1.35, -0.82, -0.68, 0.2,   0.25,  1.35, -0.82, -0.68])
         self.joint_limits_low  = np.array([-0.2, -0.25, -0.8,  -2.0,  -2.0,  -0.24, -0.25, -0.8,  -2.0,  -2.0])
         self.u            = pd_in_t()
-        self.robot_state = self.sim.step_pd(self.u)
+        self.robot_estimator_state = self.sim.step_pd(self.u)
 
         self.reset_qpos = np.array([0, 0, 1.01, 1, 0, 0, 0,
                     0.0045, 0, 0.4973, 0.9785, -0.0164, 0.01787, -0.2049,
@@ -87,7 +87,7 @@ class LibCassieSim(GenericSim):
         else:
             num_steps = 1
         for i in range(num_steps):
-            self.robot_state = self.sim.step_pd(self.u)
+            self.robot_estimator_state = self.sim.step_pd(self.u)
 
     def set_torque(self, torque: np.ndarray):
         assert torque.shape == (self.num_actuators,), \
@@ -165,7 +165,7 @@ class LibCassieSim(GenericSim):
     def get_joint_position(self, state_est: bool = False):
         if state_est:
             # remove double-counted joint/motor positions
-            joint_pos = self.robot_state.joint.position[:]
+            joint_pos = self.robot_estimator_state.joint.position[:]
             joint_pos = np.concatenate([joint_pos[:2], joint_pos[3:5]])
             return joint_pos
         else:
@@ -174,7 +174,7 @@ class LibCassieSim(GenericSim):
     def get_joint_velocity(self, state_est: bool = False):
         if state_est:
             # remove double-counted joint/motor positions
-            joint_vel = self.robot_state.joint.velocity[:]
+            joint_vel = self.robot_estimator_state.joint.velocity[:]
             joint_vel = np.concatenate([joint_vel[:2], joint_vel[3:5]])
             return joint_vel
         else:
@@ -182,47 +182,47 @@ class LibCassieSim(GenericSim):
 
     def get_motor_position(self, state_est: bool = False):
         if state_est:
-            return self.robot_state.motor.position[:]
+            return self.robot_estimator_state.motor.position[:]
         else:
             return np.array(self.sim.qpos())[self.motor_position_inds]
 
     def get_motor_velocity(self, state_est: bool = False):
         if state_est:
-            return self.robot_state.motor.velocity[:]
+            return self.robot_estimator_state.motor.velocity[:]
         else:
             return np.array(self.sim.qvel())[self.motor_velocity_inds]
 
     def get_base_position(self, state_est: bool = False):
         if state_est:
-            return self.robot_state.pelvis.position[:]
+            return self.robot_estimator_state.pelvis.position[:]
         else:
             return np.array(self.sim.qpos())[self.base_position_inds]
 
     def get_base_linear_velocity(self, state_est: bool = False):
         if state_est:
-            return self.robot_state.pelvis.translationalVelocity[:]
+            return self.robot_estimator_state.pelvis.translationalVelocity[:]
         else:
             return np.array(self.sim.qvel())[self.base_linear_velocity_inds]
 
     def get_base_orientation(self, state_est: bool = False):
         if state_est:
-            return self.robot_state.pelvis.orientation[:]
+            return self.robot_estimator_state.pelvis.orientation[:]
         else:
             return np.array(self.sim.qpos())[self.base_orientation_inds]
 
     def get_base_angular_velocity(self, state_est: bool = False):
         if state_est:
-            return self.robot_state.pelvis.rotationalVelocity[:]
+            return self.robot_estimator_state.pelvis.rotationalVelocity[:]
         else:
             return np.array(self.sim.qvel())[self.base_angular_velocity_inds]
 
-    def get_foot_pos_relative_base(self, state_est: bool = False):
+    def get_feet_position_in_base(self, state_est: bool = False):
         """
         Returns the foot position relative to base position
         """
         if state_est:
-            output = np.concatenate([self.robot_state.leftFoot.position[:],
-                                     self.robot_state.rightFoot.position[:]])
+            output = np.concatenate([self.robot_estimator_state.leftFoot.position[:],
+                                     self.robot_estimator_state.rightFoot.position[:]])
             return output
         else:
             base_pos = self.get_base_position()
@@ -232,12 +232,16 @@ class LibCassieSim(GenericSim):
             return output
 
     def get_torque(self, state_est: bool = False):
-        # NOTE: This returns mjData.ctrl which may not actually reflect the current command if
-        # sim_forward has not been called yet. For example, if run `set_torque(trq)` and then call
-        # `get_torque()` right after, it will not return the same `trq` array. This is because
-        # `set_torque` uses the pd_in_t struct, which doesn't actually write to mjData.ctrl until
-        # sim_forward, i.e sim.step_pd, is called.
-        return np.array(self.sim.ctrl())
+        # NOTE: The torque this returns may not actually reflect the current command if
+        # sim_forward has not been called yet. This function returns the "last applied" torque. So
+        # for example, if you run `set_torque(trq)` and then call `get_torque()` right after, it
+        # will not return the same `trq` array. Only after you call `sim_forward()` will `get_torque()`
+        # return the `trq` array. This is because `set_torque` uses the pd_in_t struct, which
+        # doesn't actually write to mjData.ctrl until sim_forward, i.e sim.step_pd, is called.
+        if state_est:
+            return np.array(self.robot_estimator_state.motor.torque[:])
+        else:
+            return np.array(self.sim.ctrl())
 
     def get_joint_qpos_adr(self, name: str):
         jnt_ind = self.sim.mj_name2id("joint", name)

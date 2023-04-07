@@ -53,19 +53,19 @@ class GenericSim(object):
                 location), and floor friction.
         """
         # Damping randomization
-        rand_damp = copy.deepcopy(self.default_dyn_params["damping"])
+        rand_damp = self.default_dyn_params["damping"]
         rand_scale = 1 + np.random.uniform(dr_ranges["damping"]["ranges"][:, 0],
                                            dr_ranges["damping"]["ranges"][:, 1])
         rand_damp[dr_ranges["damping"]["inds"]] *= rand_scale
         self.set_dof_damping(rand_damp)
         # Mass randomization
-        rand_mass = copy.deepcopy(self.default_dyn_params["mass"])
+        rand_mass = self.default_dyn_params["mass"]
         rand_scale = 1 + np.random.uniform(dr_ranges["mass"]["ranges"][:, 0],
                                            dr_ranges["mass"]["ranges"][:, 1])
         rand_mass[dr_ranges["mass"]["inds"]] *= rand_scale
         self.set_body_mass(rand_mass)
         # Body CoM location randomization
-        rand_ipos = copy.deepcopy(self.default_dyn_params["ipos"])
+        rand_ipos = self.default_dyn_params["ipos"]
         rand_scale = 1 + np.random.uniform(dr_ranges["ipos"]["ranges"][:, 0, :],
                                            dr_ranges["ipos"]["ranges"][:, 1, :])
         rand_ipos[dr_ranges["ipos"]["inds"]] *= rand_scale

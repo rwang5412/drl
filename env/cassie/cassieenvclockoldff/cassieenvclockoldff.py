@@ -83,12 +83,12 @@ class CassieEnvClockOldFF(CassieEnvClock):
         return self.get_state()
 
     def get_robot_state(self):
-        if self.state_est:
+        if self.simulator_type == "libcassie" and self.state_est:
             motor_pos = self.sim.get_motor_position(state_est=self.state_est)
             joint_pos = self.sim.get_joint_position(state_est=self.state_est)
             motor_vel = self.sim.get_motor_velocity(state_est=self.state_est)
             joint_vel = self.sim.get_joint_velocity(state_est=self.state_est)
-            foot_pos = self.sim.get_foot_pos_relative_base(state_est=self.state_est)
+            foot_pos = self.sim.get_feet_position_in_base(state_est=self.state_est)
             pel_orient = self.sim.get_base_orientation(state_est=self.state_est)
             pel_lin_vel = self.sim.get_base_linear_velocity(state_est=self.state_est)
             pel_ang_vel = self.sim.get_base_angular_velocity(state_est=self.state_est)
@@ -97,7 +97,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
             joint_pos = self.sim.get_joint_position()
             motor_vel = self.sim.get_motor_velocity()
             joint_vel = self.sim.get_joint_velocity()
-            foot_pos = self.sim.get_foot_pos_relative_base()
+            foot_pos = self.sim.get_feet_position_in_base()
             pel_orient = self.sim.get_base_orientation()
             pel_lin_vel = self.sim.get_base_linear_velocity()
             pel_ang_vel = self.sim.get_base_angular_velocity()

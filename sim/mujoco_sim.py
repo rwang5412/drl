@@ -82,9 +82,9 @@ class MujocoSim(GenericSim):
             num_steps = 1
         mj.mj_step(self.model, self.data, nstep=num_steps)
 
-    def set_torque(self, torque: np.ndarray):
-        assert torque.shape == (self.num_actuators,), \
-               f"{FAIL}set_torque got array of shape {torque.shape} but " \
+    def set_torque(self, output_torque: np.ndarray):
+        assert output_torque.shape == (self.num_actuators,), \
+               f"{FAIL}set_torque got array of shape {output_torque.shape} but " \
                f"should be shape ({self.num_actuators},).{ENDC}"
         # Apply next torque command in buffer
         self.data.ctrl[:] = self.torque_buffer[0, :]
@@ -96,8 +96,8 @@ class MujocoSim(GenericSim):
         w = self.data.actuator_velocity[:]
         wmax = self.model.actuator_user[:, 0] * 2 * np.pi / 60
         tlim = np.clip(2 * tmax * (1 - abs(w) / wmax), 0, tmax)
-        actual_torque = self.torque_efficiency * np.minimum(tlim, torque / self.model.actuator_gear[:, 0])
-        self.torque_buffer[-1, :] = actual_torque
+        motor_torque = self.torque_efficiency * np.minimum(tlim, output_torque / self.model.actuator_gear[:, 0])
+        self.torque_buffer[-1, :] = motor_torque
 
     def set_PD(self,
                setpoint: np.ndarray,
@@ -219,7 +219,7 @@ class MujocoSim(GenericSim):
         depth = 255*np.clip(depth, 0, 1)
         return depth.astype(np.uint8)
 
-    def self_collision(self):
+    def is_self_collision(self):
         """ Check for self collisions. Returns True if there are self collisions, and False otherwise
         """
         for contact_id, contact_struct in enumerate(self.data.contact):
@@ -254,7 +254,7 @@ class MujocoSim(GenericSim):
     def get_base_angular_velocity(self):
         return self.data.qvel[self.base_angular_velocity_inds]
 
-    def get_foot_pos_relative_base(self):
+    def get_feet_position_in_base(self):
         """
         Returns the foot position relative to base position
         """
