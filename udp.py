@@ -181,8 +181,8 @@ def execute(policy, env, args, do_log, exec_rate=1):
                 # Reset orientation on STO
                 if state.radio.channel[8] < 0:
                     STO = True
-                    env.robot_state = state
-                    env.orient_add = quaternion2euler(env.sim.robot_state.pelvis.orientation[:])[2]
+                    env.robot_estimator_state = state
+                    env.orient_add = quaternion2euler(env.sim.robot_estimator_state.pelvis.orientation[:])[2]
                 else:
                     STO = False
                     logged = False
@@ -246,7 +246,7 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     """
                         Low frequency (Policy Rate) Section. Update policy action
                     """
-                    env.sim.robot_state = state
+                    env.sim.robot_estimator_state = state
                     RL_state = env.get_state()
                     with torch.no_grad():
                         action = policy(torch.tensor(RL_state).float(), deterministic=True).numpy()
