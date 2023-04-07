@@ -24,6 +24,7 @@ class CassieStone(CassieEnv):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
+                 state_est: bool,
                  z_step: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
@@ -33,7 +34,8 @@ class CassieStone(CassieEnv):
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
-                         state_noise=state_noise)
+                         state_noise=state_noise,
+                         state_est=state_est)
 
         # Clock variables
         self.clock_type = clock_type

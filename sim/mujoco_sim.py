@@ -82,15 +82,22 @@ class MujocoSim(GenericSim):
             num_steps = 1
         mj.mj_step(self.model, self.data, nstep=num_steps)
 
-    def set_torque(self, torque: np.ndarray):
-        assert torque.shape == (self.num_actuators,), \
-               f"{FAIL}set_torque got array of shape {torque.shape} but " \
+    def set_torque(self, output_torque: np.ndarray):
+        assert output_torque.shape == (self.num_actuators,), \
+               f"{FAIL}set_torque got array of shape {output_torque.shape} but " \
                f"should be shape ({self.num_actuators},).{ENDC}"
         # Apply next torque command in buffer
         self.data.ctrl[:] = self.torque_buffer[0, :]
         # Shift torque buffer values and append new command at the end
         self.torque_buffer = np.roll(self.torque_buffer, -1, axis = 0)
-        self.torque_buffer[-1, :] = self.torque_efficiency * torque / self.model.actuator_gear[:, 0]
+
+        # Torque limit based on motor speed
+        tmax = self.model.actuator_ctrlrange[:, 1]
+        w = self.data.actuator_velocity[:]
+        wmax = self.model.actuator_user[:, 0] * 2 * np.pi / 60
+        tlim = np.clip(2 * tmax * (1 - abs(w) / wmax), 0, tmax)
+        motor_torque = self.torque_efficiency * np.minimum(tlim, output_torque / self.model.actuator_gear[:, 0])
+        self.torque_buffer[-1, :] = motor_torque
 
     def set_PD(self,
                setpoint: np.ndarray,
@@ -211,6 +218,15 @@ class MujocoSim(GenericSim):
         depth = 255*np.clip(depth, 0, 1)
         return depth.astype(np.uint8)
 
+    def is_self_collision(self):
+        """ Check for self collisions. Returns True if there are self collisions, and False otherwise
+        """
+        for contact_id, contact_struct in enumerate(self.data.contact):
+            if self.model.geom_group[contact_struct.geom1] == 1 and \
+               self.model.geom_group[contact_struct.geom2] == 1:
+                return True
+        return False
+
     """The followings are getter/setter functions to unify with naming with GenericSim()
     """
     def get_joint_position(self):
@@ -236,6 +252,16 @@ class MujocoSim(GenericSim):
 
     def get_base_angular_velocity(self):
         return self.data.qvel[self.base_angular_velocity_inds]
+
+    def get_feet_position_in_base(self):
+        """
+        Returns the foot position relative to base position
+        """
+        base_pos = self.sim.get_base_position()
+        l_foot_pos = self.get_site_pose(self.feet_site_name[0])[:3] - base_pos
+        r_foot_pos = self.get_site_pose(self.feet_site_name[1])[:3] - base_pos
+        output = np.concatenate([l_foot_pos, r_foot_pos])
+        return output
 
     def get_torque(self):
         return self.data.ctrl[:]

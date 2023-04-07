@@ -4,7 +4,7 @@ import sys
 import pickle
 import os
 
-from util.evaluation_factory import simple_eval
+from util.evaluation_factory import simple_eval, eval_no_vis
 from util.nn_factory import load_checkpoint, nn_factory
 from util.env_factory import env_factory, add_env_parser
 
@@ -72,5 +72,7 @@ if __name__ == "__main__":
 
     if evaluation_type == 'simple':
         simple_eval(actor=actor, env=env)
+    elif evaluation_type == "no_vis":
+        eval_no_vis(actor=actor, env=env)
     else:
         raise RuntimeError(f"This evaluation type {evaluation_type} has not been implemented.")

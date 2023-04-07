@@ -46,3 +46,37 @@ def simple_eval(actor, env, episode_length_max=300):
                 episode_length = 0
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
+
+def eval_no_vis(actor, env, episode_length_max=300):
+    """Simply evaluating policy without UI via terminal
+
+    Args:
+        actor: Actor loaded outside this function. If Actor is None, this function will evaluate
+            noisy actions without any policy.
+        args: Arguments for environment.
+        episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
+    """
+    with torch.no_grad():
+        state = env.reset()
+        done = False
+        episode_length = 0
+        episode_reward = []
+
+        if hasattr(actor, 'init_hidden_state'):
+            actor.init_hidden_state()
+
+        while True:
+            state = torch.Tensor(state).float()
+            if actor is None:
+                action = np.random.uniform(-0.2, 0.2, env.action_size)
+            else:
+                action = actor(state).numpy()
+            state, reward, done, _ = env.step(action)
+            episode_length += 1
+            episode_reward.append(reward)
+            if episode_length == episode_length_max or done:
+                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
+                state = env.reset()
+                episode_length = 0
+                if hasattr(actor, 'init_hidden_state'):
+                    actor.init_hidden_state()

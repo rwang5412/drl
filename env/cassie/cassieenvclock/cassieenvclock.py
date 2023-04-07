@@ -23,7 +23,8 @@ class CassieEnvClock(CassieEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float):
+                 state_noise: float,
+                 state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -31,7 +32,8 @@ class CassieEnvClock(CassieEnv):
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
-                         state_noise=state_noise)
+                         state_noise=state_noise,
+                         state_est=state_est)
 
         # Clock variables
         self.clock_type = clock_type
@@ -39,10 +41,10 @@ class CassieEnvClock(CassieEnv):
         # Command randomization ranges
         self._x_velocity_bounds = [0.0, 3.0]
         self._y_velocity_bounds = [-0.3, 0.3]
-        self._turn_rate_bounds = [-np.pi/8, -np.pi/8] # rad/s
+        self._turn_rate_bounds = [-np.pi/8, np.pi/8] # rad/s
         self._swing_ratio_bounds = [0.4, 0.8]
         self._period_shift_bounds = [0.0, 0.5]
-        self._cycle_time_bounds = [0.75, 1.5]
+        self._cycle_time_bounds = [0.75, 1.2]
 
         # Load reward module
         self.reward_name = reward_name
@@ -157,7 +159,7 @@ class CassieEnvClock(CassieEnv):
     def get_observation_mirror_indices(self):
         mirror_inds = [x for x in self.robot_state_mirror_indices]
         # XY velocity command
-        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1), - (len(mirror_inds) + 2)]
+        mirror_inds += [len(mirror_inds), -(len(mirror_inds) + 1), -(len(mirror_inds) + 2)]
         # swing ratio
         mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # period shift
@@ -165,6 +167,41 @@ class CassieEnvClock(CassieEnv):
         # input clock sin/cos
         mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         return mirror_inds
+
+    def interactive_control(self, c):
+        ##############
+        # WASD group #
+        ##############
+        if c == 'w':
+            self.x_velocity += 0.1
+        if c == 's':
+            self.x_velocity -= 0.1
+        if c == 'd':
+            self.y_velocity += 0.1
+        if c == 'a':
+            self.y_velocity -= 0.1
+
+        if c == 'e':
+            self.turn_rate -= 0.001 * np.pi/4
+        if c == 'q':
+            self.turn_rate += 0.001 * np.pi/4
+
+        if c == 'o':
+            self.clock._cycle_time = np.clip(self.clock._cycle_time + 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
+        if c == 'u':
+            self.clock._cycle_time = np.clip(self.clock._cycle_time - 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
+
+        ###############
+        # punct group #
+        ###############
+        if c == ']':
+            new_ratio = np.clip(self.clock._swing_ratios[i] + 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
+            self.clock._swing_ratios[0] = new_ratio
+            self.clock._swing_ratios[1] = new_ratio
+        if c == '[':
+            new_ratio = np.clip(self.clock._swing_ratios[i] - 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
+            self.clock._swing_ratios[0] = new_ratio
+            self.clock._swing_ratios[1] = new_ratio
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """
@@ -189,6 +226,8 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
+                       libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
     }
@@ -200,6 +239,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
         env_group.set_defaults(dynamics_randomization=True)
+        env_group.set_defaults(state_est=False)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

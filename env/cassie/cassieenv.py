@@ -10,6 +10,7 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
+from util.colors import FAIL, WARNING, ENDC
 from pathlib import Path
 
 class CassieEnv(GenericEnv):
@@ -18,7 +19,8 @@ class CassieEnv(GenericEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float):
+                 state_noise: float,
+                 state_est: bool):
         """Template class for Cassie with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
@@ -35,10 +37,14 @@ class CassieEnv(GenericEnv):
         self.default_policy_rate = policy_rate
         self.terrain = terrain
         # Select simulator
+        if state_est and not simulator_type == 'libcassie':
+            raise RuntimeError(f"State estimator input can only be used with libcassie sim.")
+        self.simulator_type = simulator_type
         if simulator_type == "mujoco":
             self.sim = MjCassieSim()
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
+            self.state_est = state_est
         else:
             raise RuntimeError(f"Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'libcassie'.")
@@ -52,6 +58,7 @@ class CassieEnv(GenericEnv):
         self.orient_add = 0
         self.trackers = [self.update_tracker_grf,
                          self.update_tracker_velocity]
+
         self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
         self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
         for foot in self.sim.feet_body_name:
@@ -63,8 +70,9 @@ class CassieEnv(GenericEnv):
         # DR will still run. Get default ranges for each param too. We grab the indicies of the
         # relevant joints/bodies to avoid using named access later (vectorized access is faster)
         if self.__class__.__name__.lower() != "cassieenv":
-            dyn_rand_data = json.load(open(Path(__file__).parent /
-                                        f"{self.__class__.__name__.lower()}/dynamics_randomization.json"))
+            dyn_rand_file = open(Path(__file__).parent /
+                                 f"{self.__class__.__name__.lower()}/dynamics_randomization.json")
+            dyn_rand_data = json.load(dyn_rand_file)
             self.dr_ranges = {}
             # Damping
             damp_inds = []
@@ -97,6 +105,7 @@ class CassieEnv(GenericEnv):
                                     "ranges":ipos_ranges}
             # Friction
             self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
+            dyn_rand_file.close()
         self.state_noise = state_noise
 
         # Mirror indices and make sure complete test_mirror when changes made below
@@ -163,14 +172,24 @@ class CassieEnv(GenericEnv):
         Returns:
             robot_state (np.ndarray): robot state
         """
-        robot_state = np.concatenate([
-            self.rotate_to_heading(self.sim.get_base_orientation()),
-            self.sim.get_base_angular_velocity(),
-            self.sim.get_motor_position(),
-            self.sim.get_motor_velocity(),
-            self.sim.get_joint_position(),
-            self.sim.get_joint_velocity()
-        ])
+        if self.simulator_type == "libcassie" and self.state_est:
+            robot_state = np.concatenate([
+                self.rotate_to_heading(self.sim.get_base_orientation(state_est = self.state_est)),
+                self.sim.get_base_angular_velocity(state_est = self.state_est),
+                self.sim.get_motor_position(state_est = self.state_est),
+                self.sim.get_motor_velocity(state_est = self.state_est),
+                self.sim.get_joint_position(state_est = self.state_est),
+                self.sim.get_joint_velocity(state_est = self.state_est)
+            ])
+        else:
+            robot_state = np.concatenate([
+                self.rotate_to_heading(self.sim.get_base_orientation()),
+                self.sim.get_base_angular_velocity(),
+                self.sim.get_motor_position(),
+                self.sim.get_motor_velocity(),
+                self.sim.get_joint_position(),
+                self.sim.get_joint_velocity()
+            ])
         robot_state += np.random.normal(0, self.state_noise, size = robot_state.shape)
         return robot_state
 
