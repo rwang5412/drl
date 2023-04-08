@@ -5,6 +5,7 @@ import numpy as np
 
 from threading import Lock
 from util.colors import FAIL, ENDC
+from env.util.quaternion import euler2so3
 
 
 """
@@ -160,7 +161,17 @@ class MujocoViewer():
         self._advance_by_one_step = False
         self._hide_menus = False
 
+        # Visual marker infos
+        self.num_marker = 0
+        self.marker_geom_types = []
+        self.marker_names = []
+        self.marker_positions = []
+        self.marker_sizes = []
+        self.marker_rgbas = []
+        self.marker_so3s = []
+
     def render(self):
+        print("start render", self.scn.ngeom)
         if glfw.window_should_close(self.window):
             glfw.destroy_window(self.window)
             self.window = None
@@ -175,6 +186,7 @@ class MujocoViewer():
             # Set up for rendering
             glfw.make_context_current(self.window)
             self.viewport.width, self.viewport.height = glfw.get_framebuffer_size(self.window)
+            print("before update", self.scn.ngeom)
             mj.mjv_updateScene(
                 self.model,
                 self.data,
@@ -183,6 +195,9 @@ class MujocoViewer():
                 self.cam,
                 mj.mjtCatBit.mjCAT_ALL.value,
                 self.scn)
+            # print(self.scn.geoms[self.scn.ngeom])
+            self.scn.ngeom += 1
+            # print("in render", self.scn.ngeom)
             mj.mjr_render(self.viewport, self.scn, self.ctx)
             if self._showhelp:
                 mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value,
@@ -525,6 +540,74 @@ class MujocoViewer():
                               -0.05 * y_offset,
                               self.scn,
                               self.cam)
+
+    def add_marker(self, geom_type, name, position, size, rgba, so3):
+        if self.scn.ngeom + 1 > self.scn.maxgeom:
+            print(f"{FAIL}Vis scn.maxgeom of {self.scn.maxgeom} reached, cannot add new marker.{ENDC}")
+        else:
+            assert geom_type in ["plane", "sphere", "capsule", "ellipsoid", "cylinder", "box"], \
+               f"{FAIL}MujocoViewer add_marker got `geom_type` of {geom_type}, but should be " \
+               f"one of ['plane', 'sphere', 'capsule', 'ellipsoid', 'cylinder', 'box'].{ENDC}"
+            assert isinstance(name, str), \
+               f"{FAIL}MujocoViewer add_marker got `name` of type {type(name)}, but should be " \
+               f"a string.{ENDC}"
+            assert len(position) == 3, \
+               f"{FAIL}MujocoViewer add_marker got `position` of size {len(position)}, but should be " \
+               f"of length 3.{ENDC}"
+            assert len(rgba) == 4, \
+               f"{FAIL}MujocoViewer add_marker got 'rgba' of size {len(rgba)}, but should be " \
+               f"of length 4.{ENDC}"
+            assert so3.shape == (3, 3), \
+               f"{FAIL}MujocoViewer add_marker got 'so3' array of shape {so3.shape}, but should " \
+               f"be shape (3, 3).{ENDC}"
+            if geom_type in ["plane", "box"]:
+                assert len(size) == 3, \
+                    f"{FAIL}MujocoViewer add_marker got `size` of size {len(size)}, but for " \
+                    f"geom_type {geom_type} should be of length 3.{ENDC}"
+            elif geom_type in ["capsule", "cylinder"]:
+                assert len(size) == 2, \
+                    f"{FAIL}MujocoViewer add_marker got `size` of size {len(size)}, but for " \
+                    f"geom_type {geom_type} should be of length 2.{ENDC}"
+            else:
+                assert len(size) == 1, \
+                    f"{FAIL}MujocoViewer add_marker got `size` of size {len(size)}, but for " \
+                    f"geom_type {geom_type} should be of length 1.{ENDC}"
+
+            # self.scn.ngeom += 1
+            # print(len(self.scn.geoms))
+            # print(self.scn.geoms[self.scn.ngeom])
+            # print(self.scn.geoms[self.scn.ngeom-1])
+            # g = self.scn.geoms[self.scn.ngeom]
+            # g = mj.MjvGeom()
+
+            self.scn.geoms[self.scn.ngeom].dataid = -1
+            self.scn.geoms[self.scn.ngeom].objtype = mj.mjtObj.mjOBJ_UNKNOWN
+            self.scn.geoms[self.scn.ngeom].objid = -1
+            self.scn.geoms[self.scn.ngeom].category = mj.mjtCatBit.mjCAT_DECOR
+            self.scn.geoms[self.scn.ngeom].texid = -1
+            self.scn.geoms[self.scn.ngeom].texuniform = 0
+            self.scn.geoms[self.scn.ngeom].texrepeat[0] = 1
+            self.scn.geoms[self.scn.ngeom].texrepeat[1] = 1
+            self.scn.geoms[self.scn.ngeom].emission = 0
+            self.scn.geoms[self.scn.ngeom].specular = 0.5
+            self.scn.geoms[self.scn.ngeom].shininess = 0.5
+            self.scn.geoms[self.scn.ngeom].reflectance = 0
+            self.scn.geoms[self.scn.ngeom].label = name
+            self.scn.geoms[self.scn.ngeom].size[:] = size[:]
+            self.scn.geoms[self.scn.ngeom].rgba[:] = rgba[:]
+            self.scn.geoms[self.scn.ngeom].pos[:] = position[:]
+            self.scn.geoms[self.scn.ngeom].mat[:] = so3[:]
+            # euler2so3()
+            # print()
+            self.scn.geoms[self.scn.ngeom].type = mj.mjtGeom.__dict__["mjGEOM_" + geom_type.upper()]
+            # print(self.scn.geoms[self.scn.ngeom])
+            self.scn.ngeom += 1
+            # print("geom1", g)
+            # print("next geom", self.scn.geoms[self.scn.ngeom+1])
+            # print("prev geom", self.scn.geoms[15])
+            # print(vars(mj.mjtGeom))
+            # print(mj.mjtGeom.__dict__)
+            # mj.mjtGeom.__dict__
 
     def close(self):
         self.ctx.free()

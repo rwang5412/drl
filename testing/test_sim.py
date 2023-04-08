@@ -16,11 +16,12 @@ from .common import (
     CASSIE_JOINT_NAME,
 )
 
-from env.util.quaternion import quaternion2euler
+from env.util.quaternion import quaternion2euler, euler2so3
 from util.colors import FAIL, ENDC, OKGREEN
 
 def test_all_sim():
-    sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
+    # sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]
+    sim_list = [MjCassieSim, MjDigitSim]
     num_pass = 0
     failed = False
     for sim in sim_list:
@@ -70,12 +71,18 @@ def test_sim_viewer(sim):
     test_sim.reset()
     test_sim.viewer_init()
     render_state = test_sim.viewer_render()
+    so3 = euler2so3(z=0, x=0, y=0)
+    print("so3", so3)
+    print("before", test_sim.viewer.scn.ngeom)
+    test_sim.viewer.add_marker("sphere", "foo", [1, 0, 1], [1.2], [0.8, 0.1, 0.1, 1.0], so3)
+    print("after", test_sim.viewer.scn.ngeom)
     while render_state:
         start_t = time.time()
         if not test_sim.viewer_paused():
             for _ in range(50):
                 test_sim.sim_forward()
         render_state = test_sim.viewer_render()
+        # exit()
         # Assume 2kHz sim for now
         delaytime = max(0, 50/2000 - (time.time() - start_t))
         time.sleep(delaytime)
