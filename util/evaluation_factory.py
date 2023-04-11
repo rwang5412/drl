@@ -8,12 +8,12 @@ from util.env_factory import env_factory
 from util.drivers import Keyboard
 
 def simple_eval(actor, env, episode_length_max=300):
-    """Simply evaluating policy without UI via terminal
+    """Simply evaluating policy with visualization
 
     Args:
         actor: Actor loaded outside this function. If Actor is None, this function will evaluate
             noisy actions without any policy.
-        args: Arguments for environment.
+        env: Environment instance for actor
         episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
     """
     with torch.no_grad():
@@ -55,13 +55,62 @@ def simple_eval(actor, env, episode_length_max=300):
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
 
+def interactive_eval(actor, env, episode_length_max=300):
+    """Simply evaluating policy with visualization and keyboard inputs
+
+    Args:
+        actor: Actor loaded outside this function. If Actor is None, this function will evaluate
+            noisy actions without any policy.
+        env: Environment instance for actor
+        episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
+    """
+    with torch.no_grad():
+        state = env.reset()
+        done = False
+        episode_length = 0
+        episode_reward = []
+        interactive = False
+
+        if hasattr(actor, 'init_hidden_state'):
+            actor.init_hidden_state()
+        if hasattr(env, 'interactive_control'):
+            # check if environment supports keyboard inputs
+            interactive = True 
+
+        keyboard = Keyboard()
+        env.sim.viewer_init()
+        render_state = env.sim.viewer_render()
+        while render_state:
+            start_time = time.time()
+            cmd = keyboard.get_input()
+            if not env.sim.viewer_paused():
+                state = torch.Tensor(state).float()
+                if actor is None:
+                    action = np.random.uniform(-0.2, 0.2, env.action_size)
+                else:
+                    action = actor(state).numpy()
+                if interactive:
+                    env.interactive_control(cmd)
+                state, reward, done, _ = env.step(action)
+                episode_length += 1
+                episode_reward.append(reward)
+            render_state = env.sim.viewer_render()
+            delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
+            time.sleep(delaytime)
+            if episode_length == episode_length_max or done:
+                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
+                state = env.reset()
+                episode_length = 0
+                if hasattr(actor, 'init_hidden_state'):
+                    actor.init_hidden_state()
+
 def eval_no_vis(actor, env, episode_length_max=300):
     """Simply evaluating policy without UI via terminal
 
     Args:
         actor: Actor loaded outside this function. If Actor is None, this function will evaluate
             noisy actions without any policy.
-        args: Arguments for environment.
+        env: Environment instance for actor
         episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
     """
     with torch.no_grad():
