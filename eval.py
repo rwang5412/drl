@@ -4,7 +4,7 @@ import sys
 import pickle
 import os
 
-from util.evaluation_factory import simple_eval, eval_no_vis
+from util.evaluation_factory import simple_eval, interactive_eval, eval_no_vis
 from util.nn_factory import load_checkpoint, nn_factory
 from util.env_factory import env_factory, add_env_parser
 
@@ -14,7 +14,7 @@ if __name__ == "__main__":
         evaluation_type = sys.argv[1]
         sys.argv.remove(sys.argv[1])
     except:
-        raise RuntimeError("Choose evaluation type from ['simple','ui']. Or add a new one.")
+        raise RuntimeError("Choose evaluation type from ['simple','interactive', or 'no_vis']. Or add a new one.")
 
     if evaluation_type == 'test':
         parser = argparse.ArgumentParser()
@@ -72,6 +72,8 @@ if __name__ == "__main__":
 
     if evaluation_type == 'simple':
         simple_eval(actor=actor, env=env)
+    elif evaluation_type == 'interactive':
+        interactive_eval(actor=actor, env=env)
     elif evaluation_type == "no_vis":
         eval_no_vis(actor=actor, env=env)
     else:
