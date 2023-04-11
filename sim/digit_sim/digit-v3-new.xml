@@ -317,26 +317,27 @@
     <connect name='right-leg/toe-b-rod' body1='right-leg/toe-roll' body2='right-leg/toe-b-rod' anchor='-0.0181 0.009551 -0.054164' />
   </equality>
   <actuator>
-    <motor name='left-leg/hip-roll' joint='left-leg/hip-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
-    <motor name='left-leg/hip-yaw' joint='left-leg/hip-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533'/>
-    <motor name='left-leg/hip-pitch' joint='left-leg/hip-pitch' gear='16' ctrllimited='true' ctrlrange='-13.557993638726353 13.557993638726353'/>
-    <motor name='left-leg/knee' joint='left-leg/knee' gear='16' ctrllimited='true' ctrlrange='-14.457309387714753 14.457309387714753'/>
-    <motor name='left-leg/toe-a' joint='left-leg/toe-a' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137'/>
-    <motor name='left-leg/toe-b' joint='left-leg/toe-b' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137'/>
-    <motor name='left-arm/shoulder-roll' joint='left-arm/shoulder-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
-    <motor name='left-arm/shoulder-pitch' joint='left-arm/shoulder-pitch' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
-    <motor name='left-arm/shoulder-yaw' joint='left-arm/shoulder-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533'/>
-    <motor name='left-arm/elbow' joint='left-arm/elbow' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
-    <motor name='right-leg/hip-roll' joint='right-leg/hip-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
-    <motor name='right-leg/hip-yaw' joint='right-leg/hip-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533'/>
-    <motor name='right-leg/hip-pitch' joint='right-leg/hip-pitch' gear='16' ctrllimited='true' ctrlrange='-13.557993638726353 13.557993638726353'/>
-    <motor name='right-leg/knee' joint='right-leg/knee' gear='16' ctrllimited='true' ctrlrange='-14.457309387714753 14.457309387714753'/>
-    <motor name='right-leg/toe-a' joint='right-leg/toe-a' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137'/>
-    <motor name='right-leg/toe-b' joint='right-leg/toe-b' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137'/>
-    <motor name='right-arm/shoulder-roll' joint='right-arm/shoulder-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
-    <motor name='right-arm/shoulder-pitch' joint='right-arm/shoulder-pitch' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
-    <motor name='right-arm/shoulder-yaw' joint='right-arm/shoulder-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533'/>
-    <motor name='right-arm/elbow' joint='right-arm/elbow' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125'/>
+    <!-- User parameter is the maximum no-load motor RPM -->
+    <motor name='left-leg/hip-roll' joint='left-leg/hip-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
+    <motor name='left-leg/hip-yaw' joint='left-leg/hip-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533' user='3500'/>
+    <motor name='left-leg/hip-pitch' joint='left-leg/hip-pitch' gear='16' ctrllimited='true' ctrlrange='-13.557993638726353 13.557993638726353' user='1300'/>
+    <motor name='left-leg/knee' joint='left-leg/knee' gear='16' ctrllimited='true' ctrlrange='-14.457309387714753 14.457309387714753' user='1300'/>
+    <motor name='left-leg/toe-a' joint='left-leg/toe-a' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137' user='5500'/>
+    <motor name='left-leg/toe-b' joint='left-leg/toe-b' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137' user='5500'/>
+    <motor name='left-arm/shoulder-roll' joint='left-arm/shoulder-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
+    <motor name='left-arm/shoulder-pitch' joint='left-arm/shoulder-pitch' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
+    <motor name='left-arm/shoulder-yaw' joint='left-arm/shoulder-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533' user='3500'/>
+    <motor name='left-arm/elbow' joint='left-arm/elbow' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
+    <motor name='right-leg/hip-roll' joint='right-leg/hip-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
+    <motor name='right-leg/hip-yaw' joint='right-leg/hip-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533' user='3500'/>
+    <motor name='right-leg/hip-pitch' joint='right-leg/hip-pitch' gear='16' ctrllimited='true' ctrlrange='-13.557993638726353 13.557993638726353' user='1300'/>
+    <motor name='right-leg/knee' joint='right-leg/knee' gear='16' ctrllimited='true' ctrlrange='-14.457309387714753 14.457309387714753' user='1300'/>
+    <motor name='right-leg/toe-a' joint='right-leg/toe-a' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137' user='5500'/>
+    <motor name='right-leg/toe-b' joint='right-leg/toe-b' gear='50' ctrllimited='true' ctrlrange='-0.8395188473154137 0.8395188473154137' user='5500'/>
+    <motor name='right-arm/shoulder-roll' joint='right-arm/shoulder-roll' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
+    <motor name='right-arm/shoulder-pitch' joint='right-arm/shoulder-pitch' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
+    <motor name='right-arm/shoulder-yaw' joint='right-arm/shoulder-yaw' gear='50' ctrllimited='true' ctrlrange='-1.5835307242068533 1.5835307242068533' user='3500'/>
+    <motor name='right-arm/elbow' joint='right-arm/elbow' gear='80' ctrllimited='true' ctrlrange='-1.4125 1.4125' user='3500'/>
   </actuator>
   <sensor>
     <gyro name='torso/base/imu-gyro' site='torso/base/imu' cutoff='34.9' noise='0.00173'/>
