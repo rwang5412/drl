@@ -89,7 +89,7 @@ def interactive_eval(actor, env, episode_length_max=300):
                     action = np.random.uniform(-0.2, 0.2, env.action_size)
                 else:
                     action = actor(state).numpy()
-                if interactive:
+                if interactive and cmd is not None:
                     env.interactive_control(cmd)
                 state, reward, done, _ = env.step(action)
                 episode_length += 1
