@@ -19,7 +19,7 @@ class Keyboard():
         self.command_queue.put(key.char)
     
     def get_input(self,):
-        if self.command_queue.empty:
+        if self.command_queue.empty():
             return None
         else:
             command = self.command_queue.get()
