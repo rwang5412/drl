@@ -4,7 +4,7 @@ import mujoco as mj
 import numpy as np
 
 from threading import Lock
-from util.colors import FAIL, ENDC
+from util.colors import FAIL, WARNING, ENDC
 from env.util.quaternion import euler2so3
 
 
@@ -169,9 +169,9 @@ class MujocoViewer():
         self.marker_sizes = []
         self.marker_rgbas = []
         self.marker_so3s = []
+        self.marker_ids = []
 
     def render(self):
-        print("start render", self.scn.ngeom)
         if glfw.window_should_close(self.window):
             glfw.destroy_window(self.window)
             self.window = None
@@ -186,7 +186,6 @@ class MujocoViewer():
             # Set up for rendering
             glfw.make_context_current(self.window)
             self.viewport.width, self.viewport.height = glfw.get_framebuffer_size(self.window)
-            print("before update", self.scn.ngeom)
             mj.mjv_updateScene(
                 self.model,
                 self.data,
@@ -195,9 +194,7 @@ class MujocoViewer():
                 self.cam,
                 mj.mjtCatBit.mjCAT_ALL.value,
                 self.scn)
-            # print(self.scn.geoms[self.scn.ngeom])
-            self.scn.ngeom += 1
-            # print("in render", self.scn.ngeom)
+            self._write_marker_to_scene()
             mj.mjr_render(self.viewport, self.scn, self.ctx)
             if self._showhelp:
                 mj.mjr_overlay(mj.mjtFontScale.mjFONTSCALE_150.value,
@@ -541,13 +538,38 @@ class MujocoViewer():
                               self.scn,
                               self.cam)
 
-    def add_marker(self, geom_type, name, position, size, rgba, so3):
+    def add_marker(self,
+                   geom_type: str,
+                   name: str,
+                   position: list,
+                   size: list,
+                   rgba: list,
+                   so3: np.ndarray):
+        """
+        This function adds a marker to the visualization. The marker is purely visual, and has no
+        effect on the dynamics of the simulation. The marker will made according to the argument
+        inputs. Note that extra "rendering-only" geom types are allowed here as well, that you can't
+        use in normal modelling. Geoms like "arrow", "line", and "label" can be used as markers.
+        The function also returns a marker id, that the user is responsible for holding on to so
+        they can reference the marker later on in case they want to update its properties or
+        remove it.
+
+        Args:
+            geom_type (string): Type of geom to make the marker
+            name (string): Name of the marker. This will show up attached to the marker as well.
+            position (list): xyz position of the marker
+            size (list): Size parameters of the marker. Should always be 3 numbers
+            rgba (list): rgba values of the marker geom
+            so3 (np.ndarray): Full 3x3 so3 orientation matrix of the marker geom
+        """
         if self.scn.ngeom + 1 > self.scn.maxgeom:
             print(f"{FAIL}Vis scn.maxgeom of {self.scn.maxgeom} reached, cannot add new marker.{ENDC}")
         else:
-            assert geom_type in ["plane", "sphere", "capsule", "ellipsoid", "cylinder", "box"], \
+            assert geom_type in ["plane", "sphere", "capsule", "ellipsoid", "cylinder", "box",
+                                 "arrow", "arrow1", "arrow2", "line", "label"], \
                f"{FAIL}MujocoViewer add_marker got `geom_type` of {geom_type}, but should be " \
-               f"one of ['plane', 'sphere', 'capsule', 'ellipsoid', 'cylinder', 'box'].{ENDC}"
+               f"one of ['plane', 'sphere', 'capsule', 'ellipsoid', 'cylinder', 'box', 'arrow', " \
+               f"'arrow1', 'arrow2', 'line', 'label']{ENDC}"
             assert isinstance(name, str), \
                f"{FAIL}MujocoViewer add_marker got `name` of type {type(name)}, but should be " \
                f"a string.{ENDC}"
@@ -560,26 +582,121 @@ class MujocoViewer():
             assert so3.shape == (3, 3), \
                f"{FAIL}MujocoViewer add_marker got 'so3' array of shape {so3.shape}, but should " \
                f"be shape (3, 3).{ENDC}"
-            if geom_type in ["plane", "box"]:
-                assert len(size) == 3, \
-                    f"{FAIL}MujocoViewer add_marker got `size` of size {len(size)}, but for " \
-                    f"geom_type {geom_type} should be of length 3.{ENDC}"
-            elif geom_type in ["capsule", "cylinder"]:
-                assert len(size) == 2, \
-                    f"{FAIL}MujocoViewer add_marker got `size` of size {len(size)}, but for " \
-                    f"geom_type {geom_type} should be of length 2.{ENDC}"
-            else:
-                assert len(size) == 1, \
-                    f"{FAIL}MujocoViewer add_marker got `size` of size {len(size)}, but for " \
-                    f"geom_type {geom_type} should be of length 1.{ENDC}"
+            assert len(size) == 3, \
+                f"{FAIL}MujocoViewer add_marker got `size` of size {len(size)}, but should be of " \
+                f"length 3.{ENDC}"
 
-            # self.scn.ngeom += 1
-            # print(len(self.scn.geoms))
-            # print(self.scn.geoms[self.scn.ngeom])
-            # print(self.scn.geoms[self.scn.ngeom-1])
-            # g = self.scn.geoms[self.scn.ngeom]
-            # g = mj.MjvGeom()
+            self.marker_geom_types.append(geom_type)
+            self.marker_names.append(name)
+            self.marker_positions.append(position)
+            self.marker_sizes.append(size)
+            self.marker_rgbas.append(rgba)
+            self.marker_so3s.append(so3)
+            self.marker_ids.append(self.num_marker)
+            self.num_marker += 1
+            return self.num_marker - 1
 
+    def update_marker_type(self, marker_id: int, geom_type: str):
+        assert isinstance(marker_id, int), \
+            f"{FAIL}MujocoViewer update_marker_type got invalid marker_id of {marker_id}. marker_id " \
+            f"should be an int."
+        assert geom_type in ["plane", "sphere", "capsule", "ellipsoid", "cylinder", "box"], \
+               f"{FAIL}MujocoViewer add_marker got `geom_type` of {geom_type}, but should be " \
+               f"one of ['plane', 'sphere', 'capsule', 'ellipsoid', 'cylinder', 'box'].{ENDC}"
+        for i in range(self.num_marker):
+            if self.marker_ids[i] == marker_id:
+                self.marker_geom_types[i] = geom_type
+                return
+        print(f"{WARNING}Marker with id {marker_id} not found, did not update anything!{ENDC}")
+
+    def update_marker_name(self, marker_id: int, name: str):
+        assert isinstance(marker_id, int), \
+            f"{FAIL}MujocoViewer update_marker_name got invalid marker_id of {marker_id}. marker_id " \
+            f"should be an int."
+        assert isinstance(name, str), \
+               f"{FAIL}MujocoViewer update_marker_name got `name` of type {type(name)}, but should " \
+               f"be a string.{ENDC}"
+        for i in range(self.num_marker):
+            if self.marker_ids[i] == marker_id:
+                self.marker_names[i] = name
+                return
+        print(f"{WARNING}Marker with id {marker_id} not found, did not update anything!{ENDC}")
+
+    def update_marker_position(self, marker_id: int, pos: list):
+        assert isinstance(marker_id, int), \
+            f"{FAIL}MujocoViewer update_marker_position got invalid marker_id of {marker_id}. marker_id " \
+            f"should be an int."
+        assert len(pos) == 3, \
+               f"{FAIL}MujocoViewer add_marker got `pos` of size {len(pos)}, but should be " \
+               f"of length 3.{ENDC}"
+        for i in range(self.num_marker):
+            if self.marker_ids[i] == marker_id:
+                self.marker_positions[i][:] = pos[:]
+                return
+        print(f"{WARNING}Marker with id {marker_id} not found, did not update anything!{ENDC}")
+
+    def update_marker_size(self, marker_id: int, size: list):
+        assert isinstance(marker_id, int), \
+            f"{FAIL}MujocoViewer update_marker_size got invalid marker_id of {marker_id}. marker_id " \
+            f"should be an int."
+        assert len(size) == 3, \
+                f"{FAIL}MujocoViewer update_marker_size got `size` of size {len(size)}, but should " \
+                f"be of length 3.{ENDC}"
+        for i in range(self.num_marker):
+            if self.marker_ids[i] == marker_id:
+                self.marker_sizes[i][:] = size[:]
+                return
+        print(f"{WARNING}Marker with id {marker_id} not found, did not update anything!{ENDC}")
+
+    def update_marker_rgba(self, marker_id: int, rgba: list):
+        assert isinstance(marker_id, int), \
+            f"{FAIL}MujocoViewer update_marker_rgba got invalid marker_id of {marker_id}. marker_id " \
+            f"should be an int."
+        assert len(rgba) == 4, \
+               f"{FAIL}MujocoViewer update_marker_rgba got 'rgba' of size {len(rgba)}, but should be " \
+               f"of length 4.{ENDC}"
+        for i in range(self.num_marker):
+            if self.marker_ids[i] == marker_id:
+                self.marker_rgbas[i][:] = rgba[:]
+                return
+        print(f"{WARNING}Marker with id {marker_id} not found, did not update anything!{ENDC}")
+
+    def update_marker_so3(self, marker_id: int, so3: np.ndarray):
+        assert isinstance(marker_id, int), \
+            f"{FAIL}MujocoViewer update_marker_so3 got invalid marker_id of {marker_id}. marker_id " \
+            f"should be an int."
+        assert so3.shape == (3, 3), \
+               f"{FAIL}MujocoViewer add_marker got 'so3' array of shape {so3.shape}, but should " \
+               f"be shape (3, 3).{ENDC}"
+        for i in range(self.num_marker):
+            if self.marker_ids[i] == marker_id:
+                self.marker_so3s[i][:] = so3[:]
+                return
+        print(f"{WARNING}Marker with id {marker_id} not found, did not update anything!{ENDC}")
+
+    def remove_marker(self, marker_id: int):
+        assert isinstance(marker_id, int), \
+            f"{FAIL}MujocoViewer remove_marker got invalid marker_id of {marker_id}. marker_id " \
+            f"should be an int."
+        for i in range(self.num_marker):
+            if self.marker_ids[i] == marker_id:
+                del self.marker_geom_types[i]
+                del self.marker_names[i]
+                del self.marker_positions[i]
+                del self.marker_sizes[i]
+                del self.marker_rgbas[i]
+                del self.marker_so3s[i]
+                del self.marker_ids[i]
+                self.num_marker -= 1
+                return
+        print(f"{WARNING}Marker with id {marker_id} not found, did not remove anything!{ENDC}")
+
+    def _write_marker_to_scene(self):
+        """
+        This internal function will write all of the current marker info to the geoms in the scene.
+        Is intended to be called inside 'render' to draw the visual markers to the visualization.
+        """
+        for i in range(self.num_marker):
             self.scn.geoms[self.scn.ngeom].dataid = -1
             self.scn.geoms[self.scn.ngeom].objtype = mj.mjtObj.mjOBJ_UNKNOWN
             self.scn.geoms[self.scn.ngeom].objid = -1
@@ -592,22 +709,13 @@ class MujocoViewer():
             self.scn.geoms[self.scn.ngeom].specular = 0.5
             self.scn.geoms[self.scn.ngeom].shininess = 0.5
             self.scn.geoms[self.scn.ngeom].reflectance = 0
-            self.scn.geoms[self.scn.ngeom].label = name
-            self.scn.geoms[self.scn.ngeom].size[:] = size[:]
-            self.scn.geoms[self.scn.ngeom].rgba[:] = rgba[:]
-            self.scn.geoms[self.scn.ngeom].pos[:] = position[:]
-            self.scn.geoms[self.scn.ngeom].mat[:] = so3[:]
-            # euler2so3()
-            # print()
-            self.scn.geoms[self.scn.ngeom].type = mj.mjtGeom.__dict__["mjGEOM_" + geom_type.upper()]
-            # print(self.scn.geoms[self.scn.ngeom])
+            self.scn.geoms[self.scn.ngeom].label = self.marker_names[i]
+            self.scn.geoms[self.scn.ngeom].size[:] = self.marker_sizes[i]
+            self.scn.geoms[self.scn.ngeom].rgba[:] = self.marker_rgbas[i]
+            self.scn.geoms[self.scn.ngeom].pos[:] = self.marker_positions[i]
+            self.scn.geoms[self.scn.ngeom].mat[:] = self.marker_so3s[i]
+            self.scn.geoms[self.scn.ngeom].type = mj.mjtGeom.__dict__["mjGEOM_" + self.marker_geom_types[i].upper()]
             self.scn.ngeom += 1
-            # print("geom1", g)
-            # print("next geom", self.scn.geoms[self.scn.ngeom+1])
-            # print("prev geom", self.scn.geoms[15])
-            # print(vars(mj.mjtGeom))
-            # print(mj.mjtGeom.__dict__)
-            # mj.mjtGeom.__dict__
 
     def close(self):
         self.ctx.free()
