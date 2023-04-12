@@ -272,7 +272,7 @@ class CassieEnvClock(CassieEnv):
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """
     Function to add handling of arguments relevant to this environment construction. Handles both
-    the case where the input is an aqqqrgument parser (in which case it will use `add_argument`) and
+    the case where the input is an argument parser (in which case it will use `add_argument`) and
     the case where the input is just a Namespace (in which it will just add to the namespace with
     the default values) Note that arguments that already exist in the namespace will not be
     overwritten. To add new arguments if needed, they can just be added to the `args` dictionary

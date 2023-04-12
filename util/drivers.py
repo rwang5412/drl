@@ -14,12 +14,15 @@ class Keyboard():
 
     def on_press(self, key):
         """
-        Adds the last keyboard input to the length-1 command queue 
+        Callback to add the last keyboard input to the length-1 command queue 
         """
         if hasattr(key, 'char'):
             self.command_queue.put(key.char)
     
     def get_input(self,):
+        """
+        Retrieves the input command, if any, from the queue. 
+        """
         if self.command_queue.empty():
             return None
         else:
