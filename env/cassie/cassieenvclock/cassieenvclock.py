@@ -237,7 +237,6 @@ class CassieEnvClock(CassieEnv):
         if c in self.cmd_dict:
             if c == 'w':
                 self.x_velocity += 0.1
-                #print(f"\bx velocity set to {self.x_velocity}", end="\r")
             if c == 's':
                 self.x_velocity -= 0.1
             if c == 'd':
