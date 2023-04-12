@@ -55,7 +55,7 @@ def simple_eval(actor, env, episode_length_max=300):
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
 
-def interactive_eval(actor, env, episode_length_max=300):
+def interactive_eval(actor, env):
     """Simply evaluating policy with visualization and keyboard inputs
 
     Args:
@@ -64,22 +64,21 @@ def interactive_eval(actor, env, episode_length_max=300):
         env: Environment instance for actor
         episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
     """
+    keyboard = Keyboard()
+    print('\033[92m' + "Feeding keyboard inputs to policy for interactive eval mode.")
+    print("Type commands into the terminal window to avoid interacting with the mujoco viewer keybinds." + '\033[0m')
     with torch.no_grad():
         state = env.reset()
         done = False
         episode_length = 0
         episode_reward = []
-        interactive = False
 
         if hasattr(actor, 'init_hidden_state'):
             actor.init_hidden_state()
-        if hasattr(env, 'interactive_control'):
-            # check if environment supports keyboard inputs
-            interactive = True 
 
-        keyboard = Keyboard()
         env.sim.viewer_init()
         render_state = env.sim.viewer_render()
+        env.display_controls_menu()
         while render_state:
             start_time = time.time()
             cmd = keyboard.get_input()
@@ -89,21 +88,15 @@ def interactive_eval(actor, env, episode_length_max=300):
                     action = np.random.uniform(-0.2, 0.2, env.action_size)
                 else:
                     action = actor(state).numpy()
-                if interactive and cmd is not None:
+                if cmd is not None:
                     env.interactive_control(cmd)
+                #env.display_control_command()
                 state, reward, done, _ = env.step(action)
                 episode_length += 1
                 episode_reward.append(reward)
             render_state = env.sim.viewer_render()
             delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
             time.sleep(delaytime)
-            if episode_length == episode_length_max or done:
-                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
-                state = env.reset()
-                episode_length = 0
-                if hasattr(actor, 'init_hidden_state'):
-                    actor.init_hidden_state()
-
 def eval_no_vis(actor, env, episode_length_max=300):
     """Simply evaluating policy without UI via terminal
 

@@ -73,6 +73,8 @@ if __name__ == "__main__":
     if evaluation_type == 'simple':
         simple_eval(actor=actor, env=env)
     elif evaluation_type == 'interactive':
+        if not hasattr(env, 'interactive_control'):
+            raise RuntimeError("this environment does not support interactive control")
         interactive_eval(actor=actor, env=env)
     elif evaluation_type == "no_vis":
         eval_no_vis(actor=actor, env=env)

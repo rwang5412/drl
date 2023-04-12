@@ -21,10 +21,10 @@ if __name__ == "__main__":
     print(actor_checkpoint['model_state_dict'].keys())
     print(actor_checkpoint)
     input("Inspect loaded checkpoint information before continuing...\nHit ENTER to continue")
-    actor_checkpoint["obs_dim"] = 42
+    actor_checkpoint["obs_dim"] = 38
 
     nn_args = SimpleNamespace(arch="lstm",
-                            obs_dim=42,
+                            obs_dim=38,
                             action_dim=10,
                             layers="128,128",
                             bounded=False,
@@ -40,6 +40,7 @@ if __name__ == "__main__":
         dynamics_randomization = True,
         clock_type='von_mises',
         reward_name = "locomotion_vonmises_clock_reward",
+        state_est = False
     )
 
     ppo_args = SimpleNamespace(
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     )
 
     args = SimpleNamespace(
-        env_name = "CassieEnvClockOldVonMises",
+        env_name = "CassieEnvClockOld",
         seed = 10,
         traj_len = 200,
         timesteps = 4e9
@@ -78,7 +79,7 @@ if __name__ == "__main__":
         setattr(args, arg, getattr(ppo_args, arg))
 
     env_fn = env_factory(env_name=args.env_name, env_args=env_args)
-    actor, critic = nn_factory(args=nn_args, env_fn=env_fn)
+    actor, critic = nn_factory(args=nn_args, env=env_fn)
     load_checkpoint(model=actor, model_dict=actor_checkpoint)
     actor_dict = {'model_class_name': actor._get_name()}
     critic_dict = {'model_class_name': critic._get_name()}

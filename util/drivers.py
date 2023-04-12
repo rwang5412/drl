@@ -16,7 +16,8 @@ class Keyboard():
         """
         Adds the last keyboard input to the length-1 command queue 
         """
-        self.command_queue.put(key.char)
+        if hasattr(key, 'char'):
+            self.command_queue.put(key.char)
     
     def get_input(self,):
         if self.command_queue.empty():

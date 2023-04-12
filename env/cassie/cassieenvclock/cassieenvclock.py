@@ -82,7 +82,69 @@ class CassieEnvClock(CassieEnv):
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
             self.check_observation_action_size()
+        # Define command dictionary for interactive control
+        self.ctrl_dict = {}
+        self.cmd_dict = {}
+        self._define_cmd_dict()
 
+    def _define_cmd_dict(self,):
+        self.cmd_dict["w"] = "increment x velocity"
+        self.cmd_dict["s"] = "decrement x velocity"
+        self.cmd_dict["d"] = "increment y velocity"
+        self.cmd_dict["a"] = "decrement y velocity"
+        self.cmd_dict["e"] = "decrease turn rate"
+        self.cmd_dict["q"] = "increase turn rate"
+        self.cmd_dict["o"] = "increase clock cycle time"
+        self.cmd_dict["u"] = "decrease clock cycle time"
+        self.cmd_dict["]"] = "increase swing ratio"
+        self.cmd_dict["["] = "decrease swing ratio"
+    
+
+    def display_controls_menu(self,):
+        """
+        Method to pretty print menu of available controls.
+        """
+
+        def print_command(char, info):
+            char += " " * (10 - len(char))
+            print("{}\t{}".format(char, info))
+
+        print("")
+        print_command("Key", "Function")
+        for key in self.cmd_dict.keys():
+            cmd_description = self.cmd_dict[key]
+            assert(type(key) is str)
+            assert(type(cmd_description is str))
+            print_command(key, cmd_description)
+        print("")
+
+    def display_control_commands(self,):
+        """
+        Method to pretty print menu of current commands.
+        """
+
+        def print_command(char, info):
+            char += " " * (10 - len(char))
+            print("{}\t{}".format(char, info))
+
+        self.ctrl_dict["x velocity"] = self.x_velocity
+        self.ctrl_dict["y velocity"] = self.y_velocity
+        self.ctrl_dict["turn rate"] = self.turn_rate
+        self.ctrl_dict["clock cycle time"] = self.clock._cycle_time
+        self.ctrl_dict["swing ratios"] =  tuple(round(x, 2) for x in (self.clock._swing_ratios[0],self.clock._swing_ratios[1]))
+
+        print("")
+        print_command("Control Input", "Commanded value")
+        for key in self.ctrl_dict.keys():
+            cmd_value = self.ctrl_dict[key]
+            assert(type(key) is str)
+            print_command(key, cmd_value)
+        print("")
+        # backspace the number of lines used to print the commanded value table
+        # in order to update values without printing a new table to terminal at every step
+        # equal to the length of ctrl_dict plus all other prints for the table, i.e table header
+        print(f"\033[{len(self.ctrl_dict)+3}A\033[K", end='\r') 
+    
     def reset(self):
         """Reset simulator and env variables.
 
@@ -172,41 +234,45 @@ class CassieEnvClock(CassieEnv):
         ##############
         # WASD group #
         ##############
-        if c == 'w':
-            self.x_velocity += 0.1
-        if c == 's':
-            self.x_velocity -= 0.1
-        if c == 'd':
-            self.y_velocity += 0.1
-        if c == 'a':
-            self.y_velocity -= 0.1
+        if c in self.cmd_dict:
+            if c == 'w':
+                self.x_velocity += 0.1
+                #print(f"\bx velocity set to {self.x_velocity}", end="\r")
+            if c == 's':
+                self.x_velocity -= 0.1
+            if c == 'd':
+                self.y_velocity += 0.1
+            if c == 'a':
+                self.y_velocity -= 0.1
 
-        if c == 'e':
-            self.turn_rate -= 0.001 * np.pi/4
-        if c == 'q':
-            self.turn_rate += 0.001 * np.pi/4
+            if c == 'e':
+                self.turn_rate -= 0.001 * np.pi/4
+            if c == 'q':
+                self.turn_rate += 0.001 * np.pi/4
 
-        if c == 'o':
-            self.clock._cycle_time = np.clip(self.clock._cycle_time + 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
-        if c == 'u':
-            self.clock._cycle_time = np.clip(self.clock._cycle_time - 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
+            if c == 'o':
+                self.clock._cycle_time = np.clip(self.clock._cycle_time + 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
+            if c == 'u':
+                self.clock._cycle_time = np.clip(self.clock._cycle_time - 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
 
-        ###############
-        # punct group #
-        ###############
-        if c == ']':
-            new_ratio = np.clip(self.clock._swing_ratios[i] + 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
-            self.clock._swing_ratios[0] = new_ratio
-            self.clock._swing_ratios[1] = new_ratio
-        if c == '[':
-            new_ratio = np.clip(self.clock._swing_ratios[i] - 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
-            self.clock._swing_ratios[0] = new_ratio
-            self.clock._swing_ratios[1] = new_ratio
+            ###############
+            # punct group #
+            ###############
+            if c == ']':
+                new_ratio = np.clip(self.clock._swing_ratios[0] + 0.1, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
+                self.clock._swing_ratios[0] = new_ratio
+                self.clock._swing_ratios[1] = new_ratio
+            if c == '[':
+                new_ratio = np.clip(self.clock._swing_ratios[0] - 0.1, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
+                self.clock._swing_ratios[0] = new_ratio
+                self.clock._swing_ratios[1] = new_ratio
+            self.display_control_commands()
+        
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """
     Function to add handling of arguments relevant to this environment construction. Handles both
-    the case where the input is an argument parser (in which case it will use `add_argument`) and
+    the case where the input is an aqqqrgument parser (in which case it will use `add_argument`) and
     the case where the input is just a Namespace (in which it will just add to the namespace with
     the default values) Note that arguments that already exist in the namespace will not be
     overwritten. To add new arguments if needed, they can just be added to the `args` dictionary
