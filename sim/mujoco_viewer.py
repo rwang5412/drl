@@ -546,15 +546,15 @@ class MujocoViewer():
         use in normal modelling. Geoms like "arrow", "line", and "label" can be used as markers.
         The function also returns a marker id, that the user is responsible for holding on to so
         they can reference the marker later on in case they want to update its properties or
-        remove it.
+        remove it. Note that position and so3 are in global frame.
 
         Args:
             geom_type (string): Type of geom to make the marker
             name (string): Name of the marker. This will show up attached to the marker as well.
-            position (list): xyz position of the marker
+            position (list): global xyz position of the marker
             size (list): Size parameters of the marker. Should always be 3 numbers
             rgba (list): rgba values of the marker geom
-            so3 (np.ndarray): Full 3x3 so3 orientation matrix of the marker geom
+            so3 (np.ndarray): Full 3x3 global so3 orientation matrix of the marker geom
         """
         if self.scn.ngeom + 1 > self.scn.maxgeom:
             print(f"{FAIL}Vis scn.maxgeom of {self.scn.maxgeom} reached, cannot add new marker.{ENDC}")
