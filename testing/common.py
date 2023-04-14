@@ -108,13 +108,14 @@ DIGIT_JOINT_NAME_LLAPI = [
 ]
 
 # Find the index each entry in DIGIT_MOTOR_NAME that matches the name in the DIGIT_MOTOR_NAME_LLAPI
-DIGIT_MOTOR_NAME_LLAPI_INDEX = []
-for name in DIGIT_MOTOR_NAME:
-  DIGIT_MOTOR_NAME_LLAPI_INDEX.append(DIGIT_MOTOR_NAME_LLAPI.index(name))
+# DIGIT_MOTOR_NAME_LLAPI_INDEX = []
+# for name in DIGIT_MOTOR_NAME:
+#   DIGIT_MOTOR_NAME_LLAPI_INDEX.append(DIGIT_MOTOR_NAME_LLAPI.index(name))
 # print(DIGIT_MOTOR_NAME_LLAPI_INDEX)
 
 DIGIT_MOTOR_MJ2LLAPI_INDEX = [0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 6, 7, 8, 9, 16, 17, 18, 19]
 
+# Find the index each entry in DIGIT_JOINT_NAME that matches the name in the DIGIT_JOINT_NAME_LLAPI
 # DIGIT_JOINT_NAME_LLAPI_INDEX = []
 # for name in DIGIT_JOINT_NAME_LLAPI:
 #   DIGIT_JOINT_NAME_LLAPI_INDEX.append(DIGIT_JOINT_NAME.index(name))
