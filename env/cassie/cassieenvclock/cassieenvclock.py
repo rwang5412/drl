@@ -82,68 +82,8 @@ class CassieEnvClock(CassieEnv):
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
             self.check_observation_action_size()
-        # Define command dictionary for interactive control
-        self.ctrl_dict = {}
-        self.cmd_dict = {}
-        self._define_cmd_dict()
-
-    def _define_cmd_dict(self,):
-        self.cmd_dict["w"] = "increment x velocity"
-        self.cmd_dict["s"] = "decrement x velocity"
-        self.cmd_dict["d"] = "increment y velocity"
-        self.cmd_dict["a"] = "decrement y velocity"
-        self.cmd_dict["e"] = "decrease turn rate"
-        self.cmd_dict["q"] = "increase turn rate"
-        self.cmd_dict["o"] = "increase clock cycle time"
-        self.cmd_dict["u"] = "decrease clock cycle time"
-        self.cmd_dict["]"] = "increase swing ratio"
-        self.cmd_dict["["] = "decrease swing ratio"
-    
-
-    def display_controls_menu(self,):
-        """
-        Method to pretty print menu of available controls.
-        """
-
-        def print_command(char, info):
-            char += " " * (10 - len(char))
-            print("{}\t{}".format(char, info))
-
-        print("")
-        print_command("Key", "Function")
-        for key in self.cmd_dict.keys():
-            cmd_description = self.cmd_dict[key]
-            assert(type(key) is str)
-            assert(type(cmd_description is str))
-            print_command(key, cmd_description)
-        print("")
-
-    def display_control_commands(self,):
-        """
-        Method to pretty print menu of current commands.
-        """
-
-        def print_command(char, info):
-            char += " " * (10 - len(char))
-            print("{}\t{}".format(char, info))
-
-        self.ctrl_dict["x velocity"] = self.x_velocity
-        self.ctrl_dict["y velocity"] = self.y_velocity
-        self.ctrl_dict["turn rate"] = self.turn_rate
-        self.ctrl_dict["clock cycle time"] = self.clock._cycle_time
-        self.ctrl_dict["swing ratios"] =  tuple(round(x, 2) for x in (self.clock._swing_ratios[0],self.clock._swing_ratios[1]))
-
-        print("")
-        print_command("Control Input", "Commanded value")
-        for key in self.ctrl_dict.keys():
-            cmd_value = self.ctrl_dict[key]
-            assert(type(key) is str)
-            print_command(key, cmd_value)
-        print("")
-        # backspace the number of lines used to print the commanded value table
-        # in order to update values without printing a new table to terminal at every step
-        # equal to the length of ctrl_dict plus all other prints for the table, i.e table header
-        print(f"\033[{len(self.ctrl_dict)+3}A\033[K", end='\r') 
+        # Update once to display menu of available commands for interactive control
+        self._update_interactive_key_bindings()
     
     def reset(self):
         """Reset simulator and env variables.
@@ -230,11 +170,33 @@ class CassieEnvClock(CassieEnv):
         mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         return mirror_inds
 
+    def _update_interactive_key_bindings(self,):
+        """
+        Updates data used by the interactive control menu print functions to display the menu of available commands
+        as well as the table of command inputs sent to the policy. 
+        """ 
+        self.input_keys_dict["w"] = "increment x velocity"
+        self.input_keys_dict["s"] = "decrement x velocity"
+        self.input_keys_dict["d"] = "increment y velocity"
+        self.input_keys_dict["a"] = "decrement y velocity"
+        self.input_keys_dict["e"] = "decrease turn rate"
+        self.input_keys_dict["q"] = "increase turn rate"
+        self.input_keys_dict["o"] = "increase clock cycle time"
+        self.input_keys_dict["u"] = "decrease clock cycle time"
+        self.input_keys_dict["]"] = "increase swing ratio"
+        self.input_keys_dict["["] = "decrease swing ratio"
+
+        self.ctrl_dict["x velocity"] = self.x_velocity
+        self.ctrl_dict["y velocity"] = self.y_velocity
+        self.ctrl_dict["turn rate"] = self.turn_rate
+        self.ctrl_dict["clock cycle time"] = self.clock._cycle_time
+        self.ctrl_dict["swing ratios"] =  tuple(round(x, 2) for x in (self.clock._swing_ratios[0],self.clock._swing_ratios[1]))
+
     def interactive_control(self, c):
         ##############
         # WASD group #
         ##############
-        if c in self.cmd_dict:
+        if c in self.input_keys_dict:
             if c == 'w':
                 self.x_velocity += 0.1
             if c == 's':
@@ -265,6 +227,7 @@ class CassieEnvClock(CassieEnv):
                 new_ratio = np.clip(self.clock._swing_ratios[0] - 0.1, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
                 self.clock._swing_ratios[0] = new_ratio
                 self.clock._swing_ratios[1] = new_ratio
+            self._update_interactive_key_bindings()
             self.display_control_commands()
         
 
