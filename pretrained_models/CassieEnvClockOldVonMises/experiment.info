@@ -9,7 +9,7 @@ clock_type: linear
 discount: 0.95
 dynamics_randomization: True
 entropy_coeff: 0.0
-env_name: CassieEnvClockOldFF
+env_name: CassieEnvClockOldVonMises
 epochs: 5
 eps: 1e-06
 grad_clip: 0.05
@@ -17,9 +17,8 @@ kl: 0.02
 layers: 128,128
 learn_stddev: False
 mirror: 1.0
-nonlinearity: 
 num_steps: 30000
-obs_dim: 47
+obs_dim: 42
 policy_rate: 40
 prenorm: False
 prenormalize_steps: 100
@@ -28,9 +27,10 @@ redis: None
 reward_name: locomotion_vonmises_clock_reward
 seed: 10
 simulator_type: mujoco
+state_est: True
 std: 0.13
 std_array: 
-terrain: 
+terrain: stair
 timesteps: 4000000000.0
 traj_len: 200
 update_norm: False

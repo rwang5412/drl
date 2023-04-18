@@ -57,9 +57,9 @@ if __name__ == "__main__":
     add_env_parser(previous_args_dict['all_args'].env_name, parser)
     args = parser.parse_args()
     # Overwrite previous env args with current input
-    for arg, val in vars(args).items():
-        if hasattr(previous_args_dict['env_args'], arg):
-            setattr(previous_args_dict['env_args'], arg, val)
+    # for arg, val in vars(args).items():
+    #     if hasattr(previous_args_dict['env_args'], arg):
+    #         setattr(previous_args_dict['env_args'], arg, val)
 
     # Load environment
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()

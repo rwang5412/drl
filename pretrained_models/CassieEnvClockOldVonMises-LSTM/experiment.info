@@ -26,6 +26,7 @@ redis: None
 reward_name: locomotion_vonmises_clock_reward
 seed: 10
 simulator_type: mujoco
+state_est: False
 std: 0.13
 std_array: 
 terrain: 

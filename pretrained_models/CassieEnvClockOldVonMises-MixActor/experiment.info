@@ -29,10 +29,11 @@ redis: None
 reward_name: locomotion_vonmises_clock_reward
 seed: 10
 simulator_type: mujoco
-state_dim: 38
+state_dim: 35
+state_est: False
 std: 0.13
 std_array: 
-terrain: 
+terrain: stair
 timesteps: 4000000000.0
 traj_len: 200
 update_norm: False
