@@ -89,8 +89,8 @@ class CassieEnvClockOldFF(CassieEnvClock):
             motor_vel = self.sim.get_motor_velocity(state_est=self.state_est)
             joint_vel = self.sim.get_joint_velocity(state_est=self.state_est)
             foot_pos = self.sim.get_feet_position_in_base(state_est=self.state_est)
-            pel_orient = self.sim.get_base_orientation(state_est=self.state_est)
-            pel_lin_vel = self.sim.get_base_linear_velocity(state_est=self.state_est)
+            pel_orient = self.rotate_to_heading(self.sim.get_base_orientation(state_est=self.state_est))
+            pel_lin_vel = self.rotate_to_heading(self.sim.get_base_linear_velocity(state_est=self.state_est))
             pel_ang_vel = self.sim.get_base_angular_velocity(state_est=self.state_est)
         else:
             motor_pos = self.sim.get_motor_position()
@@ -98,8 +98,8 @@ class CassieEnvClockOldFF(CassieEnvClock):
             motor_vel = self.sim.get_motor_velocity()
             joint_vel = self.sim.get_joint_velocity()
             foot_pos = self.sim.get_feet_position_in_base()
-            pel_orient = self.sim.get_base_orientation()
-            pel_lin_vel = self.sim.get_base_linear_velocity()
+            pel_orient = self.rotate_to_heading(self.sim.get_base_orientation())
+            pel_lin_vel = self.rotate_to_heading(self.sim.get_base_linear_velocity())
             pel_ang_vel = self.sim.get_base_angular_velocity()
 
         # For feedforward policies, cannot internally estimate pelvis translational velocity, so need additional information
@@ -110,7 +110,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
             foot_pos[3:],                                         # Right foot position
             pel_orient,                 # Pelvis orientation
             motor_pos,                                                                      # Actuated joint positions
-            self.rotate_to_heading(pel_lin_vel),       # Pelvis translational velocity
+            pel_lin_vel,       # Pelvis translational velocity
             pel_ang_vel,                                  # Pelvis rotational velocity
             motor_vel,                                                                      # Actuated joint velocities
             joint_pos,                                                                      # Unactuated joint positions
