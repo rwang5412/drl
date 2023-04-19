@@ -1,5 +1,4 @@
 from pynput import keyboard
-import time 
 import queue
 
 class Keyboard():
@@ -17,6 +16,7 @@ class Keyboard():
         Callback to add the last keyboard input to the length-1 command queue 
         """
         if hasattr(key, 'char'):
+            print("\b \b", end = "\r")
             self.command_queue.put(key.char)
         if key == keyboard.Key.backspace:
             self.command_queue.put("quit")

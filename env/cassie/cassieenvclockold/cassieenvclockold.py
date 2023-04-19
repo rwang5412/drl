@@ -79,6 +79,7 @@ class CassieEnvClockOld(CassieEnvClock):
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
+        self.num_menu_backspace_lines = 0
         return self.get_state()
 
     def get_state(self):

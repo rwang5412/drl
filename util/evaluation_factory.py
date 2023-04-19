@@ -3,6 +3,7 @@ import time
 import argparse
 import sys, os 
 import numpy as np
+import sys
 
 from util.env_factory import env_factory
 from util.drivers import Keyboard
@@ -60,6 +61,7 @@ def interactive_eval(actor, env, episode_length_max=300):
     """
     if actor is None:
         raise RuntimeError(F"{FAIL}Interactive eval requires a non-null actor network for eval")
+
     keyboard = Keyboard()
     print(f"{OKGREEN}Feeding keyboard inputs to policy for interactive eval mode.")
     print("Type commands into the terminal window to avoid interacting with the mujoco viewer keybinds." + '\033[0m')
@@ -78,8 +80,6 @@ def interactive_eval(actor, env, episode_length_max=300):
         while render_state:
             start_time = time.time()
             cmd = keyboard.get_input()
-            if cmd == "quit":
-                done = True
             if not env.sim.viewer_paused():
                 state = torch.Tensor(state).float()
                 action = actor(state).numpy()
@@ -88,17 +88,21 @@ def interactive_eval(actor, env, episode_length_max=300):
                 state, reward, done, _ = env.step(action)
                 episode_length += 1
                 episode_reward.append(reward)
+            if cmd == "quit":
+                done = True
             render_state = env.sim.viewer_render()
             delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
             time.sleep(delaytime)
             if episode_length == episode_length_max or done:
-                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
                 state = env.reset()
+                env.display_control_commands(erase=True)
+                print("\n"*env.num_menu_backspace_lines + f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
                 episode_length = 0
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
         #clear terminal on ctrl+q
         os.system('cls||clear')
+
 def eval_no_vis(actor, env, episode_length_max=300):
     """Simply evaluating policy without visualization
 

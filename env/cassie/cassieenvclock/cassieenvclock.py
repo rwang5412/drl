@@ -84,6 +84,7 @@ class CassieEnvClock(CassieEnv):
             self.check_observation_action_size()
         # Display menu of available commands for interactive control
         self._init_interactive_key_bindings()
+        self.num_menu_backspace_lines = 0
     
     def reset(self):
         """Reset simulator and env variables.
@@ -112,6 +113,7 @@ class CassieEnvClock(CassieEnv):
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
+        self.num_menu_backspace_lines = 0
         return self.get_state()
 
     def step(self, action: np.ndarray):
@@ -216,15 +218,18 @@ class CassieEnvClock(CassieEnv):
                 self.clock._swing_ratios[0] = new_ratio
                 self.clock._swing_ratios[1] = new_ratio
 
-            self.control_command_dict["x velocity"] = self.x_velocity
-            self.control_command_dict["y velocity"] = self.y_velocity
-            self.control_command_dict["turn rate"] = self.turn_rate
-            self.control_command_dict["clock cycle time"] = self.clock._cycle_time
-            self.control_command_dict["swing ratios"] = tuple(round(x, 2) for x in (
+            self.control_commands_dict["x velocity"] = self.x_velocity
+            self.control_commands_dict["y velocity"] = self.y_velocity
+            self.control_commands_dict["turn rate"] = self.turn_rate
+            self.control_commands_dict["clock cycle time"] = self.clock._cycle_time
+            self.control_commands_dict["swing ratios"] = tuple(round(x, 2) for x in (
                 self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
 
+            # backspace the number of lines used to print the commanded value table
+            # in order to update values without printing a new table to terminal at every step
+            # equal to the length of control_commands_dict plus all other prints for the table, i.e table header
+            self.num_menu_backspace_lines = len(self.control_commands_dict) + 3
             self.display_control_commands()
-        
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """

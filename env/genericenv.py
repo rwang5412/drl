@@ -11,6 +11,7 @@ class GenericEnv(object):
         self.action_size = None
         self.input_keys_dict = {} 
         self.control_commands_dict = {}
+        self.num_menu_backspace_lines = None
 
     def reset_simulation(self):
         raise NotImplementedError
@@ -56,15 +57,17 @@ class GenericEnv(object):
                 print_command(key, value, color=WHITE)
             print("")
 
-    def display_control_commands(self,):
+    def display_control_commands(self, 
+                                 erase : bool = False):
         """
         Method to pretty print menu of current commands.
         """
         def print_command(char, info, color=ENDC):
             char += " " * (10 - len(char))
             print(f"{color}{char}\t{info}{ENDC}")
-
-        if ((type(self.input_keys_dict) is dict) and (len(self.input_keys_dict)>0)):
+        if erase:
+            print(f"\033[{self.num_menu_backspace_lines}A\033[2K\033[J", end='\r')
+        elif ((type(self.input_keys_dict) is dict) and (len(self.input_keys_dict)>0)):
             print("")
             print_command("Control Input", "Commanded value",color=BLUE)
             for key, value in self.control_commands_dict.items():
@@ -72,7 +75,4 @@ class GenericEnv(object):
                     f"{FAIL}ctrl_dict key must be of type string{ENDC}")
                 print_command(key, value, color=WHITE)
             print("")
-            # backspace the number of lines used to print the commanded value table
-            # in order to update values without printing a new table to terminal at every step
-            # equal to the length of ctrl_dict plus all other prints for the table, i.e table header
-            print(f"\033[{len(self.control_commands_dict)+3}A\033[K", end='\r') 
+            print(f"\033[{self.num_menu_backspace_lines}A\033[K", end='\r') 
