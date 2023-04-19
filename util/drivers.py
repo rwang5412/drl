@@ -18,7 +18,9 @@ class Keyboard():
         """
         if hasattr(key, 'char'):
             self.command_queue.put(key.char)
-    
+        if key == keyboard.Key.backspace:
+            self.command_queue.put("quit")
+            
     def get_input(self,):
         """
         Retrieves the input command, if any, from the queue. 

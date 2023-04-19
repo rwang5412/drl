@@ -82,8 +82,8 @@ class CassieEnvClock(CassieEnv):
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
             self.check_observation_action_size()
-        # Update once to display menu of available commands for interactive control
-        self._update_interactive_key_bindings()
+        # Display menu of available commands for interactive control
+        self._init_interactive_key_bindings()
     
     def reset(self):
         """Reset simulator and env variables.
@@ -170,7 +170,7 @@ class CassieEnvClock(CassieEnv):
         mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         return mirror_inds
 
-    def _update_interactive_key_bindings(self,):
+    def _init_interactive_key_bindings(self,):
         """
         Updates data used by the interactive control menu print functions to display the menu of available commands
         as well as the table of command inputs sent to the policy. 
@@ -186,16 +186,7 @@ class CassieEnvClock(CassieEnv):
         self.input_keys_dict["]"] = "increase swing ratio"
         self.input_keys_dict["["] = "decrease swing ratio"
 
-        self.ctrl_dict["x velocity"] = self.x_velocity
-        self.ctrl_dict["y velocity"] = self.y_velocity
-        self.ctrl_dict["turn rate"] = self.turn_rate
-        self.ctrl_dict["clock cycle time"] = self.clock._cycle_time
-        self.ctrl_dict["swing ratios"] =  tuple(round(x, 2) for x in (self.clock._swing_ratios[0],self.clock._swing_ratios[1]))
-
     def interactive_control(self, c):
-        ##############
-        # WASD group #
-        ##############
         if c in self.input_keys_dict:
             if c == 'w':
                 self.x_velocity += 0.1
@@ -216,9 +207,6 @@ class CassieEnvClock(CassieEnv):
             if c == 'u':
                 self.clock._cycle_time = np.clip(self.clock._cycle_time - 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
 
-            ###############
-            # punct group #
-            ###############
             if c == ']':
                 new_ratio = np.clip(self.clock._swing_ratios[0] + 0.1, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
                 self.clock._swing_ratios[0] = new_ratio
@@ -227,7 +215,14 @@ class CassieEnvClock(CassieEnv):
                 new_ratio = np.clip(self.clock._swing_ratios[0] - 0.1, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
                 self.clock._swing_ratios[0] = new_ratio
                 self.clock._swing_ratios[1] = new_ratio
-            self._update_interactive_key_bindings()
+
+            self.control_command_dict["x velocity"] = self.x_velocity
+            self.control_command_dict["y velocity"] = self.y_velocity
+            self.control_command_dict["turn rate"] = self.turn_rate
+            self.control_command_dict["clock cycle time"] = self.clock._cycle_time
+            self.control_command_dict["swing ratios"] = tuple(round(x, 2) for x in (
+                self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
+
             self.display_control_commands()
         
 
