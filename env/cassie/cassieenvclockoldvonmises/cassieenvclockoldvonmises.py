@@ -89,6 +89,14 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
             self.sim.geom_generator.create_stairs(*init_position)
             self.sim.adjust_robot_pose()
 
+        # Update control command dict
+        self.control_commands_dict["x velocity"] = self.x_velocity
+        self.control_commands_dict["y velocity"] = self.y_velocity
+        self.control_commands_dict["turn rate"] = self.turn_rate
+        self.control_commands_dict["clock cycle time"] = self.clock._cycle_time
+        self.control_commands_dict["swing ratios"] = tuple(round(x, 2) for x in (
+            self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
+
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None

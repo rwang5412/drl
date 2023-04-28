@@ -41,6 +41,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str)
+    parser.add_argument('--traj-len', default=300, type=int)
     # Manually handle path argument
     try:
         path_idx = sys.argv.index("--path")
@@ -71,12 +72,12 @@ if __name__ == "__main__":
     actor.training = False
 
     if evaluation_type == 'simple':
-        simple_eval(actor=actor, env=env)
+        simple_eval(actor=actor, env=env, episode_length_max=args.traj_len)
     elif evaluation_type == 'interactive':
         if not hasattr(env, 'interactive_control'):
             raise RuntimeError("this environment does not support interactive control")
-        interactive_eval(actor=actor, env=env)
+        interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len)
     elif evaluation_type == "no_vis":
-        eval_no_vis(actor=actor, env=env)
+        eval_no_vis(actor=actor, env=env, episode_length_max=args.traj_len)
     else:
         raise RuntimeError(f"This evaluation type {evaluation_type} has not been implemented.")

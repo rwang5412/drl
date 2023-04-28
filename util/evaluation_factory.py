@@ -1,16 +1,17 @@
-import torch
-import time
 import argparse
-import sys, os 
 import numpy as np
+import os
 import sys
+import termios
+import time
+import torch
 
 from util.env_factory import env_factory
 from util.drivers import Keyboard
 from util.colors import OKGREEN, FAIL
 
 def simple_eval(actor, env, episode_length_max=300):
-    """Simply evaluating policy in visualization window and no user input 
+    """Simply evaluating policy in visualization window and no user input
 
     Args:
         actor: Actor loaded outside this function. If Actor is None, this function will evaluate
@@ -77,6 +78,7 @@ def interactive_eval(actor, env, episode_length_max=300):
         env.sim.viewer_init()
         render_state = env.sim.viewer_render()
         env.display_controls_menu()
+        env.display_control_commands()
         while render_state:
             start_time = time.time()
             cmd = keyboard.get_input()
@@ -90,18 +92,25 @@ def interactive_eval(actor, env, episode_length_max=300):
                 episode_reward.append(reward)
             if cmd == "quit":
                 done = True
+            if cmd == "menu":
+                env.display_control_commands(erase=True)
+                env.display_controls_menu()
+                env.display_control_commands()
             render_state = env.sim.viewer_render()
             delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
             time.sleep(delaytime)
             if episode_length == episode_length_max or done:
                 state = env.reset()
                 env.display_control_commands(erase=True)
-                print("\n"*env.num_menu_backspace_lines + f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
+                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
+                env.display_control_commands()
                 episode_length = 0
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
-        #clear terminal on ctrl+q
-        os.system('cls||clear')
+
+        # clear terminal on ctrl+q
+        print(f"\033[{env.num_menu_backspace_lines - 1}B\033[K")
+        termios.tcflush(sys.stdout, termios.TCIOFLUSH)
 
 def eval_no_vis(actor, env, episode_length_max=300):
     """Simply evaluating policy without visualization

@@ -2,14 +2,14 @@ from util.colors import BLUE, WHITE, ORANGE, FAIL, ENDC
 class GenericEnv(object):
 
     """
-    Define generic environment functions that are needed for RL. Should define (not implement) all 
+    Define generic environment functions that are needed for RL. Should define (not implement) all
     of the functions that sampling uses.
     """
 
     def __init__(self):
         self.observation_size = None
         self.action_size = None
-        self.input_keys_dict = {} 
+        self.input_keys_dict = {}
         self.control_commands_dict = {}
         self.num_menu_backspace_lines = None
 
@@ -30,7 +30,7 @@ class GenericEnv(object):
 
     def compute_reward(self):
         raise NotImplementedError
-    
+
     def get_action_mirror_indices(self):
         raise NotImplementedError
 
@@ -57,7 +57,7 @@ class GenericEnv(object):
                 print_command(key, value, color=WHITE)
             print("")
 
-    def display_control_commands(self, 
+    def display_control_commands(self,
                                  erase : bool = False):
         """
         Method to pretty print menu of current commands.
@@ -66,7 +66,7 @@ class GenericEnv(object):
             char += " " * (10 - len(char))
             print(f"{color}{char}\t{info}{ENDC}")
         if erase:
-            print(f"\033[{self.num_menu_backspace_lines}A\033[2K\033[J", end='\r')
+            print(f"\033[J", end='\r')
         elif ((type(self.input_keys_dict) is dict) and (len(self.input_keys_dict)>0)):
             print("")
             print_command("Control Input", "Commanded value",color=BLUE)
@@ -75,4 +75,4 @@ class GenericEnv(object):
                     f"{FAIL}ctrl_dict key must be of type string{ENDC}")
                 print_command(key, value, color=WHITE)
             print("")
-            print(f"\033[{self.num_menu_backspace_lines}A\033[K", end='\r') 
+            print(f"\033[{self.num_menu_backspace_lines}A\033[K", end='\r')
