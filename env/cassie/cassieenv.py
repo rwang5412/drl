@@ -132,6 +132,8 @@ class CassieEnv(GenericEnv):
                                                 -26, -27, 28, 29, 30,    # left motor vel
                                                 38, 39, 36, 37,          # joint pos
                                                 42, 43, 40, 41]          # joint vel
+        # Display menu of available commands for interactive control
+        self._init_interactive_key_bindings()
 
     def reset_simulation(self):
         """Reset simulator.
@@ -245,3 +247,6 @@ class CassieEnv(GenericEnv):
             f"with observation size {self.observation_size}."
         assert len(self.get_action_mirror_indices()) == self.action_size, \
             "Action mirror inds size mismatch with action size."
+
+    def _init_interactive_key_bindings(self):
+        raise NotImplementedError

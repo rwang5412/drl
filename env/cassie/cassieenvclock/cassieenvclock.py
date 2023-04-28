@@ -82,8 +82,6 @@ class CassieEnvClock(CassieEnv):
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
             self.check_observation_action_size()
-        # Display menu of available commands for interactive control
-        self._init_interactive_key_bindings()
 
     def reset(self):
         """Reset simulator and env variables.
@@ -115,7 +113,9 @@ class CassieEnvClock(CassieEnv):
         self.control_commands_dict["clock cycle time"] = self.clock._cycle_time
         self.control_commands_dict["swing ratios"] = tuple(round(x, 2) for x in (
             self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
-
+        self.control_commands_dict["period shifts"] = tuple(round(x, 2) for x in (
+            self.clock._period_shifts[0], self.clock._period_shifts[1]))
+        
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
@@ -182,7 +182,7 @@ class CassieEnvClock(CassieEnv):
         Updates data used by the interactive control menu print functions to display the menu of available commands
         as well as the table of command inputs sent to the policy.
         """
-        self.input_keys_dict["w"] = "increment x velocity"
+        self.input_keys_dict["w"] = "description"
         self.input_keys_dict["s"] = "decrement x velocity"
         self.input_keys_dict["d"] = "increment y velocity"
         self.input_keys_dict["a"] = "decrement y velocity"
@@ -192,17 +192,17 @@ class CassieEnvClock(CassieEnv):
         self.input_keys_dict["u"] = "decrease clock cycle time"
         self.input_keys_dict["]"] = "increase swing ratio"
         self.input_keys_dict["["] = "decrease swing ratio"
+        self.input_keys_dict["k"] = "decrease period shift"
+        self.input_keys_dict["l"] = "increase period shift"
 
-        self.control_commands_dict["x velocity"] = self.x_velocity
-        self.control_commands_dict["y velocity"] = self.y_velocity
-        self.control_commands_dict["turn rate"] = self.turn_rate
-        self.control_commands_dict["clock cycle time"] = self.clock._cycle_time
-        self.control_commands_dict["swing ratios"] = tuple(round(x, 2) for x in (
-            self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
-
-        # backspace the number of lines used to print the commanded value table
-        # in order to update values without printing a new table to terminal at every step
-        # equal to the length of control_commands_dict plus all other prints for the table, i.e table header
+        self.control_commands_dict["x velocity"] = None
+        self.control_commands_dict["y velocity"] = None 
+        self.control_commands_dict["turn rate"] = None  
+        self.control_commands_dict["clock cycle time"] = None
+        self.control_commands_dict["swing ratios"] = None
+        self.control_commands_dict["period shifts"] = None 
+        # # in order to update values without printing a new table to terminal at every step
+        # # equal to the length of control_commands_dict plus all other prints for the table, i.e table header
         self.num_menu_backspace_lines = len(self.control_commands_dict) + 3
 
     def interactive_control(self, c):
@@ -235,13 +235,23 @@ class CassieEnvClock(CassieEnv):
                 self.clock._swing_ratios[0] = new_ratio
                 self.clock._swing_ratios[1] = new_ratio
 
+            if c == 'k':
+                new_shift = np.clip(self.clock._period_shifts[0] - 0.1, self._period_shift_bounds[0], self._period_shift_bounds[1])
+                self.clock._period_shifts[0] = new_shift
+                self.clock._period_shifts[1] = new_shift
+            if c == 'l':
+                new_shift = np.clip(self.clock._period_shifts[0] + 0.1, self._period_shift_bounds[0], self._period_shift_bounds[1])
+                self.clock._period_shifts[0] = new_shift
+                self.clock._period_shifts[1] = new_shift 
+
             self.control_commands_dict["x velocity"] = self.x_velocity
             self.control_commands_dict["y velocity"] = self.y_velocity
             self.control_commands_dict["turn rate"] = self.turn_rate
             self.control_commands_dict["clock cycle time"] = self.clock._cycle_time
             self.control_commands_dict["swing ratios"] = tuple(round(x, 2) for x in (
                 self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
-
+            self.control_commands_dict["period shifts"] = tuple(round(x, 2) for x in (
+                self.clock._period_shifts[0], self.clock._period_shifts[1]))
             self.display_control_commands()
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
