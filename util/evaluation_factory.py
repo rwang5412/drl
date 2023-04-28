@@ -85,11 +85,11 @@ def interactive_eval(actor, env, episode_length_max=300):
             if not env.sim.viewer_paused():
                 state = torch.Tensor(state).float()
                 action = actor(state).numpy()
-                if cmd is not None:
-                    env.interactive_control(cmd)
                 state, reward, done, _ = env.step(action)
                 episode_length += 1
                 episode_reward.append(reward)
+            if cmd is not None:
+                env.interactive_control(cmd)
             if cmd == "quit":
                 done = True
             if cmd == "menu":
