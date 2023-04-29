@@ -52,9 +52,9 @@ class GenericEnv(object):
                 assert isinstance(key, str) and len(key) == 1, (
                     f"{FAIL}input_keys_dict key must be a length-1 string corresponding \
                     to the desired keybind{ENDC}")
-                assert isinstance(value, str), (
+                assert isinstance(value["description"], str), (
                     f"{FAIL}control command description must be of type string{ENDC}")
-                print_command(key, value, color=WHITE)
+                print_command(key, value["description"], color=WHITE)
             print("")
 
     def display_control_commands(self,
