@@ -230,16 +230,18 @@ class DigitEnvClock(DigitEnv):
         self.input_keys_dict["k"] = {
             "description": "increase period shift",
             "func": lambda self: setattr(self.clock, "_period_shifts", 
-                np.full((2,), np.clip(self.clock._period_shifts[0] + 0.1, 
+                np.array([0, np.clip(self.clock._period_shifts[1] + 0.05, 
                     self._period_shift_bounds[0], 
-                    self._period_shift_bounds[1])))
+                    self._period_shift_bounds[1])]
+                    ))
         }
         self.input_keys_dict["l"] = {
             "description": "decrease period shift",
             "func": lambda self: setattr(self.clock, "_period_shifts", 
-                np.full((2,), np.clip(self.clock._period_shifts[0] - 0.1, 
+                np.array([0, np.clip(self.clock._period_shifts[1] - 0.05, 
                     self._period_shift_bounds[0], 
-                    self._period_shift_bounds[1])))
+                    self._period_shift_bounds[1])
+                    ]))
         }
 
         self.control_commands_dict["x velocity"] = None

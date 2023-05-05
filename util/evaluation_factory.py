@@ -7,7 +7,7 @@ import time
 import torch
 
 from util.env_factory import env_factory
-from util.drivers import Keyboard
+from util.keyboard import Keyboard
 from util.colors import OKGREEN, FAIL
 
 def simple_eval(actor, env, episode_length_max=300):
@@ -99,7 +99,7 @@ def interactive_eval(actor, env, episode_length_max=300):
             render_state = env.sim.viewer_render()
             delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
             time.sleep(delaytime)
-            if episode_length == episode_length_max or done:
+            if done:
                 state = env.reset()
                 env.display_control_commands(erase=True)
                 print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")

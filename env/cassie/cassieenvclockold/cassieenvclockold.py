@@ -77,12 +77,7 @@ class CassieEnvClockOld(CassieEnvClock):
             self.clock.precompute_von_mises()
 
         # Update control command dict
-        self.control_commands_dict["x velocity"] = self.x_velocity
-        self.control_commands_dict["y velocity"] = self.y_velocity
-        self.control_commands_dict["turn rate"] = self.turn_rate
-        self.control_commands_dict["clock cycle time"] = self.clock._cycle_time
-        self.control_commands_dict["swing ratios"] = tuple(round(x, 2) for x in (
-            self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
+        self._update_control_commands_dict()
 
         # Reset env counter variables
         self.traj_idx = 0
