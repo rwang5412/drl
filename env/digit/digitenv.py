@@ -126,7 +126,8 @@ class DigitEnv(GenericEnv):
                                         -62, -63, -64, -65, -66,      # right joint vel
                                         -57, -58, -59, -60, -61,      # left joint vel
                                         ]
-
+        # Display menu of available commands for interactive control
+        self._init_interactive_key_bindings()
     def reset_simulation(self):
         """Reset simulator.
         Depending on use cases, child class can override this as well.
@@ -227,3 +228,6 @@ class DigitEnv(GenericEnv):
             f"with observation size {self.observation_size}."
         assert len(self.get_action_mirror_indices()) == self.action_size, \
             "Action mirror inds size mismatch with action size."
+
+    def _init_interactive_key_bindings(self,):
+        raise NotImplementedError

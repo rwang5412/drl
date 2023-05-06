@@ -303,7 +303,7 @@ class MujocoSim(GenericSim):
         """
         Returns the foot position relative to base position
         """
-        base_pos = self.sim.get_base_position()
+        base_pos = self.get_base_position()
         l_foot_pos = self.get_site_pose(self.feet_site_name[0])[:3] - base_pos
         r_foot_pos = self.get_site_pose(self.feet_site_name[1])[:3] - base_pos
         output = np.concatenate([l_foot_pos, r_foot_pos])

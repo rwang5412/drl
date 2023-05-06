@@ -76,6 +76,9 @@ class CassieEnvClockOld(CassieEnvClock):
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
 
+        # Update control command dict
+        self._update_control_commands_dict()
+
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None

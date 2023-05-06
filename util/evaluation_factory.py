@@ -1,18 +1,22 @@
-import torch
-import time
 import argparse
-
 import numpy as np
+import os
+import sys
+import termios
+import time
+import torch
 
 from util.env_factory import env_factory
+from util.keyboard import Keyboard
+from util.colors import OKGREEN, FAIL
 
 def simple_eval(actor, env, episode_length_max=300):
-    """Simply evaluating policy without UI via terminal
+    """Simply evaluating policy in visualization window and no user input
 
     Args:
         actor: Actor loaded outside this function. If Actor is None, this function will evaluate
             noisy actions without any policy.
-        args: Arguments for environment.
+        env: Environment instance for actor
         episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
     """
     with torch.no_grad():
@@ -47,13 +51,74 @@ def simple_eval(actor, env, episode_length_max=300):
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
 
-def eval_no_vis(actor, env, episode_length_max=300):
-    """Simply evaluating policy without UI via terminal
+def interactive_eval(actor, env, episode_length_max=300):
+    """Simply evaluating policy in visualization window with user input
 
     Args:
         actor: Actor loaded outside this function. If Actor is None, this function will evaluate
             noisy actions without any policy.
-        args: Arguments for environment.
+        env: Environment instance for actor
+        episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
+    """
+    if actor is None:
+        raise RuntimeError(F"{FAIL}Interactive eval requires a non-null actor network for eval")
+
+    keyboard = Keyboard()
+    print(f"{OKGREEN}Feeding keyboard inputs to policy for interactive eval mode.")
+    print("Type commands into the terminal window to avoid interacting with the mujoco viewer keybinds." + '\033[0m')
+    with torch.no_grad():
+        state = env.reset()
+        done = False
+        episode_length = 0
+        episode_reward = []
+
+        if hasattr(actor, 'init_hidden_state'):
+            actor.init_hidden_state()
+
+        env.sim.viewer_init()
+        render_state = env.sim.viewer_render()
+        env.display_controls_menu()
+        env.display_control_commands()
+        while render_state:
+            start_time = time.time()
+            cmd = keyboard.get_input()
+            if not env.sim.viewer_paused():
+                state = torch.Tensor(state).float()
+                action = actor(state).numpy()
+                state, reward, done, _ = env.step(action)
+                episode_length += 1
+                episode_reward.append(reward)
+            if cmd is not None:
+                env.interactive_control(cmd)
+            if cmd == "quit":
+                done = True
+            if cmd == "menu":
+                env.display_control_commands(erase=True)
+                env.display_controls_menu()
+                env.display_control_commands()
+            render_state = env.sim.viewer_render()
+            delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
+            time.sleep(delaytime)
+            if done:
+                state = env.reset()
+                env.display_control_commands(erase=True)
+                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
+                env.display_control_commands()
+                episode_length = 0
+                if hasattr(actor, 'init_hidden_state'):
+                    actor.init_hidden_state()
+
+        # clear terminal on ctrl+q
+        print(f"\033[{env.num_menu_backspace_lines - 1}B\033[K")
+        termios.tcflush(sys.stdout, termios.TCIOFLUSH)
+
+def eval_no_vis(actor, env, episode_length_max=300):
+    """Simply evaluating policy without visualization
+
+    Args:
+        actor: Actor loaded outside this function. If Actor is None, this function will evaluate
+            noisy actions without any policy.
+        env: Environment instance for actor
         episode_length_max (int, optional): Max length of episode for evaluation. Defaults to 500.
     """
     with torch.no_grad():

@@ -17,29 +17,32 @@ if __name__ == "__main__":
     parser.add_argument('--path', default=None, type=str)
     args = parser.parse_args()
     model_path = args.path
-    actor_checkpoint = torch.load(model_path, map_location='cpu')
-    print(actor_checkpoint['model_state_dict'].keys())
-    print(actor_checkpoint)
+    if model_path[-1] != "/":
+        model_path += "/"
+    if not os.path.exists(model_path):
+        raise RuntimeError("provided path is not valid")
+    actor_checkpoint = torch.load(model_path+"actor.pt", map_location='cpu')
     input("Inspect loaded checkpoint information before continuing...\nHit ENTER to continue")
     actor_checkpoint["obs_dim"] = 42
 
-    nn_args = SimpleNamespace(arch="lstm",
-                            obs_dim=42,
+    nn_args = SimpleNamespace(arch="ff",
+                            obs_dim=47,
                             action_dim=10,
                             layers="128,128",
                             bounded=False,
                             learn_stddev=False,
+                            nonlinearity="relu",
                             std=0.13,
                             std_array="",
     )
 
     env_args = SimpleNamespace(
-        simulator_type = "mujoco",
-        terrain = "stair",
+        simulator_type = 'mujoco',
+        terrain ='',
         policy_rate = 40,
         dynamics_randomization = True,
-        clock_type='von_mises',
-        reward_name = "locomotion_vonmises_clock_reward",
+        reward_name = 'locomotion_linear_clock_reward',
+        state_est=False,
     )
 
     ppo_args = SimpleNamespace(
@@ -67,7 +70,8 @@ if __name__ == "__main__":
         env_name = "CassieEnvClockOldVonMises",
         seed = 10,
         traj_len = 200,
-        timesteps = 4e9
+        timesteps = 4e9,
+        state_est = False,
     )
 
     for arg in vars(nn_args):
@@ -78,11 +82,13 @@ if __name__ == "__main__":
         setattr(args, arg, getattr(ppo_args, arg))
 
     env_fn = env_factory(env_name=args.env_name, env_args=env_args)
-    actor, critic = nn_factory(args=nn_args, env_fn=env_fn)
+    actor, critic = nn_factory(args=nn_args, env=env_fn)
     load_checkpoint(model=actor, model_dict=actor_checkpoint)
     actor_dict = {'model_class_name': actor._get_name()}
     critic_dict = {'model_class_name': critic._get_name()}
-    output_dir = os.path.join("./pretrained_models", args.env_name)
+    model_path_prefix = os.path.split(model_path)[0]
+    model_path_suffix = os.path.split(model_path)[1]+"_converted/"
+    output_dir = model_path_prefix+model_path_suffix
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     save_checkpoint(model=actor, model_dict=actor_dict, save_path=os.path.join(output_dir, "actor.pt"))
@@ -91,6 +97,7 @@ if __name__ == "__main__":
 
     info_path = os.path.join(output_dir, "experiment.info")
     pkl_path = os.path.join(output_dir, "experiment.pkl")
+    print(f"Converted policy data will be saved to {output_dir}")
     with open(pkl_path, 'wb') as file:
         save_dict = {'all_args': args,
                 'algo_args': ppo_args,

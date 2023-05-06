@@ -107,6 +107,7 @@ class CassieEnvClock(CassieEnv):
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
 
+        self._update_control_commands_dict()        
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
@@ -168,40 +169,107 @@ class CassieEnvClock(CassieEnv):
         mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
         return mirror_inds
 
+    def _init_interactive_key_bindings(self,):
+        """
+        Updates data used by the interactive control menu print functions to display the menu of available commands
+        as well as the table of command inputs sent to the policy.
+        """
+
+        self.input_keys_dict["w"] = {
+            "description": "increment x velocity",
+            "func": lambda self: setattr(self, "x_velocity", self.x_velocity + 0.1)
+        }
+        self.input_keys_dict["s"] = {
+            "description": "decrement x velocity",
+            "func": lambda self: setattr(self, "x_velocity", self.x_velocity - 0.1)
+        }
+        self.input_keys_dict["d"] = {
+            "description": "increment y velocity",
+            "func": lambda self: setattr(self, "y_velocity", self.y_velocity + 0.1)
+        }
+        self.input_keys_dict["a"] = {
+            "description": "decrement y velocity",
+            "func": lambda self: setattr(self, "y_velocity", self.y_velocity - 0.1)
+        }
+        self.input_keys_dict["e"] = {
+            "description": "decrease turn rate",
+            "func": lambda self: setattr(self, "turn_rate", self.turn_rate - 0.01 * np.pi/4)
+        }
+        self.input_keys_dict["q"] = {
+            "description": "increase turn rate",
+            "func": lambda self: setattr(self, "turn_rate", self.turn_rate + 0.01 * np.pi/4)}
+        self.input_keys_dict["o"] = {
+            "description": "increase clock cycle time",
+            "func": lambda self: setattr(self.clock, "_cycle_time", np.clip(
+                self.clock._cycle_time + 0.01,
+                self._cycle_time_bounds[0],
+                self._cycle_time_bounds[1]
+            ))
+        }
+        self.input_keys_dict["u"] = {
+            "description": "decrease clock cycle time",
+            "func": lambda self: setattr(self.clock, "_cycle_time", np.clip(
+                self.clock._cycle_time - 0.01,
+                self._cycle_time_bounds[0],
+                self._cycle_time_bounds[1]
+            ))
+        }
+        self.input_keys_dict["]"] = {
+            "description": "increase swing ratio",
+            "func": lambda self: setattr(self.clock, "_swing_ratios", 
+                np.full((2,), np.clip(self.clock._swing_ratios[0] + 0.1, 
+                    self._swing_ratio_bounds[0], 
+                    self._swing_ratio_bounds[1])))
+        }
+        self.input_keys_dict["["] = {
+            "description": "decrease swing ratio",
+            "func": lambda self: setattr(self.clock, "_swing_ratios", 
+                np.full((2,), np.clip(self.clock._swing_ratios[0] - 0.1, 
+                    self._swing_ratio_bounds[0], 
+                    self._swing_ratio_bounds[1])))
+        }
+        self.input_keys_dict["k"] = {
+            "description": "increase period shift",
+            "func": lambda self: setattr(self.clock, "_period_shifts", 
+                np.array([0, np.clip(self.clock._period_shifts[1] + 0.05, 
+                    self._period_shift_bounds[0], 
+                    self._period_shift_bounds[1])]
+                    ))
+        }
+        self.input_keys_dict["l"] = {
+            "description": "decrease period shift",
+            "func": lambda self: setattr(self.clock, "_period_shifts", 
+                np.array([0, np.clip(self.clock._period_shifts[1] - 0.05, 
+                    self._period_shift_bounds[0], 
+                    self._period_shift_bounds[1])
+                    ]))
+        }
+
+        self.control_commands_dict["x velocity"] = None
+        self.control_commands_dict["y velocity"] = None 
+        self.control_commands_dict["turn rate"] = None  
+        self.control_commands_dict["clock cycle time"] = None
+        self.control_commands_dict["swing ratios"] = None
+        self.control_commands_dict["period shifts"] = None 
+        # # in order to update values without printing a new table to terminal at every step
+        # # equal to the length of control_commands_dict plus all other prints for the table, i.e table header
+        self.num_menu_backspace_lines = len(self.control_commands_dict) + 3
+
+    def _update_control_commands_dict(self,):
+        self.control_commands_dict["x velocity"] = self.x_velocity
+        self.control_commands_dict["y velocity"] = self.y_velocity
+        self.control_commands_dict["turn rate"] = self.turn_rate
+        self.control_commands_dict["clock cycle time"] = self.clock._cycle_time
+        self.control_commands_dict["swing ratios"] = tuple(round(x, 2) for x in (
+            self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
+        self.control_commands_dict["period shifts"] = tuple(round(x, 2) for x in (
+            self.clock._period_shifts[0], self.clock._period_shifts[1]))
+    
     def interactive_control(self, c):
-        ##############
-        # WASD group #
-        ##############
-        if c == 'w':
-            self.x_velocity += 0.1
-        if c == 's':
-            self.x_velocity -= 0.1
-        if c == 'd':
-            self.y_velocity += 0.1
-        if c == 'a':
-            self.y_velocity -= 0.1
-
-        if c == 'e':
-            self.turn_rate -= 0.001 * np.pi/4
-        if c == 'q':
-            self.turn_rate += 0.001 * np.pi/4
-
-        if c == 'o':
-            self.clock._cycle_time = np.clip(self.clock._cycle_time + 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
-        if c == 'u':
-            self.clock._cycle_time = np.clip(self.clock._cycle_time - 0.01, self._cycle_time_bounds[0], self._cycle_time_bounds[1])
-
-        ###############
-        # punct group #
-        ###############
-        if c == ']':
-            new_ratio = np.clip(self.clock._swing_ratios[i] + 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
-            self.clock._swing_ratios[0] = new_ratio
-            self.clock._swing_ratios[1] = new_ratio
-        if c == '[':
-            new_ratio = np.clip(self.clock._swing_ratios[i] - 0.01, self._swing_ratio_bounds[0], self._swing_ratio_bounds[1])
-            self.clock._swing_ratios[0] = new_ratio
-            self.clock._swing_ratios[1] = new_ratio
+        if c in self.input_keys_dict:
+            self.input_keys_dict[c]["func"](self)
+            self._update_control_commands_dict()
+            self.display_control_commands()
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """

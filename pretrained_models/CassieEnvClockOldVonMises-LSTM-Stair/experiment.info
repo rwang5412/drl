@@ -5,7 +5,6 @@ batch_size: 32
 bounded: False
 c_lr: 0.0003
 clip: 0.2
-clock_type: von_mises
 discount: 0.95
 dynamics_randomization: True
 entropy_coeff: 0.0
@@ -27,6 +26,7 @@ redis: None
 reward_name: locomotion_vonmises_clock_reward
 seed: 10
 simulator_type: mujoco
+state_est: False
 std: 0.13
 std_array: 
 terrain: stair

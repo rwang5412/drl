@@ -56,8 +56,8 @@ def nn_factory(args, env=None):
         critic = FFCritic(args.obs_dim, layers=layers)
     elif args.arch == 'mix':
         policy = MixActor(obs_dim=args.obs_dim,
-                          state_dim=env.state_dim,
-                          nonstate_dim=env.nonstate_dim,
+                          state_dim=env.keywords['state_dim'],
+                          nonstate_dim=env.keywords['nonstate_dim'],
                           action_dim=args.action_dim,
                           lstm_layers=layers,
                           ff_layers=layers,
