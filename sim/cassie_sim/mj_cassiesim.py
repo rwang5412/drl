@@ -49,3 +49,9 @@ class MjCassieSim(MujocoSim):
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
         self.kp = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
         self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
+
+        # Input motor velocity limit is in RPM, ordered in Mujoco motor
+        # XML already includes this attribute as 'user' under <actuator>, can be queried as 
+        # self.model.actuator_user[:, 0]
+        self.input_motor_velocity_max = [2900, 2900, 1300, 1300, 5500,\
+                                         2900, 2900, 1300, 1300, 5500]

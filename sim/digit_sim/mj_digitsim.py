@@ -64,6 +64,31 @@ class MjDigitSim(MujocoSim):
         self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
                             10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
 
+        # Map from mj motor indices to llapi motor indices
+        self.digit_motor_llapi2mj_index = [0, 1, 2, 3, 4, 5,\
+                                           12, 13, 14, 15,\
+                                           6, 7, 8, 9, 10, 11,\
+                                           16, 17, 18, 19]
 
-
-
+        # Followings are ordered in LLAPI motor indices
+        # Output torque limit is in Nm
+        self.output_torque_limit = np.array([126.682458, 79.176536, 216.927898, 231.31695, 41.975942, 41.975942,\
+                                            126.682458, 79.176536, 216.927898, 231.31695, 41.975942, 41.975942,\
+                                            126.682458, 126.682458, 79.176536, 126.682458,\
+                                            126.682458, 126.682458, 79.176536, 126.682458])
+        # Output damping limit is in Nm/(rad/s)
+        self.output_damping_limit = np.array([66.849046, 26.112909, 38.05002, 38.05002, 28.553161, 28.553161,\
+                                            66.849046, 26.112909, 38.05002, 38.05002, 28.553161, 28.553161,\
+                                            66.849046, 66.849046, 26.112909, 66.849046,\
+                                            66.849046, 66.849046, 26.112909, 66.849046])
+        # Output velocity limit is in rad/s
+        self.output_motor_velocity_limit = np.array([4.5814, 7.3303, 8.5084, 8.5084, 11.5191, 11.5191,\
+                                                    4.5814, 7.3303, 8.5084, 8.5084, 11.5191, 11.5191,\
+                                                    4.5814, 4.5814, 7.3303, 4.5814,\
+                                                    4.5814, 4.5814, 7.3303, 4.5814])
+        # Input motor velocity limit is in RPM, ordered in Mujoco motor
+        # XML already includes this attribute as 'user' under <actuator>, can be queried as 
+        # self.model.actuator_user[:, 0]
+        self.input_motor_velocity_max = \
+            self.output_motor_velocity_limit[self.digit_motor_llapi2mj_index] * \
+            self.model.actuator_gear[:, 0] * 60 / (2 * np.pi)

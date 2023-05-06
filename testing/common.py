@@ -78,3 +78,64 @@ CASSIE_MOTOR_NAME = [
 
 CASSIE_JOINT_NAME = ["left-shin", "left-tarsus", "right-shin", "right-tarsus"]
 
+
+DIGIT_MOTOR_NAME = [
+  'left-leg/hip-roll', 'left-leg/hip-yaw', 'left-leg/hip-pitch', 'left-leg/knee',
+  'left-leg/toe-a', 'left-leg/toe-b',
+  'left-arm/shoulder-roll','left-arm/shoulder-pitch', 'left-arm/shoulder-yaw', 'left-arm/elbow',
+  'right-leg/hip-roll', 'right-leg/hip-yaw', 'right-leg/hip-pitch', 'right-leg/knee',
+  'right-leg/toe-a', 'right-leg/toe-b',
+  'right-arm/shoulder-roll','right-arm/shoulder-pitch', 'right-arm/shoulder-yaw', 'right-arm/elbow'
+]
+
+# Motor and joint names ordered for low-level API
+DIGIT_MOTOR_NAME_LLAPI = [
+  'left-leg/hip-roll', 'left-leg/hip-yaw', 'left-leg/hip-pitch', 'left-leg/knee',
+  'left-leg/toe-a', 'left-leg/toe-b',
+  'right-leg/hip-roll', 'right-leg/hip-yaw', 'right-leg/hip-pitch', 'right-leg/knee',
+  'right-leg/toe-a', 'right-leg/toe-b',
+  'left-arm/shoulder-roll','left-arm/shoulder-pitch', 'left-arm/shoulder-yaw', 'left-arm/elbow',
+  'right-arm/shoulder-roll','right-arm/shoulder-pitch', 'right-arm/shoulder-yaw', 'right-arm/elbow'
+]
+
+DIGIT_JOINT_NAME_LLAPI = [
+  'left-leg/shin', 'left-leg/tarsus',
+  'left-leg/toe-pitch', 'left-leg/toe-roll',
+  'left-leg/heel-spring',
+  'right-leg/shin', 'right-leg/tarsus',
+  'right-leg/toe-pitch', 'right-leg/toe-roll',
+  'right-leg/heel-spring',
+]
+
+# Find the index each entry in DIGIT_MOTOR_NAME that matches the name in the DIGIT_MOTOR_NAME_LLAPI
+# DIGIT_MOTOR_NAME_LLAPI_INDEX = []
+# for name in DIGIT_MOTOR_NAME:
+#   DIGIT_MOTOR_NAME_LLAPI_INDEX.append(DIGIT_MOTOR_NAME_LLAPI.index(name))
+# print(DIGIT_MOTOR_NAME_LLAPI_INDEX)
+
+DIGIT_MOTOR_MJ2LLAPI_INDEX = [0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 6, 7, 8, 9, 16, 17, 18, 19]
+
+# Find the index each entry in DIGIT_JOINT_NAME that matches the name in the DIGIT_JOINT_NAME_LLAPI
+# DIGIT_JOINT_NAME_LLAPI_INDEX = []
+# for name in DIGIT_JOINT_NAME_LLAPI:
+#   DIGIT_JOINT_NAME_LLAPI_INDEX.append(DIGIT_JOINT_NAME.index(name))
+# print(DIGIT_JOINT_NAME_LLAPI_INDEX)
+
+DIGIT_JOINT_MJ2LLAPI_INDEX = [0, 1, 3, 4, 2, 5, 6, 8, 9, 7]
+
+# Followings are copied from LLAPI, ordered in LLAPI
+# Output torque limit is in Nm
+output_torque_limit = [126.682458, 79.176536, 216.927898, 231.31695, 41.975942, 41.975942,\
+						126.682458, 79.176536, 216.927898, 231.31695, 41.975942, 41.975942,\
+						126.682458, 126.682458, 79.176536, 126.682458,\
+						126.682458, 126.682458, 79.176536, 126.682458]
+# Output damping limit is in Nm/(rad/s)
+output_damping_limit = [66.849046, 26.112909, 38.05002, 38.05002, 28.553161, 28.553161,\
+						66.849046, 26.112909, 38.05002, 38.05002, 28.553161, 28.553161,\
+						66.849046, 66.849046, 26.112909, 66.849046,\
+						66.849046, 66.849046, 26.112909, 66.849046]
+# Output velocity limit is in rad/s
+output_motor_velocity_limit = [4.5814, 7.3303, 8.5084, 8.5084, 11.5191, 11.5191,\
+								4.5814, 7.3303, 8.5084, 8.5084, 11.5191, 11.5191,\
+								4.5814, 4.5814, 7.3303, 4.5814,\
+								4.5814, 4.5814, 7.3303, 4.5814]

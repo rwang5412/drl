@@ -182,6 +182,52 @@ class MujocoSim(GenericSim):
             raise RuntimeError(f"{FAIL}Error: Viewer not alive, can not check paused status. Check "
                 f"that viewer has not been destroyed.{ENDC}")
 
+    def viewer_add_marker(self,
+                          geom_type: str,
+                          name: str,
+                          position: list,
+                          size: list,
+                          rgba: list,
+                          so3: np.ndarray):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not add marker status.{ENDC}"
+        self.viewer.add_marker(geom_type, name, position, size, rgba, so3)
+
+    def viewer_update_marker_type(self, marker_id: int, geom_type: str):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not update marker type status.{ENDC}"
+        self.viewer.update_marker_type(marker_id, geom_type)
+
+    def viewer_update_marker_name(self, marker_id: int, name: str):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not update marker name status.{ENDC}"
+        self.viewer.update_marker_name(marker_id, name)
+
+    def viewer_update_marker_position(self, marker_id: int, pos: list):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not update marker position status.{ENDC}"
+        self.viewer.update_marker_position(marker_id, pos)
+
+    def viewer_update_marker_size(self, marker_id: int, size: list):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not update marker size status.{ENDC}"
+        self.viewer.update_marker_size(marker_id, size)
+
+    def viewer_update_marker_rgba(self, marker_id: int, rgba: list):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not update marker rgba status.{ENDC}"
+        self.viewer.update_marker_rgba(marker_id, rgba)
+
+    def viewer_update_marker_so3(self, marker_id: int, so3: np.ndarray):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not update marker so3 status.{ENDC}"
+        self.viewer.update_marker_so3(marker_id, so3)
+
+    def viewer_remove_marker(self, marker_id: int):
+        assert not self.viewer is None, \
+               f"{FAIL}viewer has not been initalized yet, can not remove marker status.{ENDC}"
+        self.viewer.remove_marker(marker_id)
+
     def init_renderer(self, offscreen: bool, height: int, width: int):
         """Initialized renderer class for rendering.
         For offscreen render: Need to change os environ before

@@ -16,7 +16,7 @@ from .common import (
     CASSIE_JOINT_NAME,
 )
 
-from env.util.quaternion import quaternion2euler
+from env.util.quaternion import quaternion2euler, euler2so3
 from util.colors import FAIL, ENDC, OKGREEN
 
 def test_all_sim():
@@ -28,6 +28,7 @@ def test_all_sim():
         print(f"Testing {sim.__name__}")
         num_pass += test_sim_init(sim)
         num_pass += test_sim_sim_forward(sim)
+        num_pass += test_sim_viewer_marker(sim)
         num_pass += test_sim_viewer(sim)
         num_pass += test_sim_glfw_multiple_viewer(sim)
         num_pass += test_sim_PD(sim)
@@ -38,7 +39,7 @@ def test_all_sim():
         num_pass += test_sim_body_acceleration(sim)
         num_pass += test_sim_body_contact_force(sim)
         num_pass += test_sim_relative_pose(sim)
-        if num_pass == 12:
+        if num_pass == 13:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
             failed = True
@@ -80,6 +81,45 @@ def test_sim_viewer(sim):
         delaytime = max(0, 50/2000 - (time.time() - start_t))
         time.sleep(delaytime)
     print("Passed sim viewer")
+    return True
+
+def test_sim_viewer_marker(sim):
+    if "lib" in sim.__name__.lower():
+        print("Bypass libcassie for viewer marker test.")
+        return True
+    print("Testing sim viewer marker rendering, don't quit window yet")
+    test_sim = sim()
+    test_sim.reset()
+    test_sim.viewer_init()
+    render_state = test_sim.viewer_render()
+    so3 = euler2so3(z=0, x=0, y=0)
+    test_sim.viewer.add_marker("sphere", "foo", [1, 0, 1], [0.1, 0.1, 0.1], [0.8, 0.1, 0.1, 1.0], so3)
+    test_sim.viewer.add_marker("sphere", "foo2", [1, 0, 1.3], [0.1, 0.1, 0.1], [0.1, 0.8, 0.1, 1.0], so3)
+    count = 0
+    while render_state:
+        start_t = time.time()
+        if not test_sim.viewer_paused():
+            for _ in range(50):
+                test_sim.sim_forward()
+            count += 1
+            if count == 50:
+                test_sim.viewer.update_marker_type(0, "box")
+                test_sim.viewer.update_marker_name(0, "new_marker")
+                test_sim.viewer.update_marker_position(0, [0.5, 0, 1])
+                test_sim.viewer.update_marker_size(0, [0.05, 0.01, 0.1])
+                test_sim.viewer.update_marker_rgba(0, [0.1, 0.1, 0.8, 1.0])
+                so3 = euler2so3(z=0, x=0.4, y=0.3)
+                test_sim.viewer.update_marker_so3(0, so3)
+                test_sim.viewer.remove_marker(1)
+                so3 = euler2so3(z=0, x=0, y=0)
+                test_sim.viewer.add_marker("capsule", "foo3", [1, 0, 1.3], [0.1, 0.1, 0.6], [0.1, 0.8, 0.1, 1.0], so3)
+                test_sim.viewer.add_marker("arrow", "arrow", [0.7, -0.2, 1.0], [0.03, 0.03, 0.7], [0.1, 0.1, 0.8, 1.0], so3)
+                print("Marker changes done, you can quit the window now")
+        render_state = test_sim.viewer_render()
+        # Assume 2kHz sim for now
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
+    print("Passed sim viewer marker")
     return True
 
 def test_sim_glfw_multiple_viewer(sim):
