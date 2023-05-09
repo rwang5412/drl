@@ -39,11 +39,12 @@ def test_all_sim():
         num_pass += test_sim_body_acceleration(sim)
         num_pass += test_sim_body_contact_force(sim)
         num_pass += test_sim_relative_pose(sim)
-        if num_pass == 13:
+        num_pass += test_self_collision(sim)
+        if num_pass == 14:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
             failed = True
-            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 12 tests.{ENDC}")
+            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 14 tests.{ENDC}")
         num_pass = 0
     if not failed:
         print(f"{OKGREEN}Passed all sim tests! \u2713{ENDC}")
@@ -407,4 +408,17 @@ def test_sim_relative_pose(sim):
     #     time.sleep(delaytime)
 
     print("Passed sim get_relative_pose")
+    return True
+
+def test_self_collision(sim):
+    if hasattr(sim, 'is_self_collision'):
+        test_sim = sim()
+        test_sim.reset()
+        assert test_sim.is_self_collision() == False, f"robot at default pose should be collision-free, is_self_collsion() returned True"
+        #expand all geoms to ensure robot is in self collision
+        test_sim.model.geom_size = [np.array([1000, 1000, 1000]) for _ in test_sim.model.geom_size]
+        test_sim.sim_forward()
+        assert test_sim.is_self_collision() == True, f"robot should be in self collision state after increasing size of all geoms, but is_self_collision() returned False"
+
+        print("Passed sim test self collision")
     return True
