@@ -10,7 +10,9 @@ class MjDigitSim(MujocoSim):
     """
     Wrapper for Digit Mujoco. This class only defines several specifics for Digit.
     """
-    def __init__(self, model_name: str = "digit-v3-new.xml"):
+    def __init__(self, model_name: str = "digit-v3-new.xml", terrain=None):
+        if terrain == 'hfield':
+            model_name = "digit-v3-hfield.xml"
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
         # Number of sim steps before commanded torque is actually applied
         self.torque_delay_cycles = 6
@@ -54,7 +56,7 @@ class MjDigitSim(MujocoSim):
                         ])
 
         # NOTE: Have to call super init AFTER index arrays are defined
-        super().__init__(model_path=model_path)
+        super().__init__(model_path=model_path, terrain=terrain)
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
 
@@ -63,6 +65,13 @@ class MjDigitSim(MujocoSim):
                             200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0])
         self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
                             10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
+
+        # List of bodies that cannot (prefer not) collide with environment
+        self.body_collision_list = \
+            ['left-leg/shin', 'left-leg/tarsus', 'left-leg/heel-spring', 'left-leg/toe-a', \
+             'left-leg/toe-a-rod', 'left-leg/toe-b', 'left-leg/toe-b-rod',\
+             'right-leg/shin', 'right-leg/tarsus', 'right-leg/heel-spring', 'right-leg/toe-a', \
+             'right-leg/toe-a-rod', 'right-leg/toe-b', 'right-leg/toe-b-rod']
 
         # Map from mj motor indices to llapi motor indices
         self.digit_motor_llapi2mj_index = [0, 1, 2, 3, 4, 5,\
@@ -87,7 +96,7 @@ class MjDigitSim(MujocoSim):
                                                     4.5814, 4.5814, 7.3303, 4.5814,\
                                                     4.5814, 4.5814, 7.3303, 4.5814])
         # Input motor velocity limit is in RPM, ordered in Mujoco motor
-        # XML already includes this attribute as 'user' under <actuator>, can be queried as 
+        # XML already includes this attribute as 'user' under <actuator>, can be queried as
         # self.model.actuator_user[:, 0]
         self.input_motor_velocity_max = \
             self.output_motor_velocity_limit[self.digit_motor_llapi2mj_index] * \

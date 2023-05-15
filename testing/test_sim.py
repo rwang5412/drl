@@ -39,12 +39,13 @@ def test_all_sim():
         num_pass += test_sim_body_acceleration(sim)
         num_pass += test_sim_body_contact_force(sim)
         num_pass += test_sim_relative_pose(sim)
+        num_pass += test_sim_hfield(sim)
         num_pass += test_self_collision(sim)
-        if num_pass == 14:
+        if num_pass == 15:
             print(f"{OKGREEN}{sim.__name__} passed all tests.{ENDC}")
         else:
             failed = True
-            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 14 tests.{ENDC}")
+            print(f"{FAIL}{sim.__name__} failed, only passed {num_pass} out of 15 tests.{ENDC}")
         num_pass = 0
     if not failed:
         print(f"{OKGREEN}Passed all sim tests! \u2713{ENDC}")
@@ -128,6 +129,8 @@ def test_sim_glfw_multiple_viewer(sim):
         print("Bypass libcassie for dual window render.")
         return True
     print("Testing sim viewer, quit window to continue")
+    # TODO: when closing one window, the other window will be black, because we are free mjContext
+    # when closing one window in mjViewer.close(). Need to fix this.
     test_sim = sim()
     test_sim.reset()
     test_sim.viewer_init(width=800, height=800)
@@ -408,6 +411,52 @@ def test_sim_relative_pose(sim):
     #     time.sleep(delaytime)
 
     print("Passed sim get_relative_pose")
+    return True
+
+def test_sim_hfield(sim):
+    if "lib" in sim.__name__.lower():
+        print("Bypass libcassie for dual window render.")
+        return True
+    print("Testing sim hfield, quit window to continue")
+    test_sim = sim(terrain='hfield')
+    test_sim.viewer_init()
+    test_sim.reset()
+    test_sim.randomize_hfield(hfield_type='noisy')
+    # Define local heightmap constants
+    map_x, map_y = 1.5, 1 # m
+    map_points_x, map_points_y = 30, 20 # pixels
+    map_dim = int(map_points_x*map_points_y)
+    x = np.linspace(-map_x/2, map_x/2, num=map_points_x, dtype=float)
+    y = np.linspace(-map_y/2, map_y/2, num=map_points_y, dtype=float)
+    grid_x, grid_y = np.meshgrid(x, y)
+    heightmap_num_points = grid_x.size
+    local_grid_unrotated = np.zeros((heightmap_num_points, 3))
+    local_grid_unrotated[:, 0] = grid_x.flatten()
+    local_grid_unrotated[:, 1] = grid_y.flatten()
+    # Initialize heightmap and visualization
+    hfield_map, local_grid_rotated = test_sim.get_hfield_map(grid_unrotated=local_grid_unrotated)
+    vis_marker_keys = {'heightmap':[]}
+    for i in range(map_dim):
+        x, y, z = local_grid_rotated[i][0], local_grid_rotated[i][1], hfield_map[i] + 0.02
+        id = test_sim.viewer.add_marker("sphere", "", [x,y,z],
+            [0.015, 0.015, 0.005], [0.8, 1, 0.8, 1.0], euler2so3(z=0, x=0, y=0))
+        vis_marker_keys['heightmap'].append(id)
+    render_state = test_sim.viewer_render()
+    while render_state:
+        start_t = time.time()
+        if not test_sim.viewer_paused():
+            for _ in range(50):
+                test_sim.sim_forward()
+        # Update heightmap visualization
+        hfield_map, local_grid_rotated = test_sim.get_hfield_map(grid_unrotated=local_grid_unrotated)
+        for i in range(map_dim):
+            x, y, z = local_grid_rotated[i][0], local_grid_rotated[i][1], hfield_map[i] + 0.02
+            test_sim.viewer.update_marker_position(vis_marker_keys['heightmap'][i], [x,y,z])
+        render_state = test_sim.viewer_render()
+        # Assume 2kHz sim for now
+        delaytime = max(0, 50/2000 - (time.time() - start_t))
+        time.sleep(delaytime)
+    print("Passed sim viewer")
     return True
 
 def test_self_collision(sim):

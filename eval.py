@@ -4,7 +4,7 @@ import sys
 import pickle
 import os
 
-from util.evaluation_factory import simple_eval, interactive_eval, eval_no_vis
+from util.evaluation_factory import simple_eval, interactive_eval, simple_eval_offscreen
 from util.nn_factory import load_checkpoint, nn_factory
 from util.env_factory import env_factory, add_env_parser
 
@@ -62,6 +62,9 @@ if __name__ == "__main__":
     #     if hasattr(previous_args_dict['env_args'], arg):
     #         setattr(previous_args_dict['env_args'], arg, val)
 
+    if hasattr(previous_args_dict['env_args'], 'offscreen'):
+        previous_args_dict['env_args'].offscreen = True if evaluation_type == 'offscreen' else False
+
     # Load environment
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
 
@@ -77,7 +80,7 @@ if __name__ == "__main__":
         if not hasattr(env, 'interactive_control'):
             raise RuntimeError("this environment does not support interactive control")
         interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len)
-    elif evaluation_type == "no_vis":
-        eval_no_vis(actor=actor, env=env, episode_length_max=args.traj_len)
+    elif evaluation_type == "offscreen":
+        simple_eval_offscreen(actor=actor, env=env, episode_length_max=args.traj_len)
     else:
         raise RuntimeError(f"This evaluation type {evaluation_type} has not been implemented.")

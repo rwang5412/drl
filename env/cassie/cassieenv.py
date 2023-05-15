@@ -41,7 +41,7 @@ class CassieEnv(GenericEnv):
             raise RuntimeError(f"State estimator input can only be used with libcassie sim.")
         self.simulator_type = simulator_type
         if simulator_type == "mujoco":
-            self.sim = MjCassieSim()
+            self.sim = MjCassieSim(terrain=terrain)
         elif simulator_type == 'libcassie':
             self.sim = LibCassieSim()
             self.state_est = state_est

@@ -167,9 +167,8 @@ class MujocoViewer():
 
     def render(self):
         if glfw.window_should_close(self.window):
-            glfw.destroy_window(self.window)
-            self.window = None
-            self.is_alive = False
+            self.close()
+            print(f"{WARNING}MujocoViewer window closed.{ENDC}")
             return False
         # # Apply perturbations
         if self.pert.select > 0:
@@ -699,7 +698,6 @@ class MujocoViewer():
 
     def close(self):
         self.ctx.free()
-        glfw.window_should_close(self.window)
         glfw.destroy_window(self.window)
         self.window = None
         self.is_alive = False

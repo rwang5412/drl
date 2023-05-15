@@ -1,12 +1,11 @@
-import argparse
+import torch
+import time
 import numpy as np
 import os
 import sys
 import termios
 import time
-import torch
 
-from util.env_factory import env_factory
 from util.keyboard import Keyboard
 from util.colors import OKGREEN, FAIL
 
@@ -46,10 +45,20 @@ def simple_eval(actor, env, episode_length_max=300):
             time.sleep(delaytime)
             if episode_length == episode_length_max or done:
                 print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
+                done = False
                 state = env.reset()
                 episode_length = 0
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
+                # Seems like Mujoco only allows a single mjContext(), and it prefers one context
+                # with one window when modifying mjModel. So for onscreen dual window, we re-init
+                # the non-main window, ie egocentric view here.
+                if hasattr(env.sim, 'renderer'):
+                    if env.sim.renderer is not None:
+                        print("re-init non-primary screen renderer")
+                        env.sim.renderer.close()
+                        env.sim.init_renderer(offscreen=env.offscreen,
+                                              width=env.depth_image_dim[0], height=env.depth_image_dim[1])
 
 def interactive_eval(actor, env, episode_length_max=300):
     """Simply evaluating policy in visualization window with user input
@@ -112,7 +121,7 @@ def interactive_eval(actor, env, episode_length_max=300):
         print(f"\033[{env.num_menu_backspace_lines - 1}B\033[K")
         termios.tcflush(sys.stdout, termios.TCIOFLUSH)
 
-def eval_no_vis(actor, env, episode_length_max=300):
+def simple_eval_offscreen(actor, env, episode_length_max=300):
     """Simply evaluating policy without visualization
 
     Args:

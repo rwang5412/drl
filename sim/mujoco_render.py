@@ -7,12 +7,17 @@ class MujocoRender():
         """Class to provide minimal render and visualizer capability given mjModel and mjData.
         visualize a fixed camera view with GLFW onscreen and update rendered pixels.
         Primarily adopted from mj.Renderer() in order to align function names.
+        Seems like Mujoco does not allow multiple mjContext using the same MjModel/Data, thus
+        when using this class, at reset(), user has to manually close the renderer and 
+        initialize a new one, to avoid any inconsistent MjModel.
 
         Args:
             model (_type_): Mj Model object
             width, height (int): Resolution of renderer
         """
         self._model = model
+        self._width = width
+        self._height = height
 
         glfw.init()
         if not width:
@@ -33,11 +38,9 @@ class MujocoRender():
             0, 0, framebuffer_width, framebuffer_height)
 
         # create options, camera, scene, context
-        self.vopt = mj.MjvOption()
-        self.cam = mj.MjvCamera()
-        self.scn = mj.MjvScene(self._model, maxgeom=1000)
-        self.pert = mj.MjvPerturb()
-        self.ctx = mj.MjrContext(self._model, mj.mjtFontScale.mjFONTSCALE_150.value)
+        self._scene = mj.MjvScene(self._model, maxgeom=1000)
+        self._scene_option = mj.MjvOption()
+        self._mjr_context = mj.MjrContext(self._model, mj.mjtFontScale.mjFONTSCALE_150.value)
 
         # Internal buffers.
         self._rgb_buffer = np.empty((height, width, 3), dtype=np.uint8)
@@ -72,14 +75,15 @@ class MujocoRender():
             else:
                 camera.type = mj.mjtCamera.mjCAMERA_FIXED
 
+        glfw.make_context_current(self.window)
         mj.mjv_updateScene(
             self._model,
             mjdata,
-            self.vopt,
-            self.pert,
+            self._scene_option,
+            None,
             camera,
             mj.mjtCatBit.mjCAT_ALL.value,
-            self.scn)
+            self._scene)
 
     def render(self):
         if glfw.window_should_close(self.window):
@@ -87,9 +91,8 @@ class MujocoRender():
             self.window = None
             return False
         # Set up for rendering
-        glfw.make_context_current(self.window)
-        mj.mjr_render(self.viewport, self.scn, self.ctx)
-        mj.mjr_readPixels(self._rgb_buffer, self._depth_buffer, self.viewport, self.ctx)
+        mj.mjr_render(self.viewport, self._scene, self._mjr_context)
+        mj.mjr_readPixels(self._rgb_buffer, self._depth_buffer, self.viewport, self._mjr_context)
 
         if self._depth_rendering:
             # Get the distances to the near and far clipping planes.
@@ -121,8 +124,7 @@ class MujocoRender():
         self._segmentation_rendering = False
 
     def close(self):
-        self.ctx.free()
+        self._mjr_context.free()
         glfw.window_should_close(self.window)
         glfw.destroy_window(self.window)
         self.window = None
-        self.is_alive = False

@@ -7,6 +7,8 @@ from .mujoco_viewer import MujocoViewer
 from .mujoco_render import MujocoRender
 from util.colors import FAIL, WARNING, ENDC
 from sim.util.geom import Geom
+from sim.util.hfield import Hfield
+from util.quaternion import quaternion2euler, euler2quat
 
 class MujocoSim(GenericSim):
     """
@@ -25,6 +27,7 @@ class MujocoSim(GenericSim):
         self.njnt = self.model.njnt
         self.ngeom = self.model.ngeom
         self.viewer = None
+        self.renderer = None # non-primary viewer or offscreen renderer
         self.terrain = terrain
         # Enforce that necessary constants and index arrays are defined
         check_vars = ["torque_delay_cycles", "torque_efficiency", "motor_position_inds",
@@ -69,6 +72,9 @@ class MujocoSim(GenericSim):
             self.data.qpos = qpos
         else:
             self.data.qpos = self.reset_qpos
+        # To avoid mjWarning on arena memory allocation, init hfield before first mj_forward().
+        if self.terrain == 'hfield':
+            self.init_hfield()
         mj.mj_forward(self.model, self.data)
 
     def sim_forward(self, dt: float = None):
@@ -130,26 +136,6 @@ class MujocoSim(GenericSim):
         for i in range(3, 6):
             self.model.dof_damping[i] = 1e5
 
-    def adjust_robot_pose(self):
-        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms.
-        Make sure to call if env is updating the model.
-        """
-        # Make sure all kinematics are updated
-        mj.mj_kinematics(self.model, self.data)
-        # Check iteratively if robot is colliding with geom in XY and move robot up in Z
-        lfoot_pos  = self.get_site_pose(self.feet_site_name[0])[0:3]
-        rfoot_pos  = self.get_site_pose(self.feet_site_name[1])[0:3]
-        z_deltas = []
-        for (x,y,z) in [lfoot_pos, rfoot_pos]:
-            box_id, heel_hgt = self.geom_generator.check_step(x - 0.09, y, 0)
-            box_id, toe_hgt  = self.geom_generator.check_step(x + 0.09, y, 0)
-            z_hgt = max(heel_hgt, toe_hgt)
-            z_deltas.append((z_hgt-z))
-        base_position = self.get_base_position()
-        delta = max(z_deltas)
-        base_position[2] += delta + 1e-3
-        self.set_base_position(base_position)
-
     def release(self):
         """Zero stiffness/damping for base 6DOF
         """
@@ -191,7 +177,7 @@ class MujocoSim(GenericSim):
                           so3: np.ndarray):
         assert not self.viewer is None, \
                f"{FAIL}viewer has not been initalized yet, can not add marker status.{ENDC}"
-        self.viewer.add_marker(geom_type, name, position, size, rgba, so3)
+        return self.viewer.add_marker(geom_type, name, position, size, rgba, so3)
 
     def viewer_update_marker_type(self, marker_id: int, geom_type: str):
         assert not self.viewer is None, \
@@ -254,7 +240,8 @@ class MujocoSim(GenericSim):
             raise RuntimeError("Specify a camera name.")
         self.renderer.enable_depth_rendering()
         self.renderer.update_scene(self.data, camera=camera_name)
-        depth = self.renderer.render().copy()
+        # Deepcopy to avoid modifying the original data
+        depth = copy.deepcopy(self.renderer.render())
         # Perform in-place operations with depth values
         # Shift nearest values to the origin.
         depth -= depth.min()
@@ -262,7 +249,165 @@ class MujocoSim(GenericSim):
         depth /= (2*depth[depth <= 1].mean())
         # Scale to [0, 255]
         depth = 255*np.clip(depth, 0, 1)
+        assert depth.shape == (self.renderer._height, self.renderer._width), \
+            f"Depth image shape {depth.shape} does not match "\
+            f"renderer shape {(self.renderer._height, self.renderer._width)}."
         return depth.astype(np.uint8)
+
+    def init_hfield(self):
+        """Initialize hfield relevant params from XML, hfield_data, reset hfield to flat ground.
+        """
+        self.hfield_radius_x, self.hfield_radius_y, \
+            self.hfield_max_z, self.hfield_min_z = self.model.hfield('hfield0').size
+        self.hfield_nrow, self.hfield_ncol = self.model.hfield_nrow[0], self.model.hfield_ncol[0]
+        # Resolution meter/pixel
+        self.hfield_res_x = self.hfield_radius_x * 2 / self.hfield_nrow
+        self.hfield_res_y = self.hfield_radius_y * 2 / self.hfield_ncol
+        self.hfield_data = np.zeros((self.model.hfield_nrow[0], self.model.hfield_ncol[0]))
+        self.model.hfield('hfield0').data[:] = self.hfield_data
+        self.hfield_generator = Hfield(nrow=self.hfield_nrow, ncol=self.hfield_ncol)
+
+    def upload_hfield(self, hfieldid=0):
+        """Sync up MjModel with MjContext, applyting to main viewer or renderers.
+        https://mujoco.readthedocs.io/en/stable/programming/simulation.html?highlight=mjr_uploadHField#model-changes
+        Mujoco seems only allow a single mjrContext when updating mjModel.
+        Thus, only one of the following will actually take an affect. 
+        For regular single-window mujoco viewer, the first is active. 
+        For single offscreen rendering, the second is active.
+        """
+        if self.renderer is not None: # if renderer exists, use it
+            mj.mjr_uploadHField(self.model, self.renderer._mjr_context, hfieldid)
+        if self.viewer is not None: # the main mujoco_viewer is alive
+            mj.mjr_uploadHField(self.model, self.viewer.ctx, hfieldid)
+
+    def randomize_hfield(self, hfield_type: str=None, data: np.ndarray=None):
+        """Randomize hfield data and reset robot pose. If using viewer to visualize, this function
+        needs to be called after viewer_init() so mjContext is initialized.
+
+        Args:
+            hfield_type (str, optional): Type of hfield ['flat', 'noisy', 'stone', 'bump', 'stair].
+                This is loading precomputed hfield.
+            data (np.ndarray, optional): 2D ndarray. For hfield.data [0, 0] is bottom right.
+                Rows are world-Y axis, and Cols are world-X axis. Data will be normalized to [0, 1].
+        """
+        if hfield_type is not None:
+            if hfield_type in self.hfield_generator.hfield_names:
+                run_func = f"self.hfield_generator.create_{hfield_type}()"
+                data = getattr(self.hfield_generator, f"create_{hfield_type}")()
+        elif data is not None:
+            if data.shape != (self.hfield_nrow, self.hfield_ncol):
+                raise TypeError(f"randomize_hfield got not supported data {data}")
+        else:
+            data = np.zeros((self.hfield_nrow, self.hfield_nrow))
+        self.hfield_data = data
+        self.model.hfield('hfield0').data[:] = data
+        self.upload_hfield()
+        self.adjust_robot_pose(terrain_type='hfield')
+
+    def get_hfield_height(self, x: float, y: float):
+        """Get the height of hfield given world XY location. Returns a single float for height.
+        """
+        if x > self.hfield_radius_x or x < -self.hfield_radius_x or \
+           y > self.hfield_radius_y or y < -self.hfield_radius_y:
+            return -10
+        x_pixel = self.hfield_nrow // 2 + int(x / self.hfield_radius_x * self.hfield_nrow / 2)
+        y_pixel = self.hfield_ncol // 2 + int(y / self.hfield_radius_y * self.hfield_ncol / 2)
+        return self.hfield_max_z * self.hfield_data[y_pixel, x_pixel]
+
+    def get_hfield_map(self, grid_unrotated: np.ndarray):
+        """Get the local height map at the robot base frame.
+
+        Args:
+            grid_unrotated (np.ndarray): 2D float array of shape (heightmap_num_points, 3). 
+                This grid represents the local heightmap in the robot base frame. 
+                The first two columns are the x, y coordinates of the grid points. 
+                The third column is the z coordinate of the grid. This data format only represents
+                where to fetch the heightmap data in 3D space relative to robot, not the actual data.
+
+        Returns:
+            hfield_map (np.ndarray): 1D array of shape (heightmap_num_points,). This is the local 
+                heightmap in the robot base frame and heading. The heightmap can be reshaped into 
+                a 2D array. And the reshape should follow the same order as the grid_unrotated [x, y].
+            gridxy_rotated (np.ndarray): 2D float array of shape (heightmap_num_points, 3). This grid
+                is rotated to heading but not offset to base position. This is useful for visualization.
+        """
+        heightmap_num_points = grid_unrotated.shape[0]
+        # Rotate the heightmap to base heading, offset to base position, and offset to hfield center
+        gridxy_rotated = np.zeros((heightmap_num_points, 3))
+        # TODO: helei, change this to vectorized version
+        q = euler2quat(z=quaternion2euler(self.get_base_orientation())[2], y=0, x=0)
+        for i in range(heightmap_num_points):
+            mj.mju_rotVecQuat(gridxy_rotated[i], grid_unrotated[i], q)
+        gridxy_rotated += self.get_base_position()
+        gridxy_rotated_global = gridxy_rotated + self.hfield_radius_x
+        # Conver into global pixel space to get the local heightmap
+        pixels = gridxy_rotated_global / self.hfield_res_x
+        px = pixels[:, 0].astype(int)
+        py = pixels[:, 1].astype(int)
+        # Check if the robot is about to run off the hfield
+        # User has to make sure training does not let this happen
+        assert np.all(px >= 0) and np.all(px <= self.hfield_nrow) and \
+               np.all(py >= 0) and np.all(py <= self.hfield_ncol), \
+               f"Pixels are out of bound. Robot is at {self.get_base_position()} m, " \
+               f"hfield radius is {self.hfield_radius_x}x{self.hfield_radius_y}."
+        # Take minimum of surrounding pixels for each point to avoid ambigious height
+        # NOTE: need to swap x and y because raw hfield is stored in [y, x] format
+        average_height = []
+        increment = [[-1, 0], [1, 0], [0, 0], [0, -1], [0, 1]]
+        for i, vec in enumerate(increment):
+            average_height.append(self.hfield_max_z * self.hfield_data[py+vec[0], px+vec[1]])
+        hfield_map = np.min(average_height, axis=0)
+        assert hfield_map.shape == (heightmap_num_points,),\
+               f"Expected hfield_map shape {(heightmap_num_points,)}, got {hfield_map.shape}."
+        return hfield_map, gridxy_rotated
+
+    def adjust_robot_pose(self, terrain_type='geom'):
+        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms.
+        Make sure to call if env is updating the model.
+        NOTE: Be careful of initializing robot in a bad pose. This function will not fix that mostly.
+        """
+        # Make sure all kinematics are updated
+        mj.mj_kinematics(self.model, self.data)
+        collision = True
+        base_dx = 0
+        original_base_position = self.get_base_position()
+        while collision:
+            base_position = self.get_base_position()
+            lfoot_pos  = self.get_site_pose(self.feet_site_name[0])[0:3]
+            rfoot_pos  = self.get_site_pose(self.feet_site_name[1])[0:3]
+            if terrain_type == 'geom':
+                # Check iteratively if robot is colliding with geom in XY and move robot up in Z
+                z_deltas = []
+                for (x,y,z) in [lfoot_pos, rfoot_pos]:
+                    box_id, heel_hgt = self.geom_generator.check_step(x - 0.09, y, 0)
+                    box_id, toe_hgt  = self.geom_generator.check_step(x + 0.09, y, 0)
+                    z_hgt = max(heel_hgt, toe_hgt)
+                    z_deltas.append((z_hgt-z))
+                delta = max(z_deltas)
+            elif terrain_type == 'hfield':
+                # Check iteratively if robot is colliding with geom in XY and move robot up in Z
+                z_deltas = []
+                for (x,y,z) in [lfoot_pos, rfoot_pos]:
+                    tl_hgt = self.get_hfield_height(x + 0.09, y + 0.05)
+                    tr_hgt = self.get_hfield_height(x + 0.09, y - 0.05)
+                    bl_hgt = self.get_hfield_height(x - 0.09, y + 0.05)
+                    br_hgt = self.get_hfield_height(x - 0.09, y - 0.05)
+                    z_hgt = max(tl_hgt, tr_hgt, bl_hgt, br_hgt)
+                    z_deltas.append((z_hgt-z))
+                delta = max(z_deltas)
+            else:
+                raise RuntimeError(f"Please implement type {terrain_type} for adjust robot pose().")
+            base_position[2] = original_base_position[2] + delta
+            base_position[0] += base_dx
+            self.set_base_position(base_position)
+            c = []
+            for b in self.body_collision_list:
+                c.append(self.is_body_collision(b))
+            if any(c):
+                collision = True
+                base_dx = np.random.uniform(-1, 1)
+            else:
+                collision = False
 
     def is_self_collision(self):
         """ Check for self collisions. Returns True if there are self collisions, and False otherwise
@@ -465,6 +610,16 @@ class MujocoSim(GenericSim):
                     total_wrench += contact_wrench_global
         # Since condim=3, let's keep XYZ for now
         return total_wrench[:3]
+
+    def is_body_collision(self, body: str):
+        """Get if given body has collision by checking any geoms within the body
+        """
+        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, body)
+        for contact_id, contact_struct in enumerate(self.data.contact):
+            if body_id == self.model.geom_bodyid[contact_struct.geom1] or \
+               body_id == self.model.geom_bodyid[contact_struct.geom2]:
+                return True
+        return False
 
     def get_body_mass(self, name: str = None):
         # If name is None, return all body masses

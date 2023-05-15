@@ -12,7 +12,9 @@ class MjCassieSim(MujocoSim):
     """
     Wrapper for Cassie Mujoco. This class only defines several specifics for Cassie.
     """
-    def __init__(self, model_name: str = "cassiemujoco/cassie.xml"):
+    def __init__(self, model_name: str = "cassiemujoco/cassie.xml", terrain=None):
+        if terrain == 'hfield':
+            model_name = "cassiemujoco/cassie_hfield.xml"
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
         # Torque delay, i.e. size of the torque buffer. Note that "delay" of 1 corresponds to no
         # delay. So torque_delay_cycles should be the number of sim steps before commanded torque is
@@ -42,13 +44,19 @@ class MjCassieSim(MujocoSim):
                     -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968])
 
         # NOTE: Have to call super init AFTER index arrays and constants are defined
-        super().__init__(model_path=model_path)
+        super().__init__(model_path=model_path, terrain=terrain)
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
 
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
         self.kp = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
         self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
+
+        # List of bodies that cannot (prefer not) collide with environment
+        self.body_collision_list = ['left-tarsus', 'left-achilles-rod', 'left-heel-spring', 'left-foot-crank',\
+            'left-plantar-rod',\
+            'right-tarsus', 'right-achilles-rod', 'right-heel-spring', 'right-foot-crank',\
+            'right-plantar-rod']
 
         # Input motor velocity limit is in RPM, ordered in Mujoco motor
         # XML already includes this attribute as 'user' under <actuator>, can be queried as 
