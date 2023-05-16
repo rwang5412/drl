@@ -1,4 +1,3 @@
-import argparse
 import json
 import numpy as np
 
@@ -10,6 +9,7 @@ from env.util.quaternion import (
     rotate_by_quaternion,
     quaternion_product
 )
+from util.colors import WARNING, ENDC
 from pathlib import Path
 
 class DigitEnv(GenericEnv):
@@ -18,7 +18,9 @@ class DigitEnv(GenericEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float):
+                 state_noise: float,
+                 velocity_noise: float,
+                 state_est: bool):
         """Template class for Digit with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
@@ -35,6 +37,8 @@ class DigitEnv(GenericEnv):
         self.default_policy_rate = policy_rate
         self.terrain = terrain
         # Select simulator
+        self.state_est = state_est
+        self.simulator_type = simulator_type
         if simulator_type == "mujoco":
             self.sim = MjDigitSim(terrain=terrain)
         elif simulator_type == 'ar':
@@ -52,14 +56,26 @@ class DigitEnv(GenericEnv):
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.orient_add = 0
-        self.trackers = [self.update_tracker_grf,
-                         self.update_tracker_velocity]
+        self.trackers = {self.update_tracker_grf: {"frequency": 100},
+                         self.update_tracker_velocity: {"frequency": 100},
+                         self.update_tracker_torque: {"frequency": 50}
+                        }
+        # Double check tracker frequencies and convert to number of sim steps
+        for tracker, tracker_dict in self.trackers.items():
+            freq = tracker_dict["frequency"]
+            steps = int(self.sim.simulator_rate // freq)
+            if steps != self.sim.simulator_rate / freq:
+                print(f"{WARNING}WARNING: tracker frequency for {tracker.__name__} of {freq}Hz " \
+                      f"does not fit evenly into simulator rate of {self.sim.simulator_rate}. " \
+                      f"Rounding to {self.sim.simulator_rate / steps:.0f}Hz instead.{ENDC}")
+            tracker_dict["num_step"] = steps
 
-        self.feet_grf_2khz_avg = {} # log GRFs in 2kHz
-        self.feet_velocity_2khz_avg = {} # log feet velocity in 2kHz
+        self.torque_tracker_avg = np.zeros(20) # log torque in 2kHz
+        self.feet_grf_tracker_avg = {} # log GRFs in 2kHz
+        self.feet_velocity_tracker_avg = {} # log feet velocity in 2kHz
         for foot in self.sim.feet_body_name:
-            self.feet_grf_2khz_avg[foot] = self.sim.get_body_contact_force(name=foot)
-            self.feet_velocity_2khz_avg[foot] = self.sim.get_body_velocity(name=foot)
+            self.feet_grf_tracker_avg[foot] = self.sim.get_body_contact_force(name=foot)
+            self.feet_velocity_tracker_avg[foot] = self.sim.get_body_velocity(name=foot)
 
         # Dynamics randomization ranges
         # If any joints/bodies are missing from the json file they just won't be randomized,
@@ -101,8 +117,12 @@ class DigitEnv(GenericEnv):
                                     "ranges":ipos_ranges}
             # Friction
             self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
+            self.dr_ranges["encoder-noise"] = {"ranges": dyn_rand_data["encoder-noise"]}
             dyn_rand_file.close()
         self.state_noise = state_noise
+        self.velocity_noise = velocity_noise
+        self.motor_encoder_noise = np.zeros(20)
+        self.joint_encoder_noise = np.zeros(10)
 
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
@@ -132,11 +152,15 @@ class DigitEnv(GenericEnv):
         """Reset simulator.
         Depending on use cases, child class can override this as well.
         """
-        self.sim.reset()
         if self.dynamics_randomization:
             self.sim.randomize_dynamics(self.dr_ranges)
+            self.motor_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=20)
+            self.joint_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=10)
         else:
             self.sim.default_dynamics()
+            self.motor_encoder_noise = np.zeros(20)
+            self.joint_encoder_noise = np.zeros(10)
+        self.sim.reset()
 
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
         """This loop sends actions into control interfaces, update torques, simulate step,
@@ -147,6 +171,8 @@ class DigitEnv(GenericEnv):
         Args:
             action (np.ndarray): Actions from policy inference.
         """
+        for tracker_fn, tracker_dict in self.trackers.items():
+            tracker_fn(weighting = 0, sim_step = 0)
         for sim_step in range(simulator_repeat_steps):
             # Explore around neutral offset
             setpoint = action + self.offset
@@ -156,8 +182,11 @@ class DigitEnv(GenericEnv):
             # step simulation
             self.sim.sim_forward()
             # Update simulation trackers (signals higher than policy rate, like GRF, etc)
-            for tracker in self.trackers:
-                tracker(weighting=1/simulator_repeat_steps, sim_step=sim_step)
+            if sim_step > 0:
+                for tracker_fn, tracker_dict in self.trackers.items():
+                    if (sim_step + 1) % tracker_dict["num_step"] == 0 or sim_step + 1 == simulator_repeat_steps:
+                        tracker_fn(weighting = 1 / np.ceil(simulator_repeat_steps / tracker_dict["num_step"]),
+                                sim_step = sim_step)
 
     def get_robot_state(self):
         """Get standard robot prorioceptive states. Sub-env can override this function to define its
@@ -166,14 +195,29 @@ class DigitEnv(GenericEnv):
         Returns:
             robot_state (np.ndarray): robot state
         """
+
+        motor_pos = self.sim.get_motor_position()
+        motor_vel = self.sim.get_motor_velocity()
+        joint_pos = self.sim.get_joint_position()
+        joint_vel = self.sim.get_joint_velocity()
+
+        if self.dynamics_randomization:
+            motor_pos += self.motor_encoder_noise
+            joint_pos += self.joint_encoder_noise
+
+        motor_vel += np.random.normal(0, self.velocity_noise, size = 20)
+        joint_vel += np.random.normal(0, self.velocity_noise, size = 10)
+
         robot_state = np.concatenate([
             self.rotate_to_heading(self.sim.get_base_orientation()),
             self.sim.get_base_angular_velocity(),
-            self.sim.get_motor_position(),
-            self.sim.get_motor_velocity(),
-            self.sim.get_joint_position(),
-            self.sim.get_joint_velocity()
+            motor_pos,
+            motor_vel,
+            joint_pos,
+            joint_vel
         ])
+
+        robot_state += np.random.normal(0, self.state_noise, size = robot_state.shape)
         return robot_state
 
     def update_tracker_grf(self, weighting: float, sim_step: int):
@@ -183,18 +227,26 @@ class DigitEnv(GenericEnv):
             weighting (float): weightings of each signal at simulation step to aggregate total
             sim_step (int): indicate which simulation step
         """
-        for foot in self.feet_grf_2khz_avg.keys():
+        for foot in self.feet_grf_tracker_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_grf_2khz_avg[foot] = 0.0
-            self.feet_grf_2khz_avg[foot] += \
-                weighting * self.sim.get_body_contact_force(name=foot)
+                self.feet_grf_tracker_avg[foot] = 0.0
+            else:
+                self.feet_grf_tracker_avg[foot] += \
+                    weighting * self.sim.get_body_contact_force(name=foot)
 
     def update_tracker_velocity(self, weighting: float, sim_step: int):
-        for foot in self.feet_velocity_2khz_avg.keys():
+        for foot in self.feet_velocity_tracker_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_velocity_2khz_avg[foot] = 0.0
-            self.feet_velocity_2khz_avg[foot] += \
-                weighting * self.sim.get_body_velocity(name=foot)
+                self.feet_velocity_tracker_avg[foot] = 0.0
+            else:
+                self.feet_velocity_tracker_avg[foot] += \
+                    weighting * self.sim.get_body_velocity(name=foot)
+
+    def update_tracker_torque(self, weighting: float, sim_step: int):
+        if sim_step == 0:   # reset at first sim step
+            self.torque_tracker_avg = np.zeros(20)
+        else:
+            self.torque_tracker_avg += weighting * self.sim.get_torque()
 
     def rotate_to_heading(self, orientation: np.ndarray):
         """Offset robot heading in world frame by self.orient_add amount
@@ -230,4 +282,4 @@ class DigitEnv(GenericEnv):
             "Action mirror inds size mismatch with action size."
 
     def _init_interactive_key_bindings(self,):
-        raise NotImplementedError
+        pass

@@ -14,8 +14,8 @@ def compute_reward(self, action):
 
     ### Orientation rewards, base and feet ###
     # Retrieve states
-    l_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[0]])
-    r_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_vel = np.linalg.norm(self.feet_velocity_tracker_avg[self.sim.feet_body_name[0]])
+    r_foot_vel = np.linalg.norm(self.feet_velocity_tracker_avg[self.sim.feet_body_name[1]])
     l_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[0])
     r_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[1])
 

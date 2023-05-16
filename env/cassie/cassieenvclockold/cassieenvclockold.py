@@ -18,6 +18,7 @@ class CassieEnvClockOld(CassieEnvClock):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
+                 velocity_noise: float,
                  state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClockOld received invalid clock type {clock_type}. Only \"linear\" or " \
@@ -30,11 +31,16 @@ class CassieEnvClockOld(CassieEnvClock):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
                          state_noise=state_noise,
+                         velocity_noise=velocity_noise,
                          state_est=state_est)
 
         self.reset()
 
         # Define env specifics after reset
+        self._x_velocity_bounds = [-0.5, 4.0]
+        self._y_velocity_bounds = [-0.3, 0.3]
+        self._turn_rate_bounds = [0, 0] # rad/s
+
         self.observation_size = len(self.get_robot_state())
         self.observation_size += 1 # X velocity command
         self.observation_size += 2 # input clock
@@ -61,14 +67,14 @@ class CassieEnvClockOld(CassieEnvClock):
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        swing_ratios = [0.4, 0.4]#np.random.uniform(*self._swing_ratio_bounds, 2)
-        period_shifts = [0.0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
-        self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
+        swing_ratios = [0.4, 0.4]
+        period_shifts = [0.0, 0.5]
+        self.cycle_time = 0.8
         phase_add = 1 / self.default_policy_rate
         if 1 < self.x_velocity <= 3:
             new_ratio = 0.4 + .4*(self.x_velocity - 1) / 3
             swing_ratios = [new_ratio, new_ratio]
-            phase_add *= 1 + 0.5*(self.x_velocity - 1)/2
+            phase_add *= (1 + 0.5*(self.x_velocity - 1)/2)
         elif self.x_velocity > 3:
             swing_ratios = [0.8, 0.8]
             phase_add *= 1.5
@@ -121,6 +127,9 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "velocity-noise" : (0.0, "Amount of noise to add to motor and joint state."),
+        "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
+                       libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
     }
@@ -132,6 +141,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
         env_group.set_defaults(dynamics_randomization=True)
+        env_group.set_defaults(state_est=False)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

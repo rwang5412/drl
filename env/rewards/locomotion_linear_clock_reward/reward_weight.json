@@ -28,20 +28,16 @@
         "scaling": 40
     },
     "l_foot_orientation": {
-        "weighting": 0.05,
+        "weighting": 0.025,
         "scaling": 20
     },
     "r_foot_orientation": {
-        "weighting": 0.05,
+        "weighting": 0.025,
         "scaling": 20
     },
-    "hiproll_cost": {
-        "weighting": 0.05,
-        "scaling": 0.33
-    },
-    "hipyaw_vel": {
-        "weighting": 0.05,
-        "scaling": 1.0
+    "action_penalty": {
+        "weighting": 0.1,
+        "scaling": 0.4
     },
     "base_transacc": {
         "weighting": 0.025,
@@ -52,11 +48,11 @@
         "scaling": 2.0
     },
     "ctrl_penalty": {
-        "weighting": 0.025,
-        "scaling": 5.0
+        "weighting": 0.05,
+        "scaling": 8.0
     },
     "trq_penalty": {
-        "weighting": 0.025,
-        "scaling": 0.05
+        "weighting": 0.05,
+        "scaling": 0.075
     }
 }

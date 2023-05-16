@@ -23,7 +23,9 @@ class DigitEnvClock(DigitEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float):
+                 state_noise: float,
+                 velocity_noise: float,
+                 state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -32,7 +34,9 @@ class DigitEnvClock(DigitEnv):
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
-                         state_noise=state_noise)
+                         state_noise=state_noise,
+                         velocity_noise=velocity_noise,
+                         state_est=state_est)
 
         # Clock variables
         self.clock_type = clock_type
@@ -106,7 +110,7 @@ class DigitEnvClock(DigitEnv):
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
 
-        self._update_control_commands_dict()   
+        self._update_control_commands_dict()
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
@@ -215,41 +219,41 @@ class DigitEnvClock(DigitEnv):
         }
         self.input_keys_dict["]"] = {
             "description": "increase swing ratio",
-            "func": lambda self: setattr(self.clock, "_swing_ratios", 
-                np.full((2,), np.clip(self.clock._swing_ratios[0] + 0.1, 
-                    self._swing_ratio_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_swing_ratios",
+                np.full((2,), np.clip(self.clock._swing_ratios[0] + 0.1,
+                    self._swing_ratio_bounds[0],
                     self._swing_ratio_bounds[1])))
         }
         self.input_keys_dict["["] = {
             "description": "decrease swing ratio",
-            "func": lambda self: setattr(self.clock, "_swing_ratios", 
-                np.full((2,), np.clip(self.clock._swing_ratios[0] - 0.1, 
-                    self._swing_ratio_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_swing_ratios",
+                np.full((2,), np.clip(self.clock._swing_ratios[0] - 0.1,
+                    self._swing_ratio_bounds[0],
                     self._swing_ratio_bounds[1])))
         }
         self.input_keys_dict["k"] = {
             "description": "increase period shift",
-            "func": lambda self: setattr(self.clock, "_period_shifts", 
-                np.array([0, np.clip(self.clock._period_shifts[1] + 0.05, 
-                    self._period_shift_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_period_shifts",
+                np.array([0, np.clip(self.clock._period_shifts[1] + 0.05,
+                    self._period_shift_bounds[0],
                     self._period_shift_bounds[1])]
                     ))
         }
         self.input_keys_dict["l"] = {
             "description": "decrease period shift",
-            "func": lambda self: setattr(self.clock, "_period_shifts", 
-                np.array([0, np.clip(self.clock._period_shifts[1] - 0.05, 
-                    self._period_shift_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_period_shifts",
+                np.array([0, np.clip(self.clock._period_shifts[1] - 0.05,
+                    self._period_shift_bounds[0],
                     self._period_shift_bounds[1])
                     ]))
         }
 
         self.control_commands_dict["x velocity"] = None
-        self.control_commands_dict["y velocity"] = None 
-        self.control_commands_dict["turn rate"] = None  
+        self.control_commands_dict["y velocity"] = None
+        self.control_commands_dict["turn rate"] = None
         self.control_commands_dict["clock cycle time"] = None
         self.control_commands_dict["swing ratios"] = None
-        self.control_commands_dict["period shifts"] = None 
+        self.control_commands_dict["period shifts"] = None
         # # in order to update values without printing a new table to terminal at every step
         # # equal to the length of control_commands_dict plus all other prints for the table, i.e table header
         self.num_menu_backspace_lines = len(self.control_commands_dict) + 3
@@ -263,7 +267,7 @@ class DigitEnvClock(DigitEnv):
             self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
         self.control_commands_dict["period shifts"] = tuple(round(x, 2) for x in (
             self.clock._period_shifts[0], self.clock._period_shifts[1]))
-    
+
     def interactive_control(self, c):
         if c in self.input_keys_dict:
             self.input_keys_dict[c]["func"](self)

@@ -17,7 +17,7 @@ def compute_reward(self, action):
                      'touchdown_by_clock_flag', 'steps_order']
     for var in vars_to_check:
         assert hasattr(self, var), \
-            f"{FAIL}Environment {self.__class__.__name__} does not have a {var} object.{ENDC}"    
+            f"{FAIL}Environment {self.__class__.__name__} does not have a {var} object.{ENDC}"
 
     q = {}
 
@@ -27,10 +27,10 @@ def compute_reward(self, action):
     r_stance = 1 - r_force
 
     # Retrieve states
-    l_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[0]])
-    r_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[1]])
-    l_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[0]])
-    r_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_force = np.linalg.norm(self.feet_grf_tracker_avg[self.sim.feet_body_name[0]])
+    r_foot_force = np.linalg.norm(self.feet_grf_tracker_avg[self.sim.feet_body_name[1]])
+    l_foot_vel = np.linalg.norm(self.feet_velocity_tracker_avg[self.sim.feet_body_name[0]])
+    r_foot_vel = np.linalg.norm(self.feet_velocity_tracker_avg[self.sim.feet_body_name[1]])
     l_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[0])
     r_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[1])
 
@@ -89,7 +89,7 @@ def compute_reward(self, action):
     # print()
     # for name in q:
     #     print(self.traj_idx, name, kernel(self.reward_weight[name]["scaling"] * q[name]))
-    
+
     ### Stepping stone sparse reward ###
     if any(self.touchdown_by_clock_flag):
         side = self.steps_order[self.steps_active_idx]

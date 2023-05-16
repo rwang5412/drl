@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 
 class GenericSim(object):
@@ -44,7 +45,10 @@ class GenericSim(object):
         dictionary it will not be randomized. This dictionary input should typically come from an
         environment's loaded in json file. Range values should be given as +- percent of the default
         value. So a range of [-0.1, 0.1] will randomize +- 10% of the default value (randomize in
-        the range [0.9*default, 1.1*default]).
+        the range [0.9*default, 1.1*default]). Note that ipos (link center of mass location)
+        randomization is given as a range of values (in meters) to randomize in, not a percentage of
+        the default. This is due to the fact that most of the time the CoM is (0, 0, 0), and
+        randomization should be small anyway regardless of the CoM location.
 
         Args:
             dr_ranges (dictionary): Dictionary object containing all of the randomization info:
@@ -52,22 +56,22 @@ class GenericSim(object):
                 location), and floor friction.
         """
         # Damping randomization
-        rand_damp = self.default_dyn_params["damping"]
+        rand_damp = copy.deepcopy(self.default_dyn_params["damping"])
         rand_scale = 1 + np.random.uniform(dr_ranges["damping"]["ranges"][:, 0],
                                            dr_ranges["damping"]["ranges"][:, 1])
         rand_damp[dr_ranges["damping"]["inds"]] *= rand_scale
         self.set_dof_damping(rand_damp)
         # Mass randomization
-        rand_mass = self.default_dyn_params["mass"]
+        rand_mass = copy.deepcopy(self.default_dyn_params["mass"])
         rand_scale = 1 + np.random.uniform(dr_ranges["mass"]["ranges"][:, 0],
                                            dr_ranges["mass"]["ranges"][:, 1])
         rand_mass[dr_ranges["mass"]["inds"]] *= rand_scale
         self.set_body_mass(rand_mass)
         # Body CoM location randomization
-        rand_ipos = self.default_dyn_params["ipos"]
-        rand_scale = 1 + np.random.uniform(dr_ranges["ipos"]["ranges"][:, 0, :],
+        rand_ipos = copy.deepcopy(self.default_dyn_params["ipos"])
+        rand_scale = np.random.uniform(dr_ranges["ipos"]["ranges"][:, 0, :],
                                            dr_ranges["ipos"]["ranges"][:, 1, :])
-        rand_ipos[dr_ranges["ipos"]["inds"]] *= rand_scale
+        rand_ipos[dr_ranges["ipos"]["inds"]] += rand_scale
         self.set_body_ipos(rand_ipos)
         # Floor friction randomization
         self.set_geom_friction(np.multiply(1 + np.random.uniform(

@@ -18,6 +18,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
+                 velocity_noise: float,
                  state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
@@ -30,17 +31,14 @@ class CassieEnvClockOldFF(CassieEnvClock):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
                          state_noise=state_noise,
+                         velocity_noise=velocity_noise,
                          state_est=state_est)
-
-        # Define env specifics
-        self.sim.kp = np.array([80,  80,  88,  96,  50, 80,  80,  88,  96,  50])
-        self.sim.kd = np.array([8.0, 8.0, 8.0, 9.6, 5.0, 8.0, 8.0, 8.0, 9.6, 5.0])
 
         self.reset()
 
         # Define env specifics after reset
         self.observation_size = len(self.get_robot_state())
-        self.observation_size += 1 # Xvelocity command
+        self.observation_size += 1 # X velocity command
         self.observation_size += 2 # input clock
         self.action_size = self.sim.num_actuators
         # Only check sizes if calling current class. If is child class, don't need to check
@@ -65,7 +63,7 @@ class CassieEnvClockOldFF(CassieEnvClock):
 
         # Update clock
         # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        swing_ratios = [0.5, 0.5]#np.random.uniform(*self._swing_ratio_bounds, 2)
+        swing_ratios = [0.4, 0.4]#np.random.uniform(*self._swing_ratio_bounds, 2)
         period_shifts = [0.0, 0.5]#np.random.uniform(*self._period_shift_bounds, 2)
         self.cycle_time = 0.8#np.random.uniform(*self._cycle_time_bounds)
         phase_add = 1 / self.default_policy_rate
@@ -92,23 +90,30 @@ class CassieEnvClockOldFF(CassieEnvClock):
 
     def get_robot_state(self):
         if self.simulator_type == "libcassie" and self.state_est:
-            motor_pos = self.sim.get_motor_position(state_est=self.state_est)
-            joint_pos = self.sim.get_joint_position(state_est=self.state_est)
-            motor_vel = self.sim.get_motor_velocity(state_est=self.state_est)
-            joint_vel = self.sim.get_joint_velocity(state_est=self.state_est)
+            motor_pos = np.array(self.sim.get_motor_position(state_est=self.state_est))
+            joint_pos = np.array(self.sim.get_joint_position(state_est=self.state_est))
+            motor_vel = np.array(self.sim.get_motor_velocity(state_est=self.state_est))
+            joint_vel = np.array(self.sim.get_joint_velocity(state_est=self.state_est))
             foot_pos = self.sim.get_feet_position_in_base(state_est=self.state_est)
             pel_orient = self.rotate_to_heading(self.sim.get_base_orientation(state_est=self.state_est))
             pel_lin_vel = self.rotate_to_heading(self.sim.get_base_linear_velocity(state_est=self.state_est))
             pel_ang_vel = self.sim.get_base_angular_velocity(state_est=self.state_est)
         else:
-            motor_pos = self.sim.get_motor_position()
-            joint_pos = self.sim.get_joint_position()
-            motor_vel = self.sim.get_motor_velocity()
-            joint_vel = self.sim.get_joint_velocity()
+            motor_pos = np.array(self.sim.get_motor_position())
+            joint_pos = np.array(self.sim.get_joint_position())
+            motor_vel = np.array(self.sim.get_motor_velocity())
+            joint_vel = np.array(self.sim.get_joint_velocity())
             foot_pos = self.sim.get_feet_position_in_base()
             pel_orient = self.rotate_to_heading(self.sim.get_base_orientation())
             pel_lin_vel = self.rotate_to_heading(self.sim.get_base_linear_velocity())
             pel_ang_vel = self.sim.get_base_angular_velocity()
+
+        if self.dynamics_randomization:
+            motor_pos += self.motor_encoder_noise
+            joint_pos += self.joint_encoder_noise
+
+        motor_vel += np.random.normal(0, self.velocity_noise, size = 10)
+        joint_vel += np.random.normal(0, self.velocity_noise, size = 4)
 
         # For feedforward policies, cannot internally estimate pelvis translational velocity, so need additional information
         # including foot position (relative to pelvis) and translational acceleration.
@@ -124,6 +129,8 @@ class CassieEnvClockOldFF(CassieEnvClock):
             joint_pos,                                                                      # Unactuated joint positions
             joint_vel                                                                       # Unactuated joint velocities
         ])
+
+        robot_state += np.random.normal(0, self.state_noise, size = robot_state.shape)
         return robot_state
 
     def get_state(self):
@@ -163,6 +170,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "velocity-noise" : (0.0, "Amount of noise to add to motor and joint state."),
         "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
                        libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),

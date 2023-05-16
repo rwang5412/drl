@@ -1,10 +1,8 @@
-import torch
-import time
 import numpy as np
-import os
 import sys
 import termios
 import time
+import torch
 
 from util.keyboard import Keyboard
 from util.colors import OKGREEN, FAIL
@@ -119,6 +117,8 @@ def interactive_eval(actor, env, episode_length_max=300):
 
         # clear terminal on ctrl+q
         print(f"\033[{env.num_menu_backspace_lines - 1}B\033[K")
+        termios.tcdrain(sys.stdout)
+        time.sleep(0.1)
         termios.tcflush(sys.stdout, termios.TCIOFLUSH)
 
 def simple_eval_offscreen(actor, env, episode_length_max=300):

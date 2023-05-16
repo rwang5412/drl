@@ -18,6 +18,7 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
+                 velocity_noise: float,
                  state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClockOld received invalid clock type {clock_type}. Only \"linear\" or " \
@@ -32,19 +33,17 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
                          state_noise=state_noise,
+                         velocity_noise=velocity_noise,
                          state_est=state_est)
 
         # Command randomization ranges
-        self._x_velocity_bounds = [0.5, 1.5]
-        self._y_velocity_bounds = [-0.2, 0.2]
+        self._x_velocity_bounds = [-0.5, 1.0]
+        self._y_velocity_bounds = [-0.3, 0.3]
         self._swing_ratio_bounds = [0.4, 0.55]
         self._cycle_time_bounds = [0.65, 1.0]
+        self._turn_rate_bounds = [-1/4 * np.pi * (self.default_policy_rate*0.0005), 1/4 * np.pi * (self.default_policy_rate*0.0005)]
 
         self.reset()
-
-        # Define env specifics after reset
-        self.sim.kp = np.array([70,  70,  100,  100,  50, 70,  70,  100,  100,  50])
-        self.sim.kd = np.array([7.0, 7.0, 8.0,  8.0, 5.0, 7.0, 7.0, 8.0,  8.0, 5.0])
 
         # Define env specifics after reset
         self.observation_size = len(self.get_robot_state())
@@ -68,7 +67,7 @@ class CassieEnvClockOldVonMises(CassieEnvClock):
         # Randomize commands
         self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
         self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
-        self.turn_rate = np.random.uniform(-0.001 * np.pi, 0.001 * np.pi)
+        self.turn_rate = np.random.uniform(*self._turn_rate_bounds)
         self.orient_add = 0
 
         # Update clock
@@ -142,6 +141,9 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (40, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "velocity-noise" : (0.0, "Amount of noise to add to motor and joint state."),
+        "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
+                       libcassie sim."),
         "reward-name" : ("locomotion_vonmises_clock_reward", "Which reward to use"),
         "clock-type" : ("von_mises", "Which clock to use (\"linear\" or \"von_mises\")"),
     }
@@ -153,6 +155,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
         env_group.set_defaults(dynamics_randomization=True)
+        env_group.set_defaults(state_est=False)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

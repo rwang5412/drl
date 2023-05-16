@@ -64,7 +64,8 @@ class MujocoSim(GenericSim):
             print(f"No box-typed geom listed in XML.\n"
                   f"Or num of geoms is not equal to {num_geoms_in_xml}.")
 
-    def reset(self, qpos: np.ndarray=None):
+    def reset(self, qpos: np.ndarray=None, qvel: np.ndarray = None):
+        mj.mj_setConst(self.model, self.data)
         mj.mj_resetData(self.model, self.data)
         if qpos is not None:
             assert len(qpos) == self.model.nq, \
@@ -72,6 +73,10 @@ class MujocoSim(GenericSim):
             self.data.qpos = qpos
         else:
             self.data.qpos = self.reset_qpos
+        if qvel is not None:
+            assert len(qvel) == self.model.nv, \
+                f"{FAIL}reset qvel len={len(qvel)}, but should be {self.model.nv}.{ENDC}"
+            self.data.qvel = qvel
         # To avoid mjWarning on arena memory allocation, init hfield before first mj_forward().
         if self.terrain == 'hfield':
             self.init_hfield()
@@ -271,8 +276,8 @@ class MujocoSim(GenericSim):
         """Sync up MjModel with MjContext, applyting to main viewer or renderers.
         https://mujoco.readthedocs.io/en/stable/programming/simulation.html?highlight=mjr_uploadHField#model-changes
         Mujoco seems only allow a single mjrContext when updating mjModel.
-        Thus, only one of the following will actually take an affect. 
-        For regular single-window mujoco viewer, the first is active. 
+        Thus, only one of the following will actually take an affect.
+        For regular single-window mujoco viewer, the first is active.
         For single offscreen rendering, the second is active.
         """
         if self.renderer is not None: # if renderer exists, use it
@@ -318,15 +323,15 @@ class MujocoSim(GenericSim):
         """Get the local height map at the robot base frame.
 
         Args:
-            grid_unrotated (np.ndarray): 2D float array of shape (heightmap_num_points, 3). 
-                This grid represents the local heightmap in the robot base frame. 
-                The first two columns are the x, y coordinates of the grid points. 
+            grid_unrotated (np.ndarray): 2D float array of shape (heightmap_num_points, 3).
+                This grid represents the local heightmap in the robot base frame.
+                The first two columns are the x, y coordinates of the grid points.
                 The third column is the z coordinate of the grid. This data format only represents
                 where to fetch the heightmap data in 3D space relative to robot, not the actual data.
 
         Returns:
-            hfield_map (np.ndarray): 1D array of shape (heightmap_num_points,). This is the local 
-                heightmap in the robot base frame and heading. The heightmap can be reshaped into 
+            hfield_map (np.ndarray): 1D array of shape (heightmap_num_points,). This is the local
+                heightmap in the robot base frame and heading. The heightmap can be reshaped into
                 a 2D array. And the reshape should follow the same order as the grid_unrotated [x, y].
             gridxy_rotated (np.ndarray): 2D float array of shape (heightmap_num_points, 3). This grid
                 is rotated to heading but not offset to base position. This is useful for visualization.
@@ -455,7 +460,7 @@ class MujocoSim(GenericSim):
         return output
 
     def get_torque(self):
-        return self.data.ctrl[:]
+        return self.data.ctrl[:] * self.model.actuator_gear[:, 0]
 
     def get_joint_qpos_adr(self, name: str):
         return self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]

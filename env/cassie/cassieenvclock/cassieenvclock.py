@@ -24,6 +24,7 @@ class CassieEnvClock(CassieEnv):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
+                 velocity_noise: float,
                  state_est: bool):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
@@ -33,18 +34,19 @@ class CassieEnvClock(CassieEnv):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
                          state_noise=state_noise,
+                         velocity_noise=velocity_noise,
                          state_est=state_est)
 
         # Clock variables
         self.clock_type = clock_type
 
         # Command randomization ranges
-        self._x_velocity_bounds = [0.0, 3.0]
+        self._x_velocity_bounds = [-0.5, 1.0]
         self._y_velocity_bounds = [-0.3, 0.3]
-        self._turn_rate_bounds = [-np.pi/8, np.pi/8] # rad/s
-        self._swing_ratio_bounds = [0.4, 0.8]
-        self._period_shift_bounds = [0.0, 0.5]
-        self._cycle_time_bounds = [0.75, 1.2]
+        self._turn_rate_bounds = [-np.pi / 8, np.pi / 8] # rad/s
+        self._swing_ratio_bounds = [0.35, 0.8]
+        self._period_shift_bounds = [0.1, 0.5]
+        self._cycle_time_bounds = [0.6, 1.0]
 
         # Load reward module
         self.reward_name = reward_name
@@ -107,20 +109,21 @@ class CassieEnvClock(CassieEnv):
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
 
-        self._update_control_commands_dict()        
+        self._update_control_commands_dict()
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
+
         return self.get_state()
 
     def step(self, action: np.ndarray):
         if self.dynamics_randomization:
-            self.policy_rate = self.default_policy_rate + np.random.randint(-5, 6)
+            self.policy_rate = self.default_policy_rate + np.random.randint(0, 6)
         else:
             self.policy_rate = self.default_policy_rate
 
         # Offset global zero heading by turn rate per policy step
-        self.orient_add += self.turn_rate / (self.sim.simulator_rate / self.default_policy_rate)
+        self.orient_add += self.turn_rate / self.default_policy_rate
 
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
@@ -129,6 +132,7 @@ class CassieEnvClock(CassieEnv):
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
 
+        # Increment episode counter and update previous attributes
         self.traj_idx += 1
         self.last_action = action
 
@@ -216,41 +220,41 @@ class CassieEnvClock(CassieEnv):
         }
         self.input_keys_dict["]"] = {
             "description": "increase swing ratio",
-            "func": lambda self: setattr(self.clock, "_swing_ratios", 
-                np.full((2,), np.clip(self.clock._swing_ratios[0] + 0.1, 
-                    self._swing_ratio_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_swing_ratios",
+                np.full((2,), np.clip(self.clock._swing_ratios[0] + 0.1,
+                    self._swing_ratio_bounds[0],
                     self._swing_ratio_bounds[1])))
         }
         self.input_keys_dict["["] = {
             "description": "decrease swing ratio",
-            "func": lambda self: setattr(self.clock, "_swing_ratios", 
-                np.full((2,), np.clip(self.clock._swing_ratios[0] - 0.1, 
-                    self._swing_ratio_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_swing_ratios",
+                np.full((2,), np.clip(self.clock._swing_ratios[0] - 0.1,
+                    self._swing_ratio_bounds[0],
                     self._swing_ratio_bounds[1])))
         }
         self.input_keys_dict["k"] = {
             "description": "increase period shift",
-            "func": lambda self: setattr(self.clock, "_period_shifts", 
-                np.array([0, np.clip(self.clock._period_shifts[1] + 0.05, 
-                    self._period_shift_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_period_shifts",
+                np.array([0, np.clip(self.clock._period_shifts[1] + 0.05,
+                    self._period_shift_bounds[0],
                     self._period_shift_bounds[1])]
                     ))
         }
         self.input_keys_dict["l"] = {
             "description": "decrease period shift",
-            "func": lambda self: setattr(self.clock, "_period_shifts", 
-                np.array([0, np.clip(self.clock._period_shifts[1] - 0.05, 
-                    self._period_shift_bounds[0], 
+            "func": lambda self: setattr(self.clock, "_period_shifts",
+                np.array([0, np.clip(self.clock._period_shifts[1] - 0.05,
+                    self._period_shift_bounds[0],
                     self._period_shift_bounds[1])
                     ]))
         }
 
         self.control_commands_dict["x velocity"] = None
-        self.control_commands_dict["y velocity"] = None 
-        self.control_commands_dict["turn rate"] = None  
+        self.control_commands_dict["y velocity"] = None
+        self.control_commands_dict["turn rate"] = None
         self.control_commands_dict["clock cycle time"] = None
         self.control_commands_dict["swing ratios"] = None
-        self.control_commands_dict["period shifts"] = None 
+        self.control_commands_dict["period shifts"] = None
         # # in order to update values without printing a new table to terminal at every step
         # # equal to the length of control_commands_dict plus all other prints for the table, i.e table header
         self.num_menu_backspace_lines = len(self.control_commands_dict) + 3
@@ -264,7 +268,7 @@ class CassieEnvClock(CassieEnv):
             self.clock._swing_ratios[0], self.clock._swing_ratios[1]))
         self.control_commands_dict["period shifts"] = tuple(round(x, 2) for x in (
             self.clock._period_shifts[0], self.clock._period_shifts[1]))
-    
+
     def interactive_control(self, c):
         if c in self.input_keys_dict:
             self.input_keys_dict[c]["func"](self)
@@ -294,6 +298,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "velocity-noise" : (0.0, "Amount of noise to add to motor and joint state."),
         "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
                        libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),

@@ -66,14 +66,19 @@ class LibCassieSim(GenericSim):
                                    "ipos": self.get_body_ipos(),
                                    "friction": self.get_geom_friction("floor")}
 
-    def reset(self, qpos: np.ndarray=None):
+    def reset(self, qpos: np.ndarray=None, qvel: np.ndarray = None):
         self.sim.set_const()
-        if qpos:
-            assert len(qpos) == self.model.nq, \
-                f"{FAIL}reset qpos len={len(qpos)}, but should be {self.model.nq}.{ENDC}"
+        if qpos is not None:
+            assert len(qpos) == self.nq, \
+                f"{FAIL}reset qpos len={len(qpos)}, but should be {self.nq}.{ENDC}"
             self.sim.set_qpos(qpos)
         else:
             self.sim.set_qpos(self.reset_qpos)
+        if qvel is not None:
+            assert len(qvel) == self.nv, \
+                f"{FAIL}reset qvel len={len(qvel)}, but should be {self.nv}.{ENDC}"
+            self.sim.set_qvel(qvel)
+        self.robot_estimator_state = self.sim.step_pd(self.u)
 
     def sim_forward(self, dt: float = None):
         if dt:

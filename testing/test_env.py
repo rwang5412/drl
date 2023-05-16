@@ -75,6 +75,8 @@ def test_base_env_step(test_env, test_sim):
                    policy_rate=50,
                    dynamics_randomization=False,
                    state_noise=0.01,
+                   velocity_noise=0.01,
+                   state_est=False,
                    terrain=False)
     env.reset_simulation()
     sim_duration = []
@@ -94,6 +96,8 @@ def test_child_env_step(test_env, test_sim):
                    policy_rate=50,
                    dynamics_randomization=False,
                    state_noise=0.01,
+                   velocity_noise=0.01,
+                   state_est=False if test_sim == "mujoco" else True,
                    terrain=False,
                    clock_type="linear",
                    reward_name="locomotion_linear_clock_reward")
@@ -116,6 +120,8 @@ def test_child_env_reward(test_env, test_sim, clock_type, reward):
                    policy_rate=50,
                    dynamics_randomization=True,
                    state_noise=0.01,
+                   velocity_noise=0.01,
+                   state_est=False if test_sim == "mujoco" else True,
                    terrain=False,
                    clock_type=clock_type,
                    reward_name=reward)
@@ -134,7 +140,9 @@ def test_env_factory(test_env, test_sim, clock_type, reward):
                            clock_type = clock_type,
                            reward_name = reward,
                            dynamics_randomization = False,
-                           state_noise=0.01)
+                           state_noise=0.01,
+                           velocity_noise=0.01,
+                           state_est=False if test_sim == "mujoco" else True)
     # load callable env partial
     env_fn = env_factory(test_env.__name__, args)
     env = env_fn()

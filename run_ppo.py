@@ -17,14 +17,13 @@ if __name__ == "__main__":
     env_args = SimpleNamespace()
 
     # Overwrite with whatever optimization args you want here
-    args.seed = 0
+    args.seed = np.random.randint(0, 100000)
     args.traj_len = 300
-    args.arch = "ff"
+    args.arch = "lstm"
     args.layers = "64,64"
     args.num_steps = 50000
     args.batch_size = 32
     args.epochs = 5
-    args.dynamics_randomization = True
     args.discount = 0.95
     args.mirror = 1
     args.timesteps = 4e9
@@ -38,14 +37,16 @@ if __name__ == "__main__":
     args.env_name = "CassieEnvClock"
 
     # Set env args
-    args.simulator_type = "mujoco"
+    args.simulator_type = "libcassie"
     args.terrain = False
     args.policy_rate = 50
-    args.dynamics_randomization = True
-    args.reward_name = "locomotion_linear_clock_reward"
-    args.clock_type = "linear"
+    args.dynamics_randomization = False
+    args.reward_name = "locomotion_vonmises_clock_reward"
+    args.clock_type = "von_mises"
+    args.state_noise = 0.0
+    args.state_est = False
 
-    args.run_name = f"steppingplace_{args.clock_type}_{args.arch}_mirror"
+    args.run_name = f"{args.simulator_type}_{args.clock_type}_{args.arch}_nodr_noise"
     args.wandb = True
     args.wandb_project_name = "roadrunner_refactor"
     args.logdir = "./trained_models/"

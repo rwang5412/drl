@@ -31,10 +31,10 @@ def compute_reward(self, action):
     r_stance = 1 - r_force
 
     # Retrieve states
-    l_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[0]])
-    r_foot_force = np.linalg.norm(self.feet_grf_2khz_avg[self.sim.feet_body_name[1]])
-    l_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[0]])
-    r_foot_vel = np.linalg.norm(self.feet_velocity_2khz_avg[self.sim.feet_body_name[1]])
+    l_foot_force = np.linalg.norm(self.feet_grf_tracker_avg[self.sim.feet_body_name[0]])
+    r_foot_force = np.linalg.norm(self.feet_grf_tracker_avg[self.sim.feet_body_name[1]])
+    l_foot_vel = np.linalg.norm(self.feet_velocity_tracker_avg[self.sim.feet_body_name[0]])
+    r_foot_vel = np.linalg.norm(self.feet_velocity_tracker_avg[self.sim.feet_body_name[1]])
     l_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[0])
     r_foot_pose = self.sim.get_site_pose(self.sim.feet_site_name[1])
 
@@ -86,19 +86,23 @@ def compute_reward(self, action):
     q["r_foot_orientation"] = quaternion_distance(target_quat, r_foot_pose[3:])
 
     ### Stable base reward terms.  Don't want base to rotate or accelerate too much ###
-    base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
+    if self.simulator_type == "libcassie" and self.state_est:
+        base_acc = self.sim.robot_estimator_state.pelvis.translationalAcceleration[:]
+    else:
+        base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)[0:3]
     q["base_rotvel"] = np.linalg.norm(base_vel[3:])
-    q["base_transacc"] = np.linalg.norm(base_acc[0:3]) # Don't care about z acceleration
+    q["base_transacc"] = np.linalg.norm(base_acc[0:2]) # Don't care about z acceleration
 
     ### Sim2real stability rewards ###
-    motor_vel = self.sim.get_motor_velocity()
-    q["hiproll_cost"] = np.abs(motor_vel[0]) + np.abs(motor_vel[5])
-    q["hipyaw_vel"] = np.abs(motor_vel[1]) + np.abs(motor_vel[6])
+    q["action_penalty"] = np.abs(action).sum()
     if self.last_action is not None:
         q["ctrl_penalty"] = sum(np.abs(self.last_action - action)) / len(action)
     else:
         q["ctrl_penalty"] = 0
-    torque = self.sim.get_torque()
+    if self.simulator_type == "libcassie" and self.state_est:
+        torque = self.sim.get_torque(state_est = self.state_est)
+    else:
+        torque = self.sim.get_torque()
     q["trq_penalty"] = sum(np.abs(torque)) / len(torque)
 
     ### Add up all reward components ###
@@ -109,13 +113,15 @@ def compute_reward(self, action):
                                f"Training stopped.")
         self.reward += self.reward_weight[name]["weighting"] * \
                        kernel(self.reward_weight[name]["scaling"] * q[name])
+    #     print(f"{name:15s} : {q[name]:.3f} | {self.reward_weight[name]['scaling'] * q[name]:.3f} | {kernel(self.reward_weight[name]['scaling'] * q[name]):.3f}", end="\n")
+    # print()
 
     return self.reward
 
 # Termination condition: If reward is too low or height is too low (cassie fell down) terminate
 def compute_done(self):
     base_height = self.sim.get_body_pose(self.sim.base_body_name)[2]
-    if base_height < 0.4 or self.reward < 0.4:
+    if base_height < 0.6 or self.reward < 0.4:
         return True
     else:
         return False

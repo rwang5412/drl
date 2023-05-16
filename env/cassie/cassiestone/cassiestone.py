@@ -373,6 +373,8 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
+                       libcassie sim."),
         "reward-name" : ("stepping_stone", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")"),
         "z-step" : (False, ""),
@@ -385,6 +387,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
         env_group.set_defaults(dynamics_randomization=True)
+        env_group.set_defaults(state_est=False)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

@@ -64,7 +64,10 @@ class GenericEnv(object):
         """
         def print_command(char, info, color=ENDC):
             char += " " * (10 - len(char))
-            print(f"{color}{char}\t{info}{ENDC}")
+            if isinstance(info, float):
+                print(f"{color}{char}\t{info:.3f}{ENDC}")
+            else:
+                print(f"{color}{char}\t{info}{ENDC}")
         if erase:
             print(f"\033[J", end='\r')
         elif ((type(self.input_keys_dict) is dict) and (len(self.input_keys_dict)>0)):
