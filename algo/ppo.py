@@ -5,23 +5,18 @@ import os
 import ray
 import wandb
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 
 from copy import deepcopy
 from functools import reduce
 from operator import add
-from time import time, sleep
-from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
+from time import time
 from torch.distributions import kl_divergence
-from torch.nn.utils.rnn import pad_sequence
 from types import SimpleNamespace
 
-from algo.util.sampling import Buffer, AlgoSampler
+from algo.util.sampling import AlgoSampler
 from algo.util.worker import AlgoWorker
 from util.mirror import mirror_tensor
-
 
 @ray.remote
 class PPOOptim(AlgoWorker):
@@ -97,20 +92,12 @@ class PPOOptim(AlgoWorker):
             for batch in memory.sample(batch_size=batch_size,
                                        recurrent=recurrent,
                                        mirror_state_idx=state_mirror_indices):
-
-                if state_mirror_indices is not None:
-                    states, mirror_states, actions, returns, advantages, mask = batch
-                else:
-                    mirror_states = None
-                    states, actions, returns, advantages, mask = batch
-
-                start = time()
-                kl, losses = self._update_policy(states,
-                                                 actions,
-                                                 returns,
-                                                 advantages,
-                                                 mask,
-                                                 mirror_states=mirror_states,
+                kl, losses = self._update_policy(batch['states'],
+                                                 batch['actions'],
+                                                 batch['returns'],
+                                                 batch['advantages'],
+                                                 batch['mask'],
+                                                 mirror_states=batch['mirror_states'],
                                                  mirror_action_idx=action_mirror_indices)
                 kls    += [kl]
                 a_loss += [losses[0]]
@@ -164,10 +151,8 @@ class PPOOptim(AlgoWorker):
         entropy_penalty = -(self.entropy_coeff * pdf.entropy() * mask).mean()
 
         if self.mirror > 0 and mirror_states is not None and mirror_action_idx is not None:
-            mirror_time = time()
             with torch.no_grad():
                 mirrored_actions = mirror_tensor(self.actor(mirror_states), mirror_action_idx)
-
             unmirrored_actions = pdf.mean
             mirror_loss = self.mirror * 4 * (unmirrored_actions - mirrored_actions).pow(2).mean()
         else:
@@ -208,7 +193,6 @@ class PPOOptim(AlgoWorker):
 
           return kl, ((actor_loss + entropy_penalty).item(), critic_loss.item(), mirror_loss.item())
 
-
 class PPO(AlgoWorker):
     """
     Worker for sampling experience for PPO
@@ -218,7 +202,6 @@ class PPO(AlgoWorker):
         critic: critic pytorch network
         env_fn: environment constructor function
         args: argparse namespace
-
 
     Attributes:
         actor: actor pytorch network
@@ -292,27 +275,30 @@ class PPO(AlgoWorker):
             kl_thresh (float): threshold for max kl divergence
             verbose (bool): verbose logging output
         """
+        # Output dicts for logging
+        time_results = {}
+        test_results = {}
+        train_results = {}
+        optimizer_results = {}
+
+        # Sync up network parameters from main thread to each worker
         copy_start = time()
-        times = {}
         actor_param_id  = ray.put(list(self.actor.parameters()))
         critic_param_id = ray.put(list(self.critic.parameters()))
         norm_id = ray.put([self.actor.welford_state_mean, self.actor.welford_state_mean_diff, \
                            self.actor.welford_state_n])
-
-        steps = max(num_steps // len(self.workers), max_traj_len)
-
         for w in self.workers:
             w.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id)
-
         if verbose:
-            print("\t{:5.4f}s to copy policy params to workers.".format(time() - copy_start))
-        torch.set_num_threads(1)
+            print("\t{:5.4f}s to sync up networks params to workers.".format(time() - copy_start))
 
+        # Evaluation
+        torch.set_num_threads(1)
         eval_buffers, _, _ = zip(*ray.get([w.sample_traj.remote(max_traj_len=max_traj_len, \
                                            do_eval=True) for w in self.workers]))
         eval_memory = reduce(add, eval_buffers)
-        eval_reward = np.mean(eval_memory.ep_returns)
-        eval_ep_len = np.mean(eval_memory.ep_lens)
+        test_results["Return"] = np.mean(eval_memory.ep_returns)
+        test_results["Episode Length"] = np.mean(eval_memory.ep_lens)
 
         # Sampling for optimization
         sampling_start = time()
@@ -335,22 +321,25 @@ class PPO(AlgoWorker):
 
         map(ray.cancel, sample_jobs) # Cancel leftover unneeded jobs
 
+        # Collect timing results
         total_steps = len(memory)
-        batch_reward = np.mean(memory.ep_returns)
-        batch_ep_len = np.mean(memory.ep_lens)
         sampling_elapsed = time() - sampling_start
         sample_rate = (total_steps / 1000) / sampling_elapsed
         ideal_efficiency = avg_efficiency * len(self.workers)
-        times["Sample Time"] = sampling_elapsed
-        times["Sample Rate"] = sample_rate
-        times["Ideal Sample Rate"] = ideal_efficiency / 1000
-        times["Overhead Loss"] = sampling_elapsed - total_steps / ideal_efficiency
+        train_results["Return"] = np.mean(memory.ep_returns)
+        train_results["Episode Length"] = np.mean(memory.ep_lens)
+        time_results["Sample Time"] = sampling_elapsed
+        time_results["Sample Rate"] = sample_rate
+        time_results["Ideal Sample Rate"] = ideal_efficiency / 1000
+        time_results["Overhead Loss"] = sampling_elapsed - total_steps / ideal_efficiency
+        time_results["Timesteps per Iteration"] = total_steps
         if verbose:
             print(f"\t{sampling_elapsed:3.2f}s to collect {total_steps:6n} timesteps | " \
                   f"{sample_rate:3.2}k/s.")
-            print(f"\tIdealized efficiency {times['Ideal Sample Rate']:3.2f}k/s \t | Time lost to " \
-                  f"overhead {times['Overhead Loss']:.2f}s")
+            print(f"\tIdealized efficiency {time_results['Ideal Sample Rate']:3.2f}k/s \t | Time lost to " \
+                  f"overhead {time_results['Overhead Loss']:.2f}s")
 
+        # Optimization
         if self.mirror > 0 and self.state_mirror_indices is not None and \
            self.action_mirror_indices is not None:
             state_mirror_indices = self.state_mirror_indices
@@ -358,8 +347,8 @@ class PPO(AlgoWorker):
         else:
             state_mirror_indices = None
             action_mirror_indices = None
-
         optim_start = time()
+        # Sync up network parameters from main thread to optimizer
         self.optim.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id)
         losses = ray.get(self.optim.optimize.remote(memory,
                                                     epochs=epochs,
@@ -371,12 +360,20 @@ class PPO(AlgoWorker):
                                                     verbose=verbose))
         actor_params, critic_params = ray.get(self.optim.retrieve_parameters.remote())
         a_loss, c_loss, m_loss, kls = losses
+        time_results["Optimize Time"] = time() - optim_start
+        optimizer_results["Actor Loss"] = np.mean(a_loss)
+        optimizer_results["Critic Loss"] = np.mean(c_loss)
+        optimizer_results["Mirror Loss"] = np.mean(m_loss)
+        optimizer_results["KL"] = np.mean(kls)
+
+        # Update network parameters for the main thread after optimization
         self.sync_policy(actor_params, critic_params)
-        times["Optimize Time"] = time() - optim_start
+
         if verbose:
-            print(f"\t{times['Optimize Time']:3.2f}s to update policy.")
-        return eval_reward, eval_ep_len, batch_reward, batch_ep_len, np.mean(kls), \
-               np.mean(a_loss), np.mean(c_loss), np.mean(m_loss), len(memory), times
+            print(f"\t{time_results['Optimize Time']:3.2f}s to update policy.")
+
+        return {"Test": test_results, "Train": train_results, "Optimizer": optimizer_results, \
+                "Time": time_results}
 
 def add_algo_args(parser):
     default_values = {
@@ -530,65 +527,54 @@ def run_experiment(parser, env_name):
     # Create algo class
     policy.train(True)
     critic.train(True)
+
     algo = PPO(policy, critic, env_fn, ppo_args)
     print("Proximal Policy Optimization:")
-    for key, val in args.__dict__.items():
+    for key, val in sorted(args.__dict__.items()):
         print(f"\t{key} = {val}")
 
     itr = 0
-    timesteps = 0
+    total_timesteps = 0
     best_reward = None
     past500_reward = -1
-    while timesteps < args.timesteps:
-        eval_reward, eval_ep_len, batch_reward, batch_ep_len, kl, a_loss, c_loss, m_loss, steps, \
-        times = algo.do_iteration(args.num_steps,
-                                  args.traj_len,
-                                  args.epochs,
-                                  batch_size=args.batch_size,
-                                  kl_thresh=args.kl,
-                                  mirror=args.mirror)
+    while total_timesteps < args.timesteps:
+        ret = algo.do_iteration(args.num_steps,
+                                args.traj_len,
+                                args.epochs,
+                                batch_size=args.batch_size,
+                                kl_thresh=args.kl)
 
-        timesteps += steps
-        print(f"iter {itr:4d} | return: {eval_reward:5.2f} | KL {kl:5.4f} | Actor loss {a_loss:5.4f}" \
-              f" | Critic loss {c_loss:5.4f} | ", end='')
-        if m_loss != 0:
-            print(f"mirror {m_loss:6.5f} | ", end='')
-
-        print(f"timesteps {timesteps:n}")
+        print(f"iter {itr:4d} | return: {ret['Train']['Return']:5.2f} | " \
+              f"KL {ret['Optimizer']['KL']:5.4f} | " \
+              f"Actor loss {ret['Optimizer']['Actor Loss']:5.4f} | " \
+              f"Critic loss {ret['Optimizer']['Critic Loss']:5.4f} | "\
+              f"Mirror {ret['Optimizer']['Mirror Loss']:6.5f}", end='\n')
+        total_timesteps += ret["Time"]["Timesteps per Iteration"]
+        print(f"\tTotal timesteps so far {total_timesteps:n}")
 
         # Saving checkpoints for best reward
-        if best_reward is None or eval_reward > best_reward:
-            print(f"\t(best policy so far! saving checkpoint to {args.save_actor_path})")
-            best_reward = eval_reward
+        if best_reward is None or ret["Test"]["Return"] > best_reward:
+            print(f"\tbest policy so far! saving checkpoint to {args.save_actor_path}")
+            best_reward = ret["Test"]["Return"]
             save_checkpoint(algo.actor, actor_dict, args.save_actor_path)
             save_checkpoint(algo.critic, critic_dict, args.save_critic_path)
 
         # Intermitent saving
         if itr % 500 == 0:
             past500_reward = -1
-        if eval_reward > past500_reward:
-            past500_reward = eval_reward
+        if ret["Test"]["Return"] > past500_reward:
+            past500_reward = ret["Test"]["Return"]
             save_checkpoint(algo.actor, actor_dict, args.save_actor_path[:-3] + "_past500.pt")
             save_checkpoint(algo.critic, critic_dict, args.save_critic_path[:-3] + "_past500.pt")
 
         if logger is not None:
-            logger.add_scalar("Test/Return", eval_reward, itr)
-            logger.add_scalar("Test/Mean Eplen", eval_ep_len, itr)
-            logger.add_scalar("Train/Return", batch_reward, itr)
-            logger.add_scalar("Train/Mean Eplen", batch_ep_len, itr)
-            logger.add_scalar("Train/Mean KL Div", kl, itr)
-
-            logger.add_scalar("Misc/Critic Loss", c_loss, itr)
-            logger.add_scalar("Misc/Actor Loss", a_loss, itr)
-            logger.add_scalar("Misc/Mirror Loss", m_loss, itr)
-            logger.add_scalar("Misc/Timesteps", steps, itr)
-            logger.add_scalar("Misc/Total Steps", timesteps, itr)
-
-            for time, val in times.items():
-                logger.add_scalar("Misc/" + time, val, itr)
+            for key, val in ret.items():
+                for k, v in val.items():
+                    logger.add_scalar(f"{key}/{k}", v, itr)
+            logger.add_scalar("Time/Total Timesteps", total_timesteps, itr)
 
         itr += 1
-    print(f"Finished ({timesteps} of {args.timesteps}).")
+    print(f"Finished ({total_timesteps} of {args.timesteps}).")
 
     if args.wandb:
         wandb.finish()

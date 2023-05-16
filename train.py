@@ -8,7 +8,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     """Environment"""
-    parser.add_argument("--env-name", default="CassieEnvClock", type=str, help="Name of environment to train on.")
+    parser.add_argument("--env-name", default="CassieEnvClock", type=str,
+                        help="Name of environment to train on.")
 
     """Logger / Saver"""
     parser.add_argument("--wandb", default=False, action='store_true')

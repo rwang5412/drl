@@ -27,7 +27,8 @@ def test_ppo():
                            timesteps    = 200,
                            num_steps    = 100,
                            workers      = 2,
-                           mirror       = 1)
+                           mirror       = 1,
+                           arch         = "lstm",)
     env_args = SimpleNamespace()
 
     add_algo_args(args)

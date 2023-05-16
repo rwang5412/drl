@@ -1,32 +1,12 @@
-"""Proximal Policy Optimization (clip objective)."""
-import argparse
-import numpy as np
-import os
-import ray
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-
 from copy import deepcopy
-from time import time, sleep
-from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-from torch.distributions import kl_divergence
-from torch.nn.utils.rnn import pad_sequence
-from types import SimpleNamespace
-
-from util.mirror import mirror_tensor
-
 
 class AlgoWorker:
     """
-        Generic template for a worker (sampler or optimizer) for training algorithms
+        Generic template for a worker (sampler or optimizer) for training algorithms. This worker
+        mainly holds the actor and critic networks, and has a function to sync the networks with
+        other workers.
 
         Args:
-            actor: actor pytorch network
-            critic: critic pytorch network
-
-        Attributes:
             actor: actor pytorch network
             critic: critic pytorch network
     """

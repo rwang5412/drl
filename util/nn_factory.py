@@ -132,7 +132,7 @@ def add_nn_parser(parser: argparse.ArgumentParser | SimpleNamespace | argparse.N
         "layers" : ("256,256", "Hidden layer size for actor and critic"),
         "arch" : ("ff", "Actor/critic NN architecture"),
         "learn-stddev" : (False, "Whether or not to learn action std dev"),
-        "nonlinearity" : ("tanh", "Actor output layer activation function"),
+        "nonlinearity" : ("relu", "Actor output layer activation function"),
         "std-array" : ("", "An array repsenting action noise per action."),
     }
     if isinstance(parser, argparse.ArgumentParser):

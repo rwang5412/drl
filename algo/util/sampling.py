@@ -2,12 +2,9 @@ import numpy as np
 import ray
 import torch
 
-from copy import deepcopy
-from time import time, sleep
+from time import time
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-from torch.distributions import kl_divergence
 from torch.nn.utils.rnn import pad_sequence
-
 from algo.util.worker import AlgoWorker
 from util.mirror import mirror_tensor
 
@@ -33,6 +30,7 @@ class Buffer:
         size (int): Number of currently stored states
         traj_idx (list): List of indices where individual trajectories start
         buffer_read (bool): Whether or not the buffer is ready to be used for optimization.
+        additional_info_keys (list): List of keys for additional information stored in the buffer.
     """
     def __init__(self, discount: float = 0.99):
         self.discount = discount
@@ -60,6 +58,13 @@ class Buffer:
         self.traj_idx = [0]
         self.buffer_ready = False
 
+        # Clear additional info if it exists
+        if 'additional_info_keys' in self.__dict__:
+            for key in self.additional_info_keys:
+                if key in self.__dict__:
+                    self.__dict__[key] = []
+        self.additional_info_keys = []
+
     def push(self,
              state: np.ndarray,
              action: np.ndarray,
@@ -83,6 +88,21 @@ class Buffer:
         self.values  += [value]
 
         self.size += 1
+
+    def push_additional_info(self, info_dict: dict):
+        """
+        Store any additional information about the current state, and they will be used later in 
+        optimization. For example, Buffer can store privilege information for the current state.
+
+        Args:
+            info_dict (dict): Dictionary containing additional information about the current state
+        """
+        for key, value in info_dict.items():
+            # Add a buffer attribute for the new key
+            if key not in self.__dict__:
+                self.__dict__[key] = []
+                self.additional_info_keys.append(key)
+            self.__dict__[key] += [value]
 
     def end_trajectory(self, terminal_value: float = 0.0):
         """
@@ -124,6 +144,9 @@ class Buffer:
             self.rewards = torch.Tensor(np.array(self.rewards))
             self.returns = torch.Tensor(np.array(self.returns))
             self.values  = torch.Tensor(np.array(self.values))
+            # Finish additional info
+            for key in self.additional_info_keys:
+                self.__dict__[key] = torch.Tensor(np.array(self.__dict__[key]))
 
             # Mirror states in needed
             if state_mirror_idx is not None:
@@ -150,49 +173,61 @@ class Buffer:
             recurrent (bool): Whether to return a recurrent batch (trajectories) or not
             mirror (function pointer): Pointer to the state mirroring function. If is None, the no
                                        mirroring will be done.
+
+        Returns: Batch data in the form of a dictionary with keys "states", "actions", "returns"...
         """
         if not self.buffer_ready:
             self._finish_buffer(mirror_state_idx)
 
+        batch = {}
         if recurrent:
             random_indices = SubsetRandomSampler(range(len(self.traj_idx)-1))
             sampler = BatchSampler(random_indices, batch_size, drop_last=False)
 
             for traj_indices in sampler:
+                # Data format in [num_steps_per_traj, num_trajs, num_states_per_step]
                 states     = [self.states[self.traj_idx[i]:self.traj_idx[i+1]]     for i in traj_indices]
                 actions    = [self.actions[self.traj_idx[i]:self.traj_idx[i+1]]    for i in traj_indices]
                 returns    = [self.returns[self.traj_idx[i]:self.traj_idx[i+1]]    for i in traj_indices]
                 advantages = [self.advantages[self.traj_idx[i]:self.traj_idx[i+1]] for i in traj_indices]
                 traj_mask  = [torch.ones_like(r) for r in returns]
 
-                states     = pad_sequence(states,     batch_first=False)
-                actions    = pad_sequence(actions,    batch_first=False)
-                returns    = pad_sequence(returns,    batch_first=False)
-                advantages = pad_sequence(advantages, batch_first=False)
-                traj_mask  = pad_sequence(traj_mask,  batch_first=False)
+                batch['states']     = pad_sequence(states,     batch_first=False)
+                batch['actions']    = pad_sequence(actions,    batch_first=False)
+                batch['returns']    = pad_sequence(returns,    batch_first=False)
+                batch['advantages'] = pad_sequence(advantages, batch_first=False)
+                batch['mask']       = pad_sequence(traj_mask,  batch_first=False)
+
+                for k in self.additional_info_keys:
+                    batch[k] = pad_sequence([self.__dict__[k][self.traj_idx[i]:self.traj_idx[i+1]] for i in traj_indices], batch_first=False)
 
                 if mirror_state_idx is None:
-                    yield states, actions, returns, advantages, traj_mask
+                    batch['mirror_states'] = torch.ones_like(batch['returns'])
                 else:
                     mirror_states = [self.mirror_states[self.traj_idx[i]:self.traj_idx[i+1]] for i in traj_indices]
-                    mirror_states = pad_sequence(mirror_states, batch_first=False)
-                    yield states, mirror_states, actions, returns, advantages, traj_mask
+                    batch['mirror_states'] = pad_sequence(mirror_states, batch_first=False)
 
+                yield batch
         else:
             random_indices = SubsetRandomSampler(range(self.size))
             sampler = BatchSampler(random_indices, batch_size, drop_last=True)
 
             for i, idxs in enumerate(sampler):
-                states     = self.states[idxs]
-                actions    = self.actions[idxs]
-                returns    = self.returns[idxs]
-                advantages = self.advantages[idxs]
+                batch['states']     = self.states[idxs]
+                batch['actions']    = self.actions[idxs]
+                batch['returns']    = self.returns[idxs]
+                batch['advantages'] = self.advantages[idxs]
+                batch['mask']       = torch.ones_like(batch['returns'])
+
+                for k in self.additional_info_keys:
+                    batch[k] = self.__dict__[k][idxs]
 
                 if mirror_state_idx is None:
-                    yield states, actions, returns, advantages, 1
+                    batch['mirror_states'] = torch.ones_like(batch['returns'])
                 else:
-                    mirror_states = self.mirror_states[idxs]
-                    yield states, mirror_states, actions, returns, advantages, 1
+                    batch['mirror_states'] = self.mirror_states[idxs]
+
+                yield batch
 
     def __add__(self, buf2):
         offset = len(self.states)
@@ -209,7 +244,13 @@ class Buffer:
         new_buf.size        = self.size + buf2.size
         new_buf.traj_idx    = self.traj_idx + [offset + i for i in buf2.traj_idx[1:]]
 
+        # Add operation for additional info
+        for key in self.additional_info_keys:
+            assert key in buf2.additional_info_keys,\
+                   f"Buffers do not have the same additional info keys, as {key}."
+            new_buf.__dict__[key] = self.__dict__[key] + buf2.__dict__[key]
         return new_buf
+
 
 @ray.remote
 class AlgoSampler(AlgoWorker):
@@ -221,7 +262,6 @@ class AlgoSampler(AlgoWorker):
         critic: critic pytorch network
         env_fn: environment constructor function
         gamma: discount factor
-
 
     Attributes:
         env: instance of environment
@@ -240,16 +280,23 @@ class AlgoSampler(AlgoWorker):
 
         AlgoWorker.__init__(self, actor, critic)
 
-    def sample_traj(self, max_traj_len: int = 300, do_eval: bool = False, update_normalization_param: bool=False):
+    def sample_traj(self, 
+                    max_traj_len: int = 300, 
+                    do_eval: bool = False, 
+                    update_normalization_param: bool=False):
         """
         Function to sample experience
 
         Args:
             max_traj_len: maximum trajectory length of an episode
-            min_steps: minimum total steps to sample
+            do_eval: if True, use deterministic policy
+            update_normalization_param: if True, update normalization parameters
         """
         start_t = time()
         torch.set_num_threads(1)
+        # Toggle models to eval mode
+        self.actor.eval()
+        self.critic.eval()
         memory = Buffer(self.gamma)
         with torch.no_grad():
             state = torch.Tensor(self.env.reset())
@@ -272,10 +319,15 @@ class AlgoSampler(AlgoWorker):
                     value = 0.0
                 else:
                     value = self.critic(state).numpy()
-                next_state, reward, done, _ = self.env.step(action.numpy())
-                reward = np.array([reward])
 
-                memory.push(state.numpy(), action.numpy(), reward, value)
+                # If environment has additional info, push additional info to buffer
+                if hasattr(self.env, 'get_info_dict'):
+                    memory.push_additional_info(self.env.get_info_dict())
+
+                next_state, reward, done, _ = self.env.step(action.numpy())
+
+                memory.push(state.numpy(), action.numpy(), np.array([reward]), value)
+
                 state = next_state
                 traj_len += 1
 
