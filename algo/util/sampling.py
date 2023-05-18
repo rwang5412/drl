@@ -99,7 +99,7 @@ class Buffer:
         """
         for key, value in info_dict.items():
             # Add a buffer attribute for the new key
-            if key not in self.__dict__:
+            if key not in self.__dict__.keys():
                 self.__dict__[key] = []
                 self.additional_info_keys.append(key)
             self.__dict__[key] += [value]
@@ -248,6 +248,8 @@ class Buffer:
         for key in self.additional_info_keys:
             assert key in buf2.additional_info_keys,\
                    f"Buffers do not have the same additional info keys, as {key}."
+            new_buf.__dict__[key] = []
+            new_buf.additional_info_keys.append(key)
             new_buf.__dict__[key] = self.__dict__[key] + buf2.__dict__[key]
         return new_buf
 
