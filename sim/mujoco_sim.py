@@ -9,7 +9,10 @@ from util.colors import FAIL, WARNING, ENDC
 from sim.util.geom import Geom
 from sim.util.hfield import Hfield
 from util.quaternion import quaternion2euler, euler2quat
-
+from util.camera_util import (
+    make_pose, pose_inv, bilinear_interpolate, transform_from_pixels_to_world, 
+    transform_from_pixels_to_camera_frame, add_gaussian_noise
+)
 class MujocoSim(GenericSim):
     """
     A base class to define general useful functions that interact with Mujoco simulator.
@@ -237,7 +240,7 @@ class MujocoSim(GenericSim):
         else:
             self.renderer = MujocoRender(self.model, height=height, width=width)
 
-    def get_depth_image(self, camera_name: str):
+    def get_depth_image(self, camera_name: str, raw_depth= False):
         """ Get depth image given camera name. To use depth offscreen rendering,
         first call this init_offscreen_renderer() at reset(). And then call this function.
         """
@@ -247,17 +250,20 @@ class MujocoSim(GenericSim):
         self.renderer.update_scene(self.data, camera=camera_name)
         # Deepcopy to avoid modifying the original data
         depth = copy.deepcopy(self.renderer.render())
+        assert depth.shape == (self.renderer._height, self.renderer._width), \
+        f"Depth image shape {depth.shape} does not match "\
+        f"renderer shape {(self.renderer._height, self.renderer._width)}."
         # Perform in-place operations with depth values
         # Shift nearest values to the origin.
-        depth -= depth.min()
-        # Scale by 2 mean distances of near rays.
-        depth /= (2*depth[depth <= 1].mean())
-        # Scale to [0, 255]
-        depth = 255*np.clip(depth, 0, 1)
-        assert depth.shape == (self.renderer._height, self.renderer._width), \
-            f"Depth image shape {depth.shape} does not match "\
-            f"renderer shape {(self.renderer._height, self.renderer._width)}."
-        return depth.astype(np.uint8)
+        if not raw_depth:
+            depth -= depth.min()
+            # Scale by 2 mean distances of near rays.
+            depth /= (2*depth[depth <= 1].mean())
+            # Scale to [0, 255]
+            depth = 255*np.clip(depth, 0, 1)
+            return depth.astype(np.uint8)
+        else:
+            return depth.astype(np.float32)
 
     def init_hfield(self):
         """Initialize hfield relevant params from XML, hfield_data, reset hfield to flat ground.
@@ -777,3 +783,134 @@ class MujocoSim(GenericSim):
     def set_body_pose(self, name: str, pose: np.ndarray):
         self.data.body(name).xpos = pose[0:3]
         self.data.body(name).xquat = pose[3:7]
+
+    def get_camera_intrinsic_matrix(self, camera_name, camera_height, camera_width):
+        """
+        Obtains camera intrinsic matrix.
+
+        Args:
+            camera_name (str): name of camera
+            camera_height (int): height of camera images in pixels
+            camera_width (int): width of camera images in pixels
+        Return:
+            cam_intrinsic_mat (np.array): 3x3 camera matrix
+        """
+        cam_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_CAMERA, camera_name)
+        fovy = self.model.cam_fovy[cam_id]
+        f = 0.5 * camera_height / np.tan(fovy * np.pi / 360)
+        cam_intrinsic_mat = np.array([[f, 0, camera_width / 2], [0, f, camera_height / 2], [0, 0, 1]])
+        return cam_intrinsic_mat
+
+    def get_camera_extrinsic_matrix(self, camera_name):
+        """
+        Returns a 4x4 homogenous matrix corresponding to the camera pose in the
+        world frame. MuJoCo has a weird convention for how it sets up the
+        camera body axis, so we also apply a correction so that the x and y
+        axis are along the camera view and the z axis points along the
+        viewpoint.
+        Normal camera convention: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+
+        Args:
+            camera_name (str): name of camera
+        Return:
+            cam_extrinsic_mat (np.array): 4x4 camera extrinsic matrix (also know as rotation matrix of camera)
+        """
+        cam_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_CAMERA, camera_name)
+        camera_pos = self.data.cam_xpos[cam_id]
+        camera_rot = self.data.cam_xmat[cam_id].reshape(3, 3)
+        cam_extrinsic_mat = make_pose(camera_pos, camera_rot)
+
+        # IMPORTANT! This is a correction so that the camera axis is set up along the viewpoint correctly.
+        camera_axis_correction = np.array(
+            [[1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, -1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+        )
+        cam_extrinsic_mat = cam_extrinsic_mat @ camera_axis_correction
+        return cam_extrinsic_mat
+    
+    def get_camera_transform_matrix(self, camera_name, camera_height, camera_width):
+        """
+        Camera transform matrix to project from world coordinates to pixel coordinates.
+
+        Args:
+            camera_name (str): name of camera
+            camera_height (int): height of camera images in pixels
+            camera_width (int): width of camera images in pixels
+        Return:
+            cam_intrinsic_mat (np.array): 4x4 camera matrix to project from world coordinates to pixel coordinates
+        """
+        cam_extrinsic_mat = self.get_camera_extrinsic_matrix(camera_name=camera_name)
+        cam_intrinsic_mat = self.get_camera_intrinsic_matrix(camera_name=camera_name, camera_height=camera_height, camera_width=camera_width)
+        cam_intrinsic_mat_exp = np.eye(4)
+        cam_intrinsic_mat_exp[:3, :3] = cam_intrinsic_mat
+
+        # Takes a point in world, transforms to camera frame, and then projects onto image plane.
+        return cam_intrinsic_mat_exp @ pose_inv(cam_extrinsic_mat)
+
+    def get_camera_segmentation(self, camera_name, camera_height, camera_width):
+        """
+        Obtains camera segmentation matrix.
+
+        Args:
+            camera_name (str): name of camera
+            camera_height (int): height of camera images in pixels
+            camera_width (int): width of camera images in pixels
+        Return:
+            im (np.array): 2-channel segmented image where the first contains the
+                geom types and the second contains the geom IDs
+        """
+        return self.render(camera_name=camera_name, height=camera_height, width=camera_width, segmentation=True)[::-1]   
+
+    def get_point_cloud(self, camera_name, depth_image, stride):
+        """
+        Generate a point cloud from a depth image using the specified camera and stride.
+        Always use raw_depth=True when calling get_depth_image.
+        Args:
+            camera_name (str): Name of the camera used to capture the depth image
+            depth_image (np.array): Depth image to be converted into a point cloud. 
+            stride (int): Stride for resizing the output point cloud
+
+        Returns:
+            point_cloud (np.array): 3D point cloud generated from the depth image
+        """
+        # Set camera_name and get dimensions of the depth_image
+        camera_height, camera_width = depth_image.shape
+        # Generate the pixel coordinates with the given stride
+        y_indices, x_indices = np.indices((camera_height, camera_width))
+        pixels = np.stack([y_indices[::stride, ::stride], x_indices[::stride, ::stride]], axis=-1)
+        # Assign depth_map to the input depth_image
+        depth_map = depth_image
+        # Get the world-to-camera transformation matrix for the given camera
+        world_to_camera_transform = self.get_camera_transform_matrix(camera_name=camera_name, camera_height=camera_height, camera_width=camera_width)
+        # Compute the camera-to-world transformation matrix by inverting the world-to-camera matrix
+        camera_to_world_transform = np.linalg.inv(world_to_camera_transform)
+        # Transform pixel coordinates to world coordinates using the depth_map and camera-to-world transformation matrix
+        point_cloud = transform_from_pixels_to_world(pixels, depth_map, camera_to_world_transform, stride, camera_height, camera_width)
+        # Return the generated point cloud
+        return point_cloud
+
+    def get_point_cloud_in_camera_frame(self, camera_name, depth_image, stride):
+        """
+        Generate a point cloud from a depth image using the specified camera and stride.
+        Always use raw_depth=True when calling get_depth_image.
+        Args:
+            camera_name (str): Name of the camera used to capture the depth image
+            depth_image (np.array): Depth image to be converted into a point cloud. 
+            stride (int): Stride for resizing the output point cloud
+
+        Returns:
+            point_cloud (np.array): 3D point cloud in the camera frame generated from the depth image
+        """
+        # Set camera_name and get dimensions of the depth_image
+        camera_height, camera_width = depth_image.shape
+        # Generate the pixel coordinates with the given stride
+        y_indices, x_indices = np.indices((camera_height, camera_width))
+        pixels = np.stack([y_indices[::stride, ::stride], x_indices[::stride, ::stride]], axis=-1)
+        # Assign depth_map to the input depth_image
+        depth_map = depth_image
+        # Get the camera intrinsic matrix
+        camera_matrix = self.get_camera_intrinsic_matrix(camera_name, camera_height, camera_width)
+        # Transform pixel coordinates to camera frame coordinates using the depth_map
+        point_cloud = transform_from_pixels_to_camera_frame(pixels, depth_map, camera_matrix, stride, camera_height, camera_width)
+        # Return the generated point cloud
+        return point_cloud
+

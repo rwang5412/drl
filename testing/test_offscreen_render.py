@@ -93,4 +93,82 @@ def test_offscreen_rendering():
         ax4.set_xlabel('image size')
         fig.tight_layout()
         plt.show()
-    print("Passed rendering test!")
+    print("Passed offscreen rendering test!")
+
+"""Test file for Onscreen pointcloud rendering from Mujoco. Renderer class with Cassie/Digit model.
+"""
+
+def test_pointcloud_rendering():
+
+	OFFSCREEN = 0
+	gl_option = 'egl' if OFFSCREEN else 'glx'
+
+	# Need to update env variable before import mujoco
+	import os
+	os.environ['MUJOCO_GL']=gl_option
+
+	import time
+	import numpy as np
+	import matplotlib.pyplot as plt
+	import mediapy
+	from sim import MjCassieSim
+	import cv2
+
+	# Check if the env variable is correct
+	if "MUJOCO_GL" in os.environ:
+		assert os.getenv('MUJOCO_GL') == gl_option,\
+			   f"GL option is {os.getenv('MUJOCO_GL')} but want to load {gl_option}."
+		print("PYOPENGL_PLATFORM =",os.getenv('PYOPENGL_PLATFORM'))
+
+	camera_name = "forward-chest-realsense-d435/depth/image-rect"
+	size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480]
+	# size = [400]
+	sim_time_avg_list = []
+	render_time_avg_list = []
+	time_render_ratio = []
+	for s in size:
+		# Init mujoc sim and optional viewer to verify
+		sim = MjCassieSim()
+		sim.reset()
+		sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.5, length=0.3, width=1)
+		sim.geom_generator._create_geom('box1', *[-1, 0, 0], rise=0.5, length=0.3, width=1)
+		sim.geom_generator._create_geom('box2', *[-1, -1, 0], rise=0.5, length=0.3, width=1)
+		sim.adjust_robot_pose()
+		if OFFSCREEN:
+			# Init renderer that reads the same model/data
+			sim.init_renderer(width=s, height=s, offscreen=OFFSCREEN)
+			render_state = True
+		else:
+			sim.viewer_init(height=1024, width=960)
+			render_state = sim.viewer_render()
+			# Create a second viewer that renderes a different view
+			sim.init_renderer(width=128, height=128, offscreen=OFFSCREEN)
+
+		while render_state:
+			paused = False if OFFSCREEN else sim.viewer_paused()
+			if not paused:
+				for _ in range(50):
+					start = time.time()
+					sim.sim_forward()
+			if not OFFSCREEN:
+				render_state = sim.viewer_render()
+			start_t = time.time()
+			depth = sim.get_depth_image(camera_name, raw_depth=True)
+
+			start_time = time.time()
+			pcl = sim.get_point_cloud(camera_name, depth, 10)
+			# pcl = sim.get_point_cloud_in_camera_frame(camera_name, depth, 10)
+			end_time = time.time()
+			print("GET POINTCLOUD: ", end_time - start_time)
+			start_render = time.time()
+			sim.viewer.render_point_cloud(pcl)
+			end_render = time.time()
+			print("PC RENDER TIME: ", end_render - start_render)
+
+			cv2.namedWindow("Depth", cv2.WINDOW_AUTOSIZE)
+			cv2.imshow("Depth", depth)
+			cv2.waitKey(1)
+			if cv2.waitKey(1) & 0xFF == ord('q'):
+				break
+
+	print("Passed ONSCREEN pointcloud rendering test!")

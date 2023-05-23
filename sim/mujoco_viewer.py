@@ -101,7 +101,7 @@ class MujocoViewer():
         # create options, camera, scene, context
         self.vopt = mj.MjvOption()
         self.cam = mj.MjvCamera()
-        self.scn = mj.MjvScene(self.model, maxgeom=1000)
+        self.scn = mj.MjvScene(self.model, maxgeom=1000000)
         self.pert = mj.MjvPerturb()
         self.ctx = mj.MjrContext(self.model, mj.mjtFontScale.mjFONTSCALE_150.value)
         self.fontscale = 150
@@ -164,6 +164,7 @@ class MujocoViewer():
         # Visual marker infos
         self.num_marker = 0
         self.marker_info = {}
+        self.pointcloud_marker_ids = []
 
     def render(self):
         if glfw.window_should_close(self.window):
@@ -695,6 +696,30 @@ class MujocoViewer():
             self.scn.geoms[self.scn.ngeom].mat[:] = info["so3"]
             self.scn.geoms[self.scn.ngeom].type = mj.mjtGeom.__dict__["mjGEOM_" + info["geom_type"].upper()]
             self.scn.ngeom += 1
+
+    def render_point_cloud(self, point_cloud):
+        """
+        Render a point cloud by adding markers for each point in the simulation viewer and updating existing markers.
+
+        Args:
+            point_cloud (np.array): 3D point cloud to be rendered in the simulation viewer.
+        
+        Note:
+            This function assumes the simulation viewer has an add_marker and an update_marker_position method.
+        """
+        # Define the rotation, size, and color of the point markers
+        so3 = euler2so3(z=0, x=0, y=0)
+        size = [0.015, 0.015, 0.015]
+        color = [1, 0, 0]
+        rgba = np.concatenate((color, np.ones(1)))
+
+        # Add new point markers and store their IDs if they haven't been added yet, otherwise, update their position.
+        for idx, pos in enumerate(point_cloud.reshape(-1, 3).tolist()):
+            if idx < len(self.pointcloud_marker_ids):
+                self.update_marker_position(self.pointcloud_marker_ids[idx], pos)
+            else:
+                id = self.add_marker("sphere", "", pos, size, rgba, so3)
+                self.pointcloud_marker_ids.append(id)
 
     def close(self):
         self.ctx.free()

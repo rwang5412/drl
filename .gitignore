@@ -10,6 +10,7 @@ __pycache__/
 *$py.class
 *.pyc
 *.mp4
+*.gif
 
 # Distribution / packaging
 .Python
