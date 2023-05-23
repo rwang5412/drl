@@ -27,7 +27,7 @@ if __name__ == "__main__":
     args.discount = 0.95
     args.mirror = 1
     args.timesteps = 4e9
-    args.workers = 56
+    args.workers = 80
     args.do_prenorm = False
     args.a_lr = 3e-4
     args.c_lr = 3e-4

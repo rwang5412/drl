@@ -11,7 +11,6 @@ if __name__ == "__main__":
     parser.add_argument("--nn", default=False, action='store_true')
     parser.add_argument("--mirror", default=False, action='store_true')
     parser.add_argument("--render", default=False, action='store_true')
-    parser.add_argument("--duality", default=False, action='store_true')
     parser.add_argument("--timing", default=False, action='store_true')
     parser.add_argument("--all", default=False, action='store_true')
     args = parser.parse_args()
@@ -22,7 +21,6 @@ if __name__ == "__main__":
         args.sim = True
         args.clock = True
         args.nn = True
-        args.drake = True
 
     if args.algo:
         from testing.test_algo import test_all_algos
@@ -59,9 +57,6 @@ if __name__ == "__main__":
     if args.mirror:
         from testing.test_mirror import test_mirror
         test_mirror()
-    if args.duality:
-        from testing.test_duality_integration import test_all
-        test_all()
     if args.timing:
         from testing.tracker_test import tracker_test
         from testing.sampling_speed import sampling_speed

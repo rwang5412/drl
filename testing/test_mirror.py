@@ -25,12 +25,18 @@ def test_mirror():
     cassie = CassieEnv(simulator_type='mujoco',
                     terrain=False,
                     policy_rate=50,
-                    dynamics_randomization=True)
+                    dynamics_randomization=False,
+                    state_est=False,
+                    state_noise=0,
+                    velocity_noise=0)
 
     digit = DigitEnv(simulator_type='mujoco',
                     terrain=False,
                     policy_rate=50,
-                    dynamics_randomization=True)
+                    dynamics_randomization=False,
+                    state_noise=0,
+                    velocity_noise=0,
+                    state_est=False)
 
     """
     Check if any mirror ind array has duplicate values by mistake

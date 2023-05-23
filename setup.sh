@@ -1,20 +1,14 @@
 read -p "[u]pgrade or [c]reate new conda env: " mode
 echo $mode
 if [ "$mode" == "u" ]; then
-    conda config --set solver classic
     conda env update --file environment.yaml --prune
     exit 0
 elif [ "$mode" == "c" ]; then
     echo enter name for new conda environment
     read varname
-    #update conda
-    conda update -n base conda
     #build conda env
     conda env create -n $varname --file environment.yaml
     eval "$(conda shell.bash hook)"
-    #set solver to use libmamba
-    #known bug with conda update https://github.com/ContinuumIO/anaconda-issues/issues/13123
-    # conda config --set solver libmamba
     #activate conda env
     conda activate $varname
     if ! test -d ~/.mujoco/mujoco210; then
@@ -29,15 +23,6 @@ elif [ "$mode" == "c" ]; then
         rm -rf mujoco210-linux-x86_64.tar.gz
         cd $pwd
     fi
-    #clone into duality, create .whl file and pip install duality
-    echo cloning into duality and installing as pip package to current environment
-    git clone git@github.com:osudrl/duality.git
-    cd duality
-    pip uninstall duality
-    python setup.py bdist_wheel
-    pip install ./dist/*.whl
-    cd ..
-    rm -rf duality
 else
     echo Choice not recognized.
     exit 1

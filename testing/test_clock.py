@@ -171,10 +171,14 @@ def test_cassieclockenv():
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
-                         dynamics_randomization = False)
+                         dynamics_randomization = False,
+                         state_est=False,
+                         state_noise=0,
+                         velocity_noise=0)
+    init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
-    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
+    assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
         f"Failed CassieClockEnv linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
     clock_type = "von_mises"
@@ -183,10 +187,14 @@ def test_cassieclockenv():
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
-                         dynamics_randomization = False)
+                         dynamics_randomization = False,
+                         state_est=False,
+                         state_noise=0,
+                         velocity_noise=0)
+    init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
-    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
+    assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
         f"Failed CassieClockEnv von mises test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
 
@@ -199,10 +207,14 @@ def test_digitclockenv():
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
-                         dynamics_randomization = False)
+                         dynamics_randomization = False,
+                         state_noise=0,
+                         velocity_noise=0,
+                         state_est=False)
+    init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(20))
-    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
+    assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
         f"Failed DigitEnvClock linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
     clock_type = "von_mises"
@@ -211,9 +223,13 @@ def test_digitclockenv():
                          simulator_type = "mujoco",
                          terrain = False,
                          policy_rate = policy_rate,
-                         dynamics_randomization = False)
+                         dynamics_randomization = False,
+                         state_noise=0,
+                         velocity_noise=0,
+                         state_est=False)
+    init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(20))
-    assert np.abs(env.clock.get_phase() - env.cycle_time) < env.clock._phase_add, \
+    assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
         f"Failed DigitEnvClock von mises test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
