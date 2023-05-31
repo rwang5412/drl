@@ -34,7 +34,7 @@ if __name__ == "__main__":
     if args.render:
         from testing.test_offscreen_render import test_offscreen_rendering, test_pointcloud_rendering
         test_offscreen_rendering()
-        test_pointcloud_rendering()  
+        test_pointcloud_rendering()
     if args.ar:
         import asyncio
         from testing.test_ar_sim import (

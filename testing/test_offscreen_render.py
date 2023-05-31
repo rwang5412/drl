@@ -8,6 +8,7 @@ Particularly, the first window is the default mujoco viewer, and the second wind
 def test_offscreen_rendering():
 
     OFFSCREEN = input("Offscreen rendering? (y/n): ").lower() == 'y'
+    TERRAIN = input("Terrain? (flat/hfield): ").lower()
     gl_option = 'egl' if OFFSCREEN else 'glx'
 
     # Need to update env variable before import mujoco
@@ -19,6 +20,8 @@ def test_offscreen_rendering():
     import matplotlib.pyplot as plt
     import mediapy
     from sim import MjCassieSim
+    from util.camera_util import crop_from_center
+    import cv2
 
     # Check if the env variable is correct
     if "MUJOCO_GL" in os.environ:
@@ -27,30 +30,34 @@ def test_offscreen_rendering():
         print("PYOPENGL_PLATFORM =",os.getenv('PYOPENGL_PLATFORM'))
 
     camera_name = "forward-chest-realsense-d435/depth/image-rect"
-    size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480] if OFFSCREEN else [400, 200, 100]
+    size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480] if OFFSCREEN else [[1280, 720]]
     sim_time_avg_list = []
     render_time_avg_list = []
     time_render_ratio = []
     for s in size:
-        # Init mujoco sim and optional viewer to verify
-        # Option1: Vis and render geom
-        sim = MjCassieSim()
+        print(f"Testing resolution {s}x{s}")
+        # Init mujoco sim
+        sim = MjCassieSim(terrain='hfield') if TERRAIN == 'hfield' else MjCassieSim()
         sim.reset()
-        sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.5, length=0.3, width=1)
-        # Option2: Vis and render hfield
-        # sim = MjCassieSim(terrain='hfield')
-        # sim.reset()
-        # sim.randomize_hfield(hfield_type='bump')
+        if TERRAIN == 'flat':
+            sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.3, length=0.3, width=0.3)
+        elif TERRAIN == 'hfield':
+            sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.3, length=0.3, width=0.3)
+            # Upload hfield to GPU by calling randomize_hfield
+            sim.randomize_hfield(hfield_type='bump')
+        # A final call on mj_forward to adjust robot pose and update scene
         sim.adjust_robot_pose()
+
+        # Init renderer that reads the same model/data
         if OFFSCREEN:
             # Init renderer that reads the same model/data
             sim.init_renderer(width=s, height=s, offscreen=OFFSCREEN)
             render_state = True
         else:
             sim.viewer_init(height=1024, width=960)
-            render_state = sim.viewer_render()
             # Create a second viewer that renders a different view
-            sim.init_renderer(width=s, height=s, offscreen=OFFSCREEN)
+            sim.init_renderer(width=s[0], height=s[1], offscreen=OFFSCREEN)
+            render_state = sim.viewer_render()
 
         time_raw_sim_list = []
         time_render_depth = []
@@ -67,7 +74,15 @@ def test_offscreen_rendering():
             start_t = time.time()
             depth = sim.get_depth_image(camera_name)
             time_render_depth.append(time.time() - start_t)
-            frames.append(depth.astype(np.uint8))
+            frames.append(depth)
+            if not OFFSCREEN:
+                depth = crop_from_center(depth, 720, 720)
+                # For visualization purpose and scale depth for better contrast
+                depth /= depth.max()
+                depth = np.clip(depth, 0, 1) * 255
+                cv2.namedWindow('depth', cv2.WINDOW_AUTOSIZE)
+                cv2.imshow('depth', depth.astype(np.uint8))
+                cv2.waitKey(1)
             if sim.get_base_position()[2] < 0.5:
                 mean_time_sim = np.mean(np.array(time_raw_sim_list))
                 mean_time_render = np.mean(np.array(time_render_depth))
@@ -77,6 +92,7 @@ def test_offscreen_rendering():
                 if not OFFSCREEN:
                     sim.renderer.close()
                     sim.viewer.close()
+                    cv2.destroyAllWindows()
                 break
     if OFFSCREEN:
         mediapy.write_video(path="test.gif", images=frames, fps=50, codec='gif')
@@ -95,9 +111,9 @@ def test_offscreen_rendering():
         plt.show()
     print("Passed offscreen rendering test!")
 
+
 """Test file for Onscreen pointcloud rendering from Mujoco. Renderer class with Cassie/Digit model.
 """
-
 def test_pointcloud_rendering():
 
 	OFFSCREEN = 0
@@ -108,9 +124,6 @@ def test_pointcloud_rendering():
 	os.environ['MUJOCO_GL']=gl_option
 
 	import time
-	import numpy as np
-	import matplotlib.pyplot as plt
-	import mediapy
 	from sim import MjCassieSim
 	import cv2
 
@@ -121,18 +134,12 @@ def test_pointcloud_rendering():
 		print("PYOPENGL_PLATFORM =",os.getenv('PYOPENGL_PLATFORM'))
 
 	camera_name = "forward-chest-realsense-d435/depth/image-rect"
-	size = [25, 50, 100, 150, 200, 250, 300, 350, 400, 480]
-	# size = [400]
-	sim_time_avg_list = []
-	render_time_avg_list = []
-	time_render_ratio = []
+	size = [[420, 240]]
 	for s in size:
 		# Init mujoc sim and optional viewer to verify
 		sim = MjCassieSim()
 		sim.reset()
-		sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.5, length=0.3, width=1)
-		sim.geom_generator._create_geom('box1', *[-1, 0, 0], rise=0.5, length=0.3, width=1)
-		sim.geom_generator._create_geom('box2', *[-1, -1, 0], rise=0.5, length=0.3, width=1)
+		sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.3, length=0.3, width=0.3)
 		sim.adjust_robot_pose()
 		if OFFSCREEN:
 			# Init renderer that reads the same model/data
@@ -142,18 +149,16 @@ def test_pointcloud_rendering():
 			sim.viewer_init(height=1024, width=960)
 			render_state = sim.viewer_render()
 			# Create a second viewer that renderes a different view
-			sim.init_renderer(width=128, height=128, offscreen=OFFSCREEN)
+			sim.init_renderer(width=s[0], height=s[1], offscreen=OFFSCREEN)
 
 		while render_state:
 			paused = False if OFFSCREEN else sim.viewer_paused()
 			if not paused:
 				for _ in range(50):
-					start = time.time()
 					sim.sim_forward()
 			if not OFFSCREEN:
 				render_state = sim.viewer_render()
-			start_t = time.time()
-			depth = sim.get_depth_image(camera_name, raw_depth=True)
+			depth = sim.get_depth_image(camera_name)
 
 			start_time = time.time()
 			pcl = sim.get_point_cloud(camera_name, depth, 10)

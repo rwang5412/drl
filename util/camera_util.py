@@ -1,4 +1,10 @@
 import numpy as np
+import cv2
+
+# Intel realsense d455
+FOCAL_LENGTH = 1.93e-3
+BASELINE = 95e-3
+INVALID_DEPTH = 0.0
 
 def make_pose(translation, rotation):
     """
@@ -161,3 +167,38 @@ def add_gaussian_noise(depth_map, mean=0.0, std_dev=0.01):
     noise = np.random.normal(mean, std_dev, depth_map.shape)
     noisy_depth_map = depth_map + noise
     return noisy_depth_map
+
+def add_gaussian_shifts(depth, std=1/2.0):
+    """Add gaussian shifts to the depth map. Adopted from
+    https://github.com/ankurhanda/simkinect/
+    """
+
+    rows, cols = depth.shape 
+    gaussian_shifts = np.random.normal(0, std, size=(rows, cols, 2))
+    gaussian_shifts = gaussian_shifts.astype(np.float32)
+
+    # creating evenly spaced coordinates  
+    xx = np.linspace(0, cols-1, cols)
+    yy = np.linspace(0, rows-1, rows)
+
+    # get xpixels and ypixels 
+    xp, yp = np.meshgrid(xx, yy)
+
+    xp = xp.astype(np.float32)
+    yp = yp.astype(np.float32)
+
+    xp_interp = np.minimum(np.maximum(xp + gaussian_shifts[:, :, 0], 0.0), cols)
+    yp_interp = np.minimum(np.maximum(yp + gaussian_shifts[:, :, 1], 0.0), rows)
+
+    depth_interp = cv2.remap(depth, xp_interp, yp_interp, cv2.INTER_LINEAR)
+
+    return depth_interp
+
+def crop_from_center(image, w: int, h: int):
+    assert image.shape[0] >= h, "image height must be greater or equal to crop height"
+    assert image.shape[1] >= w, "image width must be greater or equal to crop width"
+    assert len(image.shape) == 2, "image dimension must be 2"
+    center = image.shape
+    x = center[1]/2 - w/2
+    y = center[0]/2 - h/2
+    return image[int(y):int(y+h), int(x):int(x+w)]

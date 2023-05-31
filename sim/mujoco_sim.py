@@ -10,9 +10,10 @@ from sim.util.geom import Geom
 from sim.util.hfield import Hfield
 from util.quaternion import quaternion2euler, euler2quat
 from util.camera_util import (
-    make_pose, pose_inv, bilinear_interpolate, transform_from_pixels_to_world, 
-    transform_from_pixels_to_camera_frame, add_gaussian_noise
+    make_pose, pose_inv, transform_from_pixels_to_world, 
+    transform_from_pixels_to_camera_frame
 )
+
 class MujocoSim(GenericSim):
     """
     A base class to define general useful functions that interact with Mujoco simulator.
@@ -240,9 +241,11 @@ class MujocoSim(GenericSim):
         else:
             self.renderer = MujocoRender(self.model, height=height, width=width)
 
-    def get_depth_image(self, camera_name: str, raw_depth= False):
+    def get_depth_image(self, camera_name: str):
         """ Get depth image given camera name. To use depth offscreen rendering,
         first call this init_offscreen_renderer() at reset(). And then call this function.
+        The depth value is in meters. To visualize depth on image with better constrast, use
+        depth -= depth.min() or depth /= depth.max().
         """
         if camera_name is None:
             raise RuntimeError("Specify a camera name.")
@@ -253,17 +256,7 @@ class MujocoSim(GenericSim):
         assert depth.shape == (self.renderer._height, self.renderer._width), \
         f"Depth image shape {depth.shape} does not match "\
         f"renderer shape {(self.renderer._height, self.renderer._width)}."
-        # Perform in-place operations with depth values
-        # Shift nearest values to the origin.
-        if not raw_depth:
-            depth -= depth.min()
-            # Scale by 2 mean distances of near rays.
-            depth /= (2*depth[depth <= 1].mean())
-            # Scale to [0, 255]
-            depth = 255*np.clip(depth, 0, 1)
-            return depth.astype(np.uint8)
-        else:
-            return depth.astype(np.float32)
+        return depth
 
     def init_hfield(self):
         """Initialize hfield relevant params from XML, hfield_data, reset hfield to flat ground.
@@ -310,8 +303,11 @@ class MujocoSim(GenericSim):
                 raise TypeError(f"randomize_hfield got not supported data {data}")
         else:
             data = np.zeros((self.hfield_nrow, self.hfield_nrow))
-        self.hfield_data = data
-        self.model.hfield('hfield0').data[:] = data
+        # Mujoco takes in normalized data and scale it to max_z
+        assert np.max(data) <= self.hfield_max_z, \
+            f"Max height {np.max(data)} is larger than max_z {self.hfield_max_z}."
+        self.hfield_data = data / self.hfield_max_z
+        self.model.hfield('hfield0').data[:] = self.hfield_data
         self.upload_hfield()
         self.adjust_robot_pose(terrain_type='hfield')
 
@@ -416,7 +412,7 @@ class MujocoSim(GenericSim):
                 c.append(self.is_body_collision(b))
             if any(c):
                 collision = True
-                base_dx = np.random.uniform(-1, 1)
+                base_dx = np.random.uniform(-0.1, 0.1)
             else:
                 collision = False
 

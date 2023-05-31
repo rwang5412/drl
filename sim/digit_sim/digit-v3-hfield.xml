@@ -49,7 +49,7 @@
     <mesh name='right-arm/shoulder-pitch-0' scale='1 -1 1' file='arm-L2.stl'/>
     <mesh name='right-arm/shoulder-yaw-0' scale='1 -1 1' file='arm-L3.stl'/>
     <mesh name='right-arm/elbow-0' scale='1 -1 1' file='arm-L4.stl'/>
-    <hfield name='hfield0' nrow='400' ncol='400' size="10 10 1 0.1"/>
+    <hfield name='hfield0' nrow='400' ncol='400' size="10 10 10 0.1"/>
   </asset>
   <default>
     <default class='collision'>
