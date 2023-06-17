@@ -10,7 +10,7 @@ from sim.util.geom import Geom
 from sim.util.hfield import Hfield
 from util.quaternion import quaternion2euler, euler2quat
 from util.camera_util import (
-    make_pose, pose_inv, transform_from_pixels_to_world, 
+    make_pose, pose_inv, transform_from_pixels_to_world,
     transform_from_pixels_to_camera_frame
 )
 
@@ -631,26 +631,26 @@ class MujocoSim(GenericSim):
     def get_body_mass(self, name: str = None):
         # If name is None, return all body masses
         if name:
-            return self.model.body(name).mass
+            return copy.deepcopy(self.model.body(name).mass)
         else:
             return copy.deepcopy(self.model.body_mass)
 
     def get_body_ipos(self, name: str = None):
         # If name is None, return all body masses
         if name:
-            return self.model.body(name).ipos
+            return copy.deepcopy(self.model.body(name).ipos)
         else:
             return copy.deepcopy(self.model.body_ipos)
 
     def get_dof_damping(self, name: str = None):
         if name:
-            return self.model.joint(name).damping
+            return copy.deepcopy(self.model.joint(name).damping)
         else:
             return copy.deepcopy(self.model.dof_damping)
 
     def get_geom_friction(self, name: str = None):
         if name:
-            return self.model.geom(name).friction
+            return copy.deepcopy(self.model.geom(name).friction)
         else:
             return copy.deepcopy(self.model.geom_friction)
 
@@ -822,7 +822,7 @@ class MujocoSim(GenericSim):
         )
         cam_extrinsic_mat = cam_extrinsic_mat @ camera_axis_correction
         return cam_extrinsic_mat
-    
+
     def get_camera_transform_matrix(self, camera_name, camera_height, camera_width):
         """
         Camera transform matrix to project from world coordinates to pixel coordinates.
@@ -854,7 +854,7 @@ class MujocoSim(GenericSim):
             im (np.array): 2-channel segmented image where the first contains the
                 geom types and the second contains the geom IDs
         """
-        return self.render(camera_name=camera_name, height=camera_height, width=camera_width, segmentation=True)[::-1]   
+        return self.render(camera_name=camera_name, height=camera_height, width=camera_width, segmentation=True)[::-1]
 
     def get_point_cloud(self, camera_name, depth_image, stride):
         """
@@ -862,7 +862,7 @@ class MujocoSim(GenericSim):
         Always use raw_depth=True when calling get_depth_image.
         Args:
             camera_name (str): Name of the camera used to capture the depth image
-            depth_image (np.array): Depth image to be converted into a point cloud. 
+            depth_image (np.array): Depth image to be converted into a point cloud.
             stride (int): Stride for resizing the output point cloud
 
         Returns:
@@ -890,7 +890,7 @@ class MujocoSim(GenericSim):
         Always use raw_depth=True when calling get_depth_image.
         Args:
             camera_name (str): Name of the camera used to capture the depth image
-            depth_image (np.array): Depth image to be converted into a point cloud. 
+            depth_image (np.array): Depth image to be converted into a point cloud.
             stride (int): Stride for resizing the output point cloud
 
         Returns:

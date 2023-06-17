@@ -124,7 +124,6 @@ class MujocoViewer():
             self.cam.azimuth = 90
             self.cam.elevation = -20
         self.cam.fixedcamid = camera_id
-        self.vopt.flags[11] = 1    # Render applied forces
 
         # Set interaction ctrl vars
         self.paused = True
@@ -703,7 +702,7 @@ class MujocoViewer():
 
         Args:
             point_cloud (np.array): 3D point cloud to be rendered in the simulation viewer.
-        
+
         Note:
             This function assumes the simulation viewer has an add_marker and an update_marker_position method.
         """
