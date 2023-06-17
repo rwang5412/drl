@@ -91,7 +91,7 @@ class Buffer:
 
     def push_additional_info(self, info_dict: dict):
         """
-        Store any additional information about the current state, and they will be used later in 
+        Store any additional information about the current state, and they will be used later in
         optimization. For example, Buffer can store privilege information for the current state.
 
         Args:
@@ -190,7 +190,7 @@ class Buffer:
                 actions    = [self.actions[self.traj_idx[i]:self.traj_idx[i+1]]    for i in traj_indices]
                 returns    = [self.returns[self.traj_idx[i]:self.traj_idx[i+1]]    for i in traj_indices]
                 advantages = [self.advantages[self.traj_idx[i]:self.traj_idx[i+1]] for i in traj_indices]
-                traj_mask  = [torch.ones_like(r) for r in returns]
+                traj_mask  = [torch.ones_like(r, dtype=torch.bool) for r in returns]
 
                 batch['states']     = pad_sequence(states,     batch_first=False)
                 batch['actions']    = pad_sequence(actions,    batch_first=False)
@@ -217,7 +217,7 @@ class Buffer:
                 batch['actions']    = self.actions[idxs]
                 batch['returns']    = self.returns[idxs]
                 batch['advantages'] = self.advantages[idxs]
-                batch['mask']       = torch.ones_like(batch['returns'])
+                batch['mask']       = torch.ones_like(batch['returns'], dtype=torch.bool)
 
                 for k in self.additional_info_keys:
                     batch[k] = self.__dict__[k][idxs]

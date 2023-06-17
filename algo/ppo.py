@@ -137,24 +137,33 @@ class PPOOptim(AlgoWorker):
             old_pdf       = self.old_actor.pdf(states)
             old_log_probs = old_pdf.log_prob(actions).sum(-1, keepdim=True)
 
+        # active_sum is the summation of trajectory length (non-padded) over episodes in a batch
+        active_sum = mask.sum()
+
         # get new action distribution and log probabilities
         pdf       = self.actor.pdf(states)
         log_probs = pdf.log_prob(actions).sum(-1, keepdim=True)
 
-        ratio      = ((log_probs - old_log_probs) * mask).exp()
-        cpi_loss   = ratio * advantages * mask
-        clip_loss  = ratio.clamp(1.0 - self.clip, 1 + self.clip) * advantages * mask
-        actor_loss = -torch.min(cpi_loss, clip_loss).mean()
+        ratio      = (log_probs - old_log_probs).exp()
+        cpi_loss   = ratio * advantages
+        clip_loss  = ratio.clamp(1.0 - self.clip, 1 + self.clip) * advantages
+        actor_loss = -(torch.min(cpi_loss, clip_loss) * mask).sum() / active_sum
 
-        critic_loss = 0.5 * ((returns - self.critic(states)) * mask).pow(2).mean()
+        # Mean is computed by averaging critic loss over non-padded trajectory
+        critic_loss = 0.5 * ((returns - self.critic(states)) * mask).pow(2).sum() / active_sum
 
-        entropy_penalty = -(self.entropy_coeff * pdf.entropy() * mask).mean()
+        # The dimension of pdf.entropy() is (num_steps_per_traj, num_trajs, action_dim), so to apply mask,
+        # we need to average over action_dim first.
+        entropy_penalty = -(self.entropy_coeff * pdf.entropy().mean(-1, keepdim=True) * mask).sum() / active_sum
 
         if self.mirror > 0 and mirror_states is not None and mirror_action_idx is not None:
             with torch.no_grad():
                 mirrored_actions = mirror_tensor(self.actor(mirror_states), mirror_action_idx)
             unmirrored_actions = pdf.mean
-            mirror_loss = self.mirror * 4 * (unmirrored_actions - mirrored_actions).pow(2).mean()
+            # The dimension of mirrored_actions is (num_steps_per_traj, num_trajs, action_dim), so to apply mask,
+            # we need to average over action_dim first.
+            mirror_loss = self.mirror * 4 * (unmirrored_actions - mirrored_actions).pow(2)\
+                .mean(-1, keepdim=True).sum() / active_sum
         else:
             mirror_loss = torch.zeros(1)
 
@@ -189,9 +198,11 @@ class PPOOptim(AlgoWorker):
         self.critic_optim.step()
 
         with torch.no_grad():
-          kl = kl_divergence(pdf, old_pdf).mean().numpy()
+          # The dimension of pdf is (num_steps_per_traj, num_trajs, action_dim), so to apply mask,
+          # we need to average over action_dim first.
+          kl = kl_divergence(pdf, old_pdf).mean(-1, keepdim=True).sum() / active_sum
 
-          return kl, ((actor_loss + entropy_penalty).item(), critic_loss.item(), mirror_loss.item())
+          return kl.item(), ((actor_loss + entropy_penalty).item(), critic_loss.item(), mirror_loss.item())
 
 class PPO(AlgoWorker):
     """
