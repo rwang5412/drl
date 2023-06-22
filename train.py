@@ -14,6 +14,7 @@ if __name__ == "__main__":
     """Logger / Saver"""
     parser.add_argument("--wandb", default=False, action='store_true')
     parser.add_argument("--wandb-project-name", default="roadrunner_refactor")
+    parser.add_argument("--wandb-dir", default=None, type=str)
     parser.add_argument("--logdir", default="./trained_models/", type=str)
     parser.add_argument("--run-name", default=None)
 

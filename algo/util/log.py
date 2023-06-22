@@ -68,7 +68,11 @@ def create_logger(all_args, algo_args, env_args, nn_args):
 
     # wandb init before tensorboard.
     if all_args.wandb:
-        wandb.init(group = all_args.run_name, project=all_args.wandb_project_name, config=all_args, sync_tensorboard=True)
+        wandb.init(group = all_args.run_name,
+                   project=all_args.wandb_project_name,
+                   config=all_args,
+                   sync_tensorboard=True,
+                   dir=all_args.wandb_dir)
 
     logger = SummaryWriter(output_dir, flush_secs=0.1) # flush_secs=0.1 actually slows down quite a bit, even on parallelized set ups
     print("Logging to " + BOLD + ORANGE + str(output_dir) + ENDC)

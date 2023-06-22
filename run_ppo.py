@@ -50,6 +50,7 @@ if __name__ == "__main__":
     args.wandb = True
     args.wandb_project_name = "roadrunner_refactor"
     args.logdir = "./trained_models/"
+    args.wandb_dir = None   # If running on vlab pur your tier1 folder here, ex. "/tier1/osu/username/"
 
     args = add_algo_args(args)
     run_experiment(args, args.env_name)
