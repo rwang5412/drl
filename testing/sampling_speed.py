@@ -67,4 +67,30 @@ def sampling_speed():
     print(f"Lose {lib_overhead:.4e} seconds per env step due to env overhead. Over 500 million steps " \
         f"lose {lib_overhead * 500000000/60/60/24:.2f} days")
 
+def run_PD_env_compare():
+    args = SimpleNamespace(simulator_type = "mujoco",
+                        clock_type = "von_mises",
+                        reward_name = "locomotion_vonmises_clock_reward",
+                        dynamics_randomization = False)
+    env1 = env_factory("CassieEnvClock", args)()
+    env2 = env_factory("DigitEnvClock", args)()
+    num_steps = 1000
+    env1_time = 0
+    env2_time = 0
+    for i in range(num_steps):
+        act = np.random.uniform(size=(env1.action_size,))
+        start_t = time.time()
+        env1.step_simulation(act, 40)
+        env1_time += time.time() - start_t
+
+        start_t = time.time()
+        act = np.random.uniform(size=(env2.action_size,))
+        env2.step_simulation(act, 40)
+        env2_time += time.time() - start_t
+
+        # if (sim1.data.qpos[:] - sim2.data.qpos[:]).sum() > 0.00001:
+        #     print("Different qpos")
+    print(f"Env2 took {env2_time / num_steps}, {1 / (env2_time / num_steps):.2f} Hz")
+    print(f"Env1 loop took {env1_time / num_steps}, {1 / (env1_time / num_steps):.2f} Hz")
+
 

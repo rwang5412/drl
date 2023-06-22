@@ -63,4 +63,3 @@ class MjCassieSim(MujocoSim):
         # self.model.actuator_user[:, 0]
         self.input_motor_velocity_max = [2900, 2900, 1300, 1300, 5500,\
                                          2900, 2900, 1300, 1300, 5500]
-

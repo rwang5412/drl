@@ -76,9 +76,9 @@ def tracker_test():
                     env.update_tracker_torque: {"frequency": 50},
                    }
     for tracker, tracker_dict in env.trackers.items():
-            freq = tracker_dict["frequency"]
-            steps = int(env.sim.simulator_rate // freq)
-            tracker_dict["num_step"] = steps
+        freq = tracker_dict["frequency"]
+        steps = int(env.sim.simulator_rate // freq)
+        tracker_dict["num_step"] = steps
 
     with torch.no_grad():
         if hasattr(actor, 'init_hidden_state'):

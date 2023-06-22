@@ -1,6 +1,6 @@
 <mujoco model='robot'>
   <compiler angle='degree' eulerseq='xyz' meshdir='stl'/>
-  <option iterations='50' solver='Newton' timestep='0.0005' gravity='0 0 -9.80665' cone='elliptic'/>
+  <option iterations='50' solver='Newton' timestep='0.0005' gravity='0 0 -9.80665'/>
   <size nconmax='-1' />
   <asset>
     <material name='collision' rgba='0.1 0.5 0.9 0.4'/>
@@ -55,7 +55,7 @@
       <geom conaffinity='1' condim='3' contype='1'/>
     </default>
     <equality solimp='0.9 0.95 0.001 0.1 2' solref='0.001 1.1' />
-    <geom conaffinity='0' condim='1' contype='0' solref='0.02 1' />
+    <geom conaffinity='0' condim='1' contype='0' solref='0.01 1' />
     <joint solreflimit='0.001 1' />
   </default>
   <worldbody>

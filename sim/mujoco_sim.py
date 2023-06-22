@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import mujoco as mj
+import warnings
 
 from .generic_sim import GenericSim
 from .mujoco_viewer import MujocoViewer
@@ -13,7 +14,6 @@ from util.camera_util import (
     make_pose, pose_inv, transform_from_pixels_to_world,
     transform_from_pixels_to_camera_frame
 )
-
 class MujocoSim(GenericSim):
     """
     A base class to define general useful functions that interact with Mujoco simulator.
@@ -48,6 +48,10 @@ class MujocoSim(GenericSim):
             f"{FAIL}Env {self.__class__.__name__} must have non-zeron torque_delay_cycles. Note " \
             f"that delay cycle of 1 corresponds to no delay (specifies size of the torque buffer.{ENDC}"
         self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
+        self.torque_buffer_ind = 0
+        # Motor constants for torque limit, compute once to save time later
+        self.ctrlrange2 = 2 * self.model.actuator_ctrlrange[:, 1]
+        self.twmax = self.ctrlrange2 / (self.model.actuator_user[:, 0] * 2 * np.pi / 60)
 
         self.default_dyn_params = {"damping": self.get_dof_damping(),
                                    "mass": self.get_body_mass(),
@@ -71,6 +75,8 @@ class MujocoSim(GenericSim):
     def reset(self, qpos: np.ndarray=None, qvel: np.ndarray = None):
         mj.mj_setConst(self.model, self.data)
         mj.mj_resetData(self.model, self.data)
+        self.torque_buffer = np.zeros((self.torque_delay_cycles, self.model.nu))
+        self.torque_buffer_ind = 0
         if qpos is not None:
             assert len(qpos) == self.model.nq, \
                 f"{FAIL}reset qpos len={len(qpos)}, but should be {self.model.nq}{ENDC}"
@@ -90,7 +96,7 @@ class MujocoSim(GenericSim):
         if dt:
             num_steps = int(dt / self.model.opt.timestep)
             if num_steps * self.model.opt.timestep != dt:
-                raise RuntimeError(f"{WARNING}Warning: {dt} does not fit evenly within the sim "
+                warnings.warn(f"{WARNING}Warning: {dt} does not fit evenly within the sim "
                     f"timestep of {self.model.opt.timestep}, simulating forward "
                     f"{num_steps * self.model.opt.timestep}s instead.{ENDC}")
         else:
@@ -102,17 +108,16 @@ class MujocoSim(GenericSim):
                f"{FAIL}set_torque got array of shape {output_torque.shape} but " \
                f"should be shape ({self.num_actuators},).{ENDC}"
         # Apply next torque command in buffer
-        self.data.ctrl[:] = self.torque_buffer[0, :]
-        # Shift torque buffer values and append new command at the end
-        self.torque_buffer = np.roll(self.torque_buffer, -1, axis = 0)
+        self.data.ctrl[:] = self.torque_buffer[self.torque_buffer_ind, :]
 
         # Torque limit based on motor speed
-        tmax = self.model.actuator_ctrlrange[:, 1]
-        w = self.data.actuator_velocity[:]
-        wmax = self.model.actuator_user[:, 0] * 2 * np.pi / 60
-        tlim = np.clip(2 * tmax * (1 - abs(w) / wmax), 0, tmax)
+        tlim = self.ctrlrange2 - self.twmax * abs(self.data.actuator_velocity[:])
+        tlim = np.core.umath.clip(tlim, 0, self.model.actuator_ctrlrange[:, 1])
         motor_torque = self.torque_efficiency * np.minimum(tlim, output_torque / self.model.actuator_gear[:, 0])
-        self.torque_buffer[-1, :] = motor_torque
+        self.torque_buffer[self.torque_buffer_ind, :] = motor_torque
+
+        self.torque_buffer_ind += 1
+        self.torque_buffer_ind %= self.torque_delay_cycles
 
     def set_PD(self,
                setpoint: np.ndarray,
@@ -125,8 +130,6 @@ class MujocoSim(GenericSim):
                 assert args[arg].shape == (self.model.nu,), \
                 f"{FAIL}set_PD {arg} was not a 1 dimensional array of size {self.model.nu}{ENDC}"
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds])
-        # Explicit damping
-        torque += kd * velocity
         # Implicit damping
         self.model.dof_damping[self.motor_velocity_inds] = kd
         self.set_torque(torque)

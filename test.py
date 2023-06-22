@@ -64,6 +64,7 @@ if __name__ == "__main__":
         test_mirror()
     if args.timing:
         from testing.tracker_test import tracker_test
-        from testing.sampling_speed import sampling_speed
+        from testing.sampling_speed import sampling_speed, run_PD_env_compare
         sampling_speed()
+        run_PD_env_compare()
         tracker_test()

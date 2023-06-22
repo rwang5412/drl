@@ -63,6 +63,8 @@ class CassieEnv(GenericEnv):
                          self.update_tracker_velocity: {"frequency": 100},
                          self.update_tracker_torque: {"frequency": 50},
                         }
+        if self.simulator_type == "mujoco":
+            self.trackers[self.update_tracker_cop] = {"frequency": 50}
         # Double check tracker frequencies and convert to number of sim steps
         for tracker, tracker_dict in self.trackers.items():
             freq = tracker_dict["frequency"]
@@ -70,7 +72,7 @@ class CassieEnv(GenericEnv):
             if steps != self.sim.simulator_rate / freq:
                 print(f"{WARNING}WARNING: tracker frequency for {tracker.__name__} of {freq}Hz " \
                       f"does not fit evenly into simulator rate of {self.sim.simulator_rate}. " \
-                      f"Rounding to {self.sim.simulator_rate / steps:.0f}Hz instead.{ENDC}")
+                      f"Rounding to {self.sim.simulator_rate / steps:.2f}Hz instead.{ENDC}")
             tracker_dict["num_step"] = steps
 
         self.torque_tracker_avg = np.zeros(10) # log torque in 2kHz
@@ -79,6 +81,8 @@ class CassieEnv(GenericEnv):
         for foot in self.sim.feet_body_name:
             self.feet_grf_tracker_avg[foot] = self.sim.get_body_contact_force(name=foot)
             self.feet_velocity_tracker_avg[foot] = self.sim.get_body_velocity(name=foot)
+        self.cop = None
+        self.cop_marker_id = None
 
         # Dynamics randomization ranges
         # If any joints/bodies are missing from the json file they just won't be randomized,
@@ -259,7 +263,7 @@ class CassieEnv(GenericEnv):
         """
         for foot in self.feet_grf_tracker_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_grf_tracker_avg[foot] = 0.0
+                self.feet_grf_tracker_avg[foot] = np.zeros(3)
             else:
                 self.feet_grf_tracker_avg[foot] += \
                     weighting * self.sim.get_body_contact_force(name=foot)
@@ -267,7 +271,7 @@ class CassieEnv(GenericEnv):
     def update_tracker_velocity(self, weighting: float, sim_step: int):
         for foot in self.feet_velocity_tracker_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_velocity_tracker_avg[foot] = 0.0
+                self.feet_velocity_tracker_avg[foot] = np.zeros(6)
             else:
                 self.feet_velocity_tracker_avg[foot] += \
                     weighting * self.sim.get_body_velocity(name=foot)

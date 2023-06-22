@@ -233,7 +233,7 @@ class DigitEnv(GenericEnv):
         """
         for foot in self.feet_grf_tracker_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_grf_tracker_avg[foot] = 0.0
+                self.feet_grf_tracker_avg[foot] = np.zeros(3)
             else:
                 self.feet_grf_tracker_avg[foot] += \
                     weighting * self.sim.get_body_contact_force(name=foot)
@@ -241,7 +241,7 @@ class DigitEnv(GenericEnv):
     def update_tracker_velocity(self, weighting: float, sim_step: int):
         for foot in self.feet_velocity_tracker_avg.keys():
             if sim_step == 0: # reset at first sim step
-                self.feet_velocity_tracker_avg[foot] = 0.0
+                self.feet_velocity_tracker_avg[foot] = np.zeros(6)
             else:
                 self.feet_velocity_tracker_avg[foot] += \
                     weighting * self.sim.get_body_velocity(name=foot)

@@ -7,6 +7,7 @@ import traceback
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
+from env.util.quaternion import euler2so3
 from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
 from pathlib import Path
@@ -113,6 +114,7 @@ class CassieEnvClock(CassieEnv):
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
+        self.cop = None
 
         return self.get_state()
 
@@ -128,6 +130,15 @@ class CassieEnvClock(CassieEnv):
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
         self.step_simulation(action, simulator_repeat_steps)
+
+        # Update CoP marker
+        if self.sim.viewer is not None:
+            if self.cop_marker_id is None:
+                so3 = euler2so3(z=0, x=0, y=0)
+                self.cop_marker_id = self.sim.viewer.add_marker("sphere", "", [0, 0, 0], [0.03, 0.03, 0.03], [0.99, 0.1, 0.1, 1.0], so3)
+            if self.cop is not None:
+                cop_pos = np.concatenate([self.cop, [0]])
+                self.sim.viewer.update_marker_position(self.cop_marker_id, cop_pos)
 
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
