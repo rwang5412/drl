@@ -618,6 +618,44 @@ class MujocoSim(GenericSim):
         # Since condim=3, let's keep XYZ for now
         return total_wrench[:3]
 
+    def get_body_contact_force_multipoint(self, name: str):
+        """Get each of the contact forces at the named body in global frame along with their global
+        positions
+
+        Args:
+            name (str): body name
+
+        Returns:
+            list[ndarray]: list of numpy arrays of each wrench acting on the body
+            list[ndarray]: list of numpy arrays of corresponding global position of each wrench
+        """
+        body_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
+        # Sum over all contact wrenches over possible geoms within the body
+        forces = []
+        contact_pts = []
+        for contact_id, contact_struct in enumerate(self.data.contact):
+            if body_id == self.model.geom_bodyid[contact_struct.geom1] or \
+               body_id == self.model.geom_bodyid[contact_struct.geom2]:
+                contact_wrench_local = np.zeros(6)
+                mj.mj_contactForce(self.model, self.data, contact_id, contact_wrench_local)
+                contact_wrench_global = np.zeros(6)
+                mj.mju_transformSpatial(contact_wrench_global, contact_wrench_local, True,
+                                        self.data.xpos[body_id],
+                                        self.data.contact[contact_id].pos,
+                                        self.data.contact[contact_id].frame)
+                contact_pts.append(self.data.contact[contact_id].pos)
+                if body_id == self.model.geom_bodyid[contact_struct.geom1]:
+                    # This body is exerting forces onto geom2, substract from the sum.
+                    # total_wrench -= contact_wrench_global
+                    forces.append(-contact_wrench_global[:3])
+                elif body_id == self.model.geom_bodyid[contact_struct.geom2]:
+                    # This body is taking forces from geom1, add into the sum.
+                    # total_wrench += contact_wrench_global
+                    forces.append(contact_wrench_global[:3])
+        forces = np.array(forces)
+        contact_pts = np.array(contact_pts)
+        return forces, contact_pts
+
     def is_body_collision(self, body: str):
         """Get if given body has collision by checking any geoms within the body
         """
@@ -627,6 +665,43 @@ class MujocoSim(GenericSim):
                body_id == self.model.geom_bodyid[contact_struct.geom2]:
                 return True
         return False
+
+    def compute_cop(self):
+        """
+        Computes the current center of pressure (CoP). Note that the class attribute "feet_body_name"
+        must be defined for this to be valid, i.e. the sim model should have feet. If this is not
+        the case, this function just returns "None". "None" is also returned if the feet are not in
+        contact, i.e. there is no CoP.
+        Note that is just an approximation of the true center of pressure since our contacts are
+        only 3 dimensional, and thus no contact torque is taken into account.
+
+        Returns:
+            cop (np.ndarray or None): A 3 long np array representing the point in global
+            world frame of the location of the center of pressure. Is instead None in the case where
+            either the sim has no feet or none of the feet are in contact with the ground.
+        """
+        if not hasattr(self, "feet_body_name"):
+            cop = None
+        else:
+            l_multi_force, l_contact_pts = self.get_body_contact_force_multipoint(self.feet_body_name[0])
+            r_multi_force, r_contact_pts = self.get_body_contact_force_multipoint(self.feet_body_name[1])
+            total_force = 0
+            if len(l_multi_force) > 0:
+                l_force = np.apply_along_axis(np.linalg.norm, 1, l_multi_force)
+                total_force += np.sum(l_force)
+            if len(r_multi_force) > 0:
+                r_force = np.apply_along_axis(np.linalg.norm, 1, r_multi_force)
+                total_force += np.sum(r_force)
+            if total_force > 0:
+                cop = np.zeros(2)
+                for i in range(l_multi_force.shape[0]):
+                    cop += l_force[i] / total_force * l_contact_pts[i, 0:2]
+                for i in range(r_multi_force.shape[0]):
+                    cop += r_force[i] / total_force * r_contact_pts[i, 0:2]
+            else:
+                cop = None
+
+        return cop
 
     def get_body_mass(self, name: str = None):
         # If name is None, return all body masses

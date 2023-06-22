@@ -168,16 +168,16 @@ class CassieEnv(GenericEnv):
             self.joint_encoder_noise = np.zeros(4)
 
         # Do randomization on x and y pelvis velocity as well as quaternion
-        qpos = copy.deepcopy(self.sim.reset_qpos)
-        qvel = np.zeros(self.sim.nv)
-        x_size = 0.3
-        y_size = 0.2
-        qvel[0] = np.random.random() * 2 * x_size - x_size
-        qvel[1] = np.random.random() * 2 * y_size - y_size
-        orientation = np.random.randint(-10, 10) * np.pi / 25
-        quaternion = euler2quat(z=orientation, y=0, x=0)
-        qpos[3:7] = quaternion
-        self.sim.reset(qpos = qpos, qvel = qvel)
+        # qpos = copy.deepcopy(self.sim.reset_qpos)
+        # qvel = np.zeros(self.sim.nv)
+        # x_size = 0.3
+        # y_size = 0.2
+        # qvel[0] = np.random.random() * 2 * x_size - x_size
+        # qvel[1] = np.random.random() * 2 * y_size - y_size
+        # orientation = np.random.randint(-10, 10) * np.pi / 25
+        # quaternion = euler2quat(z=orientation, y=0, x=0)
+        # qpos[3:7] = quaternion
+        self.sim.reset()
 
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
         """This loop sends actions into control interfaces, update torques, simulate step,
@@ -281,6 +281,12 @@ class CassieEnv(GenericEnv):
             else:
                 curr_torque = self.sim.get_torque()
             self.torque_tracker_avg += weighting * curr_torque
+
+    def update_tracker_cop(self, weighting: float, sim_step: int):
+        if sim_step == 0:   # reset at first sim step
+            self.cop = None
+        else:
+            self.cop = self.sim.compute_cop()
 
     def rotate_to_heading(self, orientation: np.ndarray):
         """Offset robot heading in world frame by self.orient_add amount

@@ -54,11 +54,12 @@ class DigitEnv(GenericEnv):
         self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
                             10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
 
-        # Init trackers to weigh/avg 2kHz signals and containers for each signal
+        # Init trackers to weigh/avg high freq signals and containers for each signal
         self.orient_add = 0
         self.trackers = {self.update_tracker_grf: {"frequency": 100},
                          self.update_tracker_velocity: {"frequency": 100},
-                         self.update_tracker_torque: {"frequency": 50}
+                         self.update_tracker_torque: {"frequency": 50},
+                         self.update_tracker_cop: {"frequency": 50}
                         }
         # Double check tracker frequencies and convert to number of sim steps
         for tracker, tracker_dict in self.trackers.items():
@@ -76,6 +77,8 @@ class DigitEnv(GenericEnv):
         for foot in self.sim.feet_body_name:
             self.feet_grf_tracker_avg[foot] = self.sim.get_body_contact_force(name=foot)
             self.feet_velocity_tracker_avg[foot] = self.sim.get_body_velocity(name=foot)
+        self.cop = None
+        self.cop_marker_id = None
 
         # Dynamics randomization ranges
         # If any joints/bodies are missing from the json file they just won't be randomized,
@@ -148,6 +151,7 @@ class DigitEnv(GenericEnv):
                                         ]
         # Display menu of available commands for interactive control
         self._init_interactive_key_bindings()
+
     def reset_simulation(self):
         """Reset simulator.
         Depending on use cases, child class can override this as well.
@@ -247,6 +251,18 @@ class DigitEnv(GenericEnv):
             self.torque_tracker_avg = np.zeros(20)
         else:
             self.torque_tracker_avg += weighting * self.sim.get_torque()
+
+    def update_tracker_cop(self, weighting: float, sim_step: int):
+        """Keep track of 2khz signals, aggragate, and average uniformly.
+
+        Args:
+            weighting (float): weightings of each signal at simulation step to aggregate total
+            sim_step (int): indicate which simulation step
+        """
+        if sim_step == 0:
+            self.cop = None
+        else:
+            self.cop = self.sim.compute_cop()
 
     def rotate_to_heading(self, orientation: np.ndarray):
         """Offset robot heading in world frame by self.orient_add amount

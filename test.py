@@ -21,6 +21,10 @@ if __name__ == "__main__":
         args.sim = True
         args.clock = True
         args.nn = True
+        args.mirror = True
+        args.render = True
+        args.duality = True
+        args.timing = True
 
     if args.algo:
         from testing.test_algo import test_all_algos
@@ -61,5 +65,5 @@ if __name__ == "__main__":
     if args.timing:
         from testing.tracker_test import tracker_test
         from testing.sampling_speed import sampling_speed
-        # sampling_speed()
+        sampling_speed()
         tracker_test()

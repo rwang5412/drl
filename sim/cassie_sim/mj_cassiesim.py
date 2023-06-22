@@ -64,7 +64,3 @@ class MjCassieSim(MujocoSim):
         self.input_motor_velocity_max = [2900, 2900, 1300, 1300, 5500,\
                                          2900, 2900, 1300, 1300, 5500]
 
-        # Move boxes to be underneath the floor (Hacky fix for runtime geom collisions)
-        if hasattr(self, "box_geoms"):
-            for box_geom in self.box_geoms:
-                self.set_geom_pose(box_geom, [-10, 0, -2, 1, 0, 0, 0])

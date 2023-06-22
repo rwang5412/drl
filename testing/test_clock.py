@@ -5,6 +5,7 @@ import time
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
 from env.digit.digitenvclock.digitenvclock import DigitEnvClock
 from env.util.periodicclock import PeriodicClock
+from util.colors import OKGREEN, FAIL, ENDC
 
 
 def plot_clock(t, lr_swing_vals, title: str):
@@ -45,6 +46,7 @@ def test_all_clocks():
     test_vonmises_precompute()
     test_cassieclockenv()
     test_digitclockenv()
+    print(f"{OKGREEN}Passed all clock tests!{ENDC}")
 
 def test_linear_walk_clock():
     cycle_time = 1
