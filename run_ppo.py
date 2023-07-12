@@ -25,6 +25,7 @@ if __name__ == "__main__":
     args.batch_size = 32
     args.epochs = 5
     args.discount = 0.95
+    args.gae_lambda = 0.95
     args.mirror = 1
     args.timesteps = 4e9
     args.workers = 80

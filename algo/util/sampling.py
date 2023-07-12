@@ -32,8 +32,9 @@ class Buffer:
         buffer_read (bool): Whether or not the buffer is ready to be used for optimization.
         additional_info_keys (list): List of keys for additional information stored in the buffer.
     """
-    def __init__(self, discount: float = 0.99):
+    def __init__(self, discount: float = 0.99, gae_lambda: float = 0.95):
         self.discount = discount
+        self.gae_lambda = gae_lambda
         self.clear()
 
     def __len__(self):
@@ -116,12 +117,21 @@ class Buffer:
         self.traj_idx += [self.size]
         rewards = self.rewards[self.traj_idx[-2]:self.traj_idx[-1]]
 
+        values = self.values[self.traj_idx[-2]:self.traj_idx[-1]]
+
         returns = []
 
         R = terminal_value
-        for reward in reversed(rewards):
-            R = self.discount * R + reward
-            returns.insert(0, R)
+
+        # Compute GAE
+        gae = 0
+        for t in range(len(values) - 1, -1, -1):
+            if t == len(values) - 1:
+                delta = rewards[t] + self.discount * R - values[t]
+            else:
+                delta = rewards[t] + self.discount * values[t + 1] - values[t]
+            gae = delta + self.discount * self.gae_lambda * gae
+            returns.insert(0, gae + values[t])
 
         self.returns += returns
 
@@ -232,12 +242,13 @@ class Buffer:
     def __add__(self, buf2):
         offset = len(self.states)
 
-        new_buf = Buffer(self.discount)
+        new_buf = Buffer(self.discount, self.gae_lambda)
         new_buf.states      = self.states + buf2.states
         new_buf.actions     = self.actions + buf2.actions
         new_buf.rewards     = self.rewards + buf2.rewards
         new_buf.values      = self.values + buf2.values
         new_buf.returns     = self.returns + buf2.returns
+        new_buf.advantages  = self.advantages + buf2.advantages
         new_buf.ep_returns  = self.ep_returns + buf2.ep_returns
         new_buf.ep_lens     = self.ep_lens + buf2.ep_lens
 
@@ -270,8 +281,9 @@ class AlgoSampler(AlgoWorker):
         gamma: discount factor
         dynamics_randomization: if dynamics_randomization is enabled in environment
     """
-    def __init__(self, actor, critic, env_fn, gamma, worker_id: int):
+    def __init__(self, actor, critic, env_fn, gamma, gae_lambda, worker_id: int):
         self.gamma  = gamma
+        self.gae_lambda  = gae_lambda
         self.env    = env_fn()
         self.worker_id = worker_id
 
@@ -299,7 +311,7 @@ class AlgoSampler(AlgoWorker):
         # Toggle models to eval mode
         self.actor.eval()
         self.critic.eval()
-        memory = Buffer(self.gamma)
+        memory = Buffer(self.gamma, self.gae_lambda)
         with torch.no_grad():
             state = torch.Tensor(self.env.reset())
             done = False

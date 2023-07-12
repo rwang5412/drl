@@ -262,7 +262,7 @@ class PPO(AlgoWorker):
         if hasattr(self.env, 'get_action_mirror_indices'):
             self.action_mirror_indices = self.env.get_action_mirror_indices()
 
-        self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount, i) for i in \
+        self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount, args.gae_lambda, i) for i in \
                         range(args.workers)]
         self.optim   = PPOOptim.remote(actor, critic, **vars(args))
 
@@ -393,6 +393,7 @@ def add_algo_args(parser):
         "update-norm"        : (False, "Update input normalization during training."),
         "num-steps"          : (2000, "Number of steps to sample each iteration"),
         "discount"           : (0.99, "Discount factor when calculating returns"),
+        "gae-lambda"           : (1.0, "Bias-variance tradeoff factor for GAE"),
         "a-lr"               : (1e-4, "Actor policy learning rate"),
         "c-lr"               : (1e-4, "Critic learning rate"),
         "eps"                : (1e-6, "Adam optimizer eps value"),
