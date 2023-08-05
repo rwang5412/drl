@@ -47,9 +47,19 @@ def unpack_training_error(file_path):
     data = torch.load(file_path)
     for key, value in data.items():
         if not isinstance(value, torch.Tensor):
-            print(f"{key} is not tensor, but other type. Need to check further.")
+            print(f"{key} is not tensor, but other type {type(value)}. Need to check further.")
         elif not torch.isfinite(value).all():
             print(f"{key} has non finite values! Check the calculation in optimization!")
+    try:
+        ratio = (data['log_probs'] - data['old_log_probs']).exp()
+        diff = (data['log_probs'] - data['old_log_probs'])
+        cpi_loss   = ratio * data['advantages']
+        print(torch.max(ratio), torch.min(ratio), torch.max(cpi_loss), torch.min(cpi_loss))
+        clip_loss  = ratio.clamp(1.0 - 0.2, 1 + 0.2) * data['advantages']
+        actor_loss = -(torch.min(cpi_loss, clip_loss)).sum()
+        print(f"Finite values in ratio: {torch.isfinite(ratio).all()}, cpi loss: {torch.isfinite(cpi_loss).all()}, clip loss: {torch.isfinite(clip_loss).all()}, actor loss: {torch.isfinite(actor_loss).all()}, diff: {torch.isfinite(diff).all()}, log prob: {torch.isfinite(data['log_probs']).all()}, old log prob: {torch.isfinite(data['old_log_probs']).all()}")
+    except:
+        pass
 
 if __name__=='__main__':
     # Test cases for this utility function

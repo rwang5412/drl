@@ -176,6 +176,8 @@ class PPOOptim(AlgoWorker):
                         "actions": actions,
                         "returns": returns,
                         "advantages": advantages,
+                        "active_sum": active_sum,
+                        "mask": mask,
                         "log_probs": log_probs,
                         "old_log_probs": old_log_probs,
                         "actor_loss": actor_loss,
@@ -200,7 +202,7 @@ class PPOOptim(AlgoWorker):
         with torch.no_grad():
           # The dimension of pdf is (num_steps_per_traj, num_trajs, action_dim), so to apply mask,
           # we need to average over action_dim first.
-          kl = kl_divergence(pdf, old_pdf).mean(-1, keepdim=True).sum() / active_sum
+          kl = (kl_divergence(pdf, old_pdf) * mask).mean(-1, keepdim=True).sum() / active_sum
 
           return kl.item(), ((actor_loss + entropy_penalty).item(), critic_loss.item(), mirror_loss.item())
 

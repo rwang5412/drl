@@ -27,10 +27,13 @@ class MjDigitSim(MujocoSim):
         self.base_orientation_inds = [3, 4, 5, 6]
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
+        self.arm_position_inds = [30, 31, 32, 33, 57, 58, 59, 60]
+        self.arm_velocity_inds = [26, 27, 28, 29, 51, 52, 53, 54]
         self.base_body_name = "torso/base"
         self.feet_site_name = ["left-foot-mid", "right-foot-mid"] # pose purpose
         self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"] # force purpose
-        self.hand_body_name = ["left-arm/elbow", "right-arm/elbow"]
+        self.hand_body_name = ["left-arm/elbow", "right-arm/elbow"] # force purpose
+        self.hand_site_name = ["left-hand", "right-hand"] # pose purpose
 
         self.num_actuators = len(self.motor_position_inds)
         self.num_joints = len(self.joint_position_inds)
@@ -61,10 +64,10 @@ class MjDigitSim(MujocoSim):
         self.simulator_rate = int(1 / self.model.opt.timestep)
 
         self.offset = self.reset_qpos[self.motor_position_inds]
-        self.kp = np.array([200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0,
-                            200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0, 200.0])
-        self.kd = np.array([10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0,
-                            10.0, 10.0, 20.0, 20.0, 7.0, 7.0, 10.0, 10.0, 10.0, 10.0])
+        self.kp = np.array([80, 80, 110, 140, 40, 40, 80, 80, 50, 80,
+                            80, 80, 110, 140, 40, 40, 80, 80, 50, 80])
+        self.kd = np.array([8, 8, 10, 12, 6, 6, 9, 9, 7, 9,
+                            8, 8, 10, 12, 6, 6, 9, 9, 7, 9])
 
         # List of bodies that cannot (prefer not) collide with environment
         self.body_collision_list = \
@@ -72,6 +75,11 @@ class MjDigitSim(MujocoSim):
              'left-leg/toe-a-rod', 'left-leg/toe-b', 'left-leg/toe-b-rod',\
              'right-leg/shin', 'right-leg/tarsus', 'right-leg/heel-spring', 'right-leg/toe-a', \
              'right-leg/toe-a-rod', 'right-leg/toe-b', 'right-leg/toe-b-rod']
+
+        # minimal list of unwanted collisions to avoid knee walking
+        self.knee_walking_list = \
+            ['left-leg/toe-a-rod', 'left-leg/toe-b-rod', \
+             'right-leg/toe-a-rod', 'right-leg/toe-b-rod']
 
         # Map from mj motor indices to llapi motor indices
         self.digit_motor_llapi2mj_index = [0, 1, 2, 3, 4, 5,\
@@ -81,10 +89,12 @@ class MjDigitSim(MujocoSim):
 
         # Followings are ordered in LLAPI motor indices
         # Output torque limit is in Nm
-        self.output_torque_limit = np.array([126.682458, 79.176536, 216.927898, 231.31695, 41.975942, 41.975942,\
+        self.output_torque_limit_llapi = np.array([126.682458, 79.176536, 216.927898, 231.31695, 41.975942, 41.975942,\
                                             126.682458, 79.176536, 216.927898, 231.31695, 41.975942, 41.975942,\
                                             126.682458, 126.682458, 79.176536, 126.682458,\
                                             126.682458, 126.682458, 79.176536, 126.682458])
+        self.output_torque_limit = self.output_torque_limit_llapi[self.digit_motor_llapi2mj_index]
+
         # Output damping limit is in Nm/(rad/s)
         self.output_damping_limit = np.array([66.849046, 26.112909, 38.05002, 38.05002, 28.553161, 28.553161,\
                                             66.849046, 26.112909, 38.05002, 38.05002, 28.553161, 28.553161,\

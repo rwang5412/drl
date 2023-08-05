@@ -37,7 +37,7 @@
     },
     "action_penalty": {
         "weighting": 0.1,
-        "scaling": 0.4
+        "scaling": 1.0
     },
     "base_transacc": {
         "weighting": 0.025,

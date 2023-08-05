@@ -55,6 +55,7 @@ if __name__ == "__main__":
     # model_path = args.path
     previous_args_dict = pickle.load(open(os.path.join(model_path, "experiment.pkl"), "rb"))
     actor_checkpoint = torch.load(os.path.join(model_path, 'actor.pt'), map_location='cpu')
+    critic_checkpoint = torch.load(os.path.join(model_path, 'critic.pt'), map_location='cpu')
     add_env_parser(previous_args_dict['all_args'].env_name, parser)
     args = parser.parse_args()
     # Overwrite previous env args with current input
@@ -71,6 +72,7 @@ if __name__ == "__main__":
     # Load model class and checkpoint
     actor, critic = nn_factory(args=previous_args_dict['nn_args'], env=env)
     load_checkpoint(model=actor, model_dict=actor_checkpoint)
+    load_checkpoint(model=critic, model_dict=critic_checkpoint)
     actor.eval()
     actor.training = False
 
@@ -79,7 +81,7 @@ if __name__ == "__main__":
     elif evaluation_type == 'interactive':
         if not hasattr(env, 'interactive_control'):
             raise RuntimeError("this environment does not support interactive control")
-        interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len)
+        interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len, critic=critic)
     elif evaluation_type == "offscreen":
         simple_eval_offscreen(actor=actor, env=env, episode_length_max=args.traj_len)
     else:

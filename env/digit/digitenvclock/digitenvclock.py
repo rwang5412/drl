@@ -25,8 +25,10 @@ class DigitEnvClock(DigitEnv):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
-                 velocity_noise: float,
-                 state_est: bool):
+                 state_est: bool,
+                 full_clock: bool = False,
+                 full_gait: bool = False,
+                 integral_action: bool = False):
         assert clock_type == "linear" or clock_type == "von_mises", \
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
@@ -36,19 +38,31 @@ class DigitEnvClock(DigitEnv):
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
                          state_noise=state_noise,
-                         velocity_noise=velocity_noise,
                          state_est=state_est)
+
+        self.integral_action = integral_action
 
         # Clock variables
         self.clock_type = clock_type
+        self.full_clock = full_clock
 
         # Command randomization ranges
-        self._x_velocity_bounds = [0.0, 3.0]
+        self._x_velocity_bounds = [-0.5, 2.0]
         self._y_velocity_bounds = [-0.3, 0.3]
-        self._turn_rate_bounds = [-np.pi/8, -np.pi/8] # rad/s
-        self._swing_ratio_bounds = [0.4, 0.8]
-        self._period_shift_bounds = [0.0, 0.5]
-        self._cycle_time_bounds = [0.75, 1.5]
+        self._turn_rate_bounds = [-np.pi / 8, np.pi / 8] # rad/s
+        self.full_gait = full_gait
+        if self.full_gait:
+            self._swing_ratio_bounds = [0.4, 0.7]
+            self._period_shift_bounds = [-0.5, 0.5]
+            self._cycle_time_bounds = [0.7, 1.1]
+        else:
+            self._swing_ratio_bounds = [0.5, 0.5]
+            self._period_shift_bounds = [0.5, 0.5]
+            self._cycle_time_bounds = [0.8, 0.8]
+        self._randomize_commands_bounds = [150, 200] # in episode length
+
+        if not self.full_gait and self.full_clock:
+            raise NotImplementedError("Training with full clock only works with full gait.")
 
         # Load reward module
         self.reward_name = reward_name
@@ -81,55 +95,78 @@ class DigitEnvClock(DigitEnv):
         self.observation_size += 3 # XY velocity and turn command
         self.observation_size += 2 # swing ratio
         self.observation_size += 2 # period shift
-        self.observation_size += 2 # input clock
+        # input clock
+        if self.full_clock:
+            self.observation_size += 4
+        else:
+            self.observation_size += 2
         self.action_size = self.sim.num_actuators
         # Only check sizes if calling current class. If is child class, don't need to check
         if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
             self.check_observation_action_size()
 
-    def reset(self):
+    def reset(self, interactive_evaluation: bool = False):
         """Reset simulator and env variables.
 
         Returns:
             state (np.ndarray): the s in (s, a, s')
         """
         self.reset_simulation()
-        # Randomize commands
-        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
-        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
-        self.turn_rate = np.random.uniform(*self._turn_rate_bounds)
+        self.randomize_commands(init=True)
+        self.randomize_commands_at = np.random.randint(*self._randomize_commands_bounds)
         self.orient_add = 0
 
         # Update clock
-        # NOTE: Both cycle_time and phase_add are in terms in raw time in seconds
-        swing_ratio = np.random.uniform(*self._swing_ratio_bounds)
-        swing_ratios = [swing_ratio, swing_ratio]
-        period_shifts = [0, np.random.uniform(*self._period_shift_bounds)]
-        self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
-        phase_add = 1 / self.default_policy_rate
-        self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
+        self.randomize_clock(init=True)
         if self.clock_type == "von_mises":
             self.clock.precompute_von_mises()
 
+        # Interactive control/evaluation
         self._update_control_commands_dict()
+        self.interactive_evaluation = interactive_evaluation
+
         # Reset env counter variables
         self.traj_idx = 0
         self.last_action = None
         self.cop = None
         return self.get_state()
 
+    def randomize_clock(self, init=False):
+        phase_add = 1 / self.default_policy_rate
+        if init:
+            swing_ratio = np.random.uniform(*self._swing_ratio_bounds)
+            swing_ratios = [swing_ratio, swing_ratio]
+            if np.random.random() < 0.3 and self.full_gait: # 30% chance of rand shifts
+                period_shifts = [0   + np.random.uniform(*self._period_shift_bounds),
+                                 0.5 + np.random.uniform(*self._period_shift_bounds)]
+            else:
+                period_shifts = [0, 0.5]
+            self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
+            self.clock = PeriodicClock(self.cycle_time, phase_add, swing_ratios, period_shifts)
+        else:
+            swing_ratio = np.random.uniform(*self._swing_ratio_bounds)
+            self.clock.set_swing_ratios([swing_ratio, swing_ratio])
+            if np.random.random() < 0.3 and self.full_gait: # 30% chance of rand shifts
+                period_shifts = [0   + np.random.uniform(*self._period_shift_bounds),
+                                 0.5 + np.random.uniform(*self._period_shift_bounds)]
+            else:
+                period_shifts = [0, 0.5]
+            self.clock.set_period_shifts(period_shifts)
+            self.cycle_time = np.random.uniform(*self._cycle_time_bounds)
+            self.clock.set_cycle_time(self.cycle_time)
+
     def step(self, action: np.ndarray):
         if self.dynamics_randomization:
-            self.policy_rate = self.default_policy_rate + np.random.randint(-5, 6)
+            self.policy_rate = self.default_policy_rate + np.random.randint(0, 6)
         else:
             self.policy_rate = self.default_policy_rate
 
         # Offset global zero heading by turn rate per policy step
-        self.orient_add += self.turn_rate / (self.sim.simulator_rate / self.default_policy_rate)
+        self.orient_add += self.turn_rate / self.default_policy_rate
 
         # Step simulation by n steps. This call will update self.tracker_fn.
         simulator_repeat_steps = int(self.sim.simulator_rate / self.policy_rate)
-        self.step_simulation(action, simulator_repeat_steps)
+        self.step_simulation(action, simulator_repeat_steps, integral_action=self.integral_action)
 
         # Update CoP marker
         if self.sim.viewer is not None:
@@ -149,7 +186,36 @@ class DigitEnvClock(DigitEnv):
         # Increment clock at last for updating s'
         self.clock.increment()
 
+        # Randomize commands
+        if self.traj_idx % self.randomize_commands_at == 0 and not self.interactive_evaluation:
+            self.randomize_commands()
+            if self.full_gait:
+                self.randomize_clock()
+
         return self.get_state(), r, self.compute_done(), {}
+
+    def randomize_commands(self, init=False):
+        # Randomize commands
+        self.x_velocity = np.random.uniform(*self._x_velocity_bounds)
+        self.y_velocity = np.random.uniform(*self._y_velocity_bounds)
+        self.turn_rate = np.random.uniform(*self._turn_rate_bounds)
+        choices = ['in-place', 'in-place-turn', 'walk', 'walk-turn']
+        mode = np.random.choice(choices, p=[0.1, 0.1, 0.3, 0.5])
+        match mode:
+            case 'in-place':
+                self.x_velocity, self.y_velocity, self.turn_rate = 0, 0, 0
+            case 'in-place-turn':
+                self.x_velocity, self.y_velocity = 0, 0
+                self.turn_rate = np.random.uniform(*self._turn_rate_bounds)
+            case 'walk':
+                self.turn_rate = 0
+            case 'walk-turn':
+                self.turn_rate = np.random.uniform(*self._turn_rate_bounds)
+        # Clip to avoid useless commands
+        if self.x_velocity <= 0.1:
+            self.x_velocity = 0
+        if self.y_velocity <= 0.1:
+            self.y_velocity = 0
 
     def compute_reward(self, action: np.ndarray):
         return self._compute_reward(self, action)
@@ -158,11 +224,15 @@ class DigitEnvClock(DigitEnv):
         return self._compute_done(self)
 
     def get_state(self):
+        if self.full_clock:
+            input_clock = self.clock.input_full_clock()
+        else:
+            input_clock = self.clock.input_clock()
         out = np.concatenate((self.get_robot_state(),
                               [self.x_velocity, self.y_velocity, self.turn_rate],
-                              self.clock.get_swing_ratios(),
+                              [self.clock.get_swing_ratios()[0], 1 - self.clock.get_swing_ratios()[0]],
                               self.clock.get_period_shifts(),
-                              self.clock.input_clock()))
+                              input_clock))
         if not is_variable_valid(out):
             raise RuntimeError(f"States has Nan or Inf values. Training stopped.\n"
                                f"get_state returns {out}")
@@ -174,13 +244,17 @@ class DigitEnvClock(DigitEnv):
     def get_observation_mirror_indices(self):
         mirror_inds = [x for x in self.robot_state_mirror_indices]
         # XY velocity command
-        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1), - (len(mirror_inds) + 1)]
+        mirror_inds += [len(mirror_inds), - (len(mirror_inds) + 1), - (len(mirror_inds) + 2)]
         # swing ratio
         mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # period shift
         mirror_inds += [len(mirror_inds) + 1, len(mirror_inds)]
         # input clock sin/cos
-        mirror_inds += [- len(mirror_inds), - (len(mirror_inds) + 1)]
+        if self.full_clock:
+            mirror_inds += [len(mirror_inds) + 2, len(mirror_inds) + 3,
+                            len(mirror_inds), len(mirror_inds) + 1]
+        else:
+            mirror_inds += [-len(mirror_inds), -(len(mirror_inds) + 1)]
         return mirror_inds
 
     def _init_interactive_key_bindings(self,):
@@ -207,11 +281,11 @@ class DigitEnvClock(DigitEnv):
         }
         self.input_keys_dict["e"] = {
             "description": "decrease turn rate",
-            "func": lambda self: setattr(self, "turn_rate", self.turn_rate - 0.001 * np.pi/4)
+            "func": lambda self: setattr(self, "turn_rate", self.turn_rate - 0.01 * np.pi/4)
         }
         self.input_keys_dict["q"] = {
             "description": "increase turn rate",
-            "func": lambda self: setattr(self, "turn_rate", self.turn_rate + 0.001 * np.pi/4)}
+            "func": lambda self: setattr(self, "turn_rate", self.turn_rate + 0.01 * np.pi/4)}
         self.input_keys_dict["o"] = {
             "description": "increase clock cycle time",
             "func": lambda self: setattr(self.clock, "_cycle_time", np.clip(
@@ -228,14 +302,14 @@ class DigitEnvClock(DigitEnv):
                 self._cycle_time_bounds[1]
             ))
         }
-        self.input_keys_dict["]"] = {
+        self.input_keys_dict["-"] = {
             "description": "increase swing ratio",
             "func": lambda self: setattr(self.clock, "_swing_ratios",
                 np.full((2,), np.clip(self.clock._swing_ratios[0] + 0.1,
                     self._swing_ratio_bounds[0],
                     self._swing_ratio_bounds[1])))
         }
-        self.input_keys_dict["["] = {
+        self.input_keys_dict["="] = {
             "description": "decrease swing ratio",
             "func": lambda self: setattr(self.clock, "_swing_ratios",
                 np.full((2,), np.clip(self.clock._swing_ratios[0] - 0.1,
@@ -284,7 +358,15 @@ class DigitEnvClock(DigitEnv):
             self.input_keys_dict[c]["func"](self)
             self._update_control_commands_dict()
             self.display_control_commands()
-
+        if c == '0':
+            self.x_velocity = 0
+            self.y_velocity = 0
+            self.turn_rate = 0
+            self.clock.set_cycle_time(0.8)
+            self.clock.set_swing_ratios([0.5, 0.5])
+            self.clock.set_period_shifts([0, 0.5])
+            self._update_control_commands_dict()
+            self.display_control_commands()
 
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
     """
@@ -309,11 +391,15 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
-        "velocity-noise" : (0.0, "Amount of noise to add to motor and joint state."),
         "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
                        libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
-        "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")")
+        "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")"),
+        "full-clock" : (False, "Whether to input the full clock (sine/cosine for each leg) or just \
+                        single sine/cosine pair (default is False)"),
+        "full-gait" : (False, "Whether to train on all gait parameters or just train walking \
+                       (default is False)"),
+        "integral-action" : (False, "Whether to use integral action in the clock (default is False)"),
     }
     if isinstance(parser, argparse.ArgumentParser):
         env_group = parser.add_argument_group("Env arguments")
@@ -323,6 +409,10 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             else:
                 env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
         env_group.set_defaults(dynamics_randomization=True)
+        env_group.set_defaults(state_est=False)
+        env_group.set_defaults(full_clock=False)
+        env_group.set_defaults(full_gait=False)
+        env_group.set_defaults(integral_action=False)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")

@@ -43,14 +43,17 @@ class MjCassieSim(MujocoSim):
                     -0.0045, 0, 0.4973, 0.9786, 0.00386, -0.01524, -0.2051,
                     -1.1997, 0, 1.4267, 0, -1.5244, 1.5244, -1.5968])
 
+        self.offset = self.reset_qpos[self.motor_position_inds]
+
+        self.kp = np.array([80, 80, 110, 110, 50,
+                            80, 80, 110, 110, 50])
+        self.kd = np.array([8, 8, 10, 10, 5,
+                            8, 8, 10, 10, 5])
+
         # NOTE: Have to call super init AFTER index arrays and constants are defined
         super().__init__(model_path=model_path, terrain=terrain)
 
         self.simulator_rate = int(1 / self.model.opt.timestep)
-
-        self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
-        self.kp = np.array([100,  100,  88,  96,  50, 100, 100,  88,  96,  50])
-        self.kd = np.array([10.0, 10.0, 8.0, 9.6, 5.0, 10.0, 10.0, 8.0, 9.6, 5.0])
 
         # List of bodies that cannot (prefer not) collide with environment
         self.body_collision_list = ['left-tarsus', 'left-achilles-rod', 'left-heel-spring', 'left-foot-crank',\
@@ -58,8 +61,15 @@ class MjCassieSim(MujocoSim):
             'right-tarsus', 'right-achilles-rod', 'right-heel-spring', 'right-foot-crank',\
             'right-plantar-rod']
 
+        # minimal list of unwanted collisions to avoid knee walking
+        self.knee_walking_list = ['left-heel-spring', 'right-heel-spring',\
+                                  'left-foot-crank', 'right-foot-crank']
+
         # Input motor velocity limit is in RPM, ordered in Mujoco motor
         # XML already includes this attribute as 'user' under <actuator>, can be queried as
         # self.model.actuator_user[:, 0]
         self.input_motor_velocity_max = [2900, 2900, 1300, 1300, 5500,\
                                          2900, 2900, 1300, 1300, 5500]
+
+        self.output_torque_limit = [112.5, 112.5, 195.2, 195.2, 45.0,\
+                                    112.5, 112.5, 195.2, 195.2, 45.0]

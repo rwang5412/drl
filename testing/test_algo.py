@@ -35,4 +35,6 @@ def test_ppo():
     run_experiment(args, args.env_name)
     print(f"{OKGREEN}Passed PPO test{ENDC}")
 
-
+def train():
+    from run_ppo import run_ppo
+    run_ppo()

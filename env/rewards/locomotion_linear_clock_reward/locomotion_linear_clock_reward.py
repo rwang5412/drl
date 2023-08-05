@@ -1,4 +1,5 @@
 import numpy as np
+import mujoco as mj
 
 from env.util.quaternion import quaternion_distance, euler2quat, quaternion_product
 from util.check_number import is_variable_valid
@@ -55,10 +56,16 @@ def compute_reward(self, action):
     q["l_foot_cost_pos"] = l_swing * l_height_cost
     q["r_foot_cost_pos"] = r_swing * r_height_cost
 
-    ### CoM rewards (desired speed, orientation) ###
-    base_vel = self.sim.get_body_velocity(self.sim.base_body_name)
-    x_vel = np.abs(base_vel[0] - self.x_velocity)
-    y_vel = np.abs(base_vel[1] - self.y_velocity)
+    ### Speed rewards ###
+    base_vel = self.sim.get_base_linear_velocity()
+    # Offset velocity in local frame by target orient_add to get target velocity in world frame
+    target_vel_in_local = np.array([self.x_velocity, self.y_velocity, 0])
+    quat = euler2quat(z = self.orient_add, y = 0, x = 0)
+    target_vel = np.zeros(3)
+    mj.mju_rotVecQuat(target_vel, target_vel_in_local, quat)
+    # Compare velocity in the same frame
+    x_vel = np.abs(base_vel[0] - target_vel[0])
+    y_vel = np.abs(base_vel[1] - target_vel[1])
     # We have deadzones around the speed reward since it is impossible (and we actually don't want)
     # for base velocity to be constant the whole time.
     if x_vel < 0.05:
@@ -94,7 +101,7 @@ def compute_reward(self, action):
     q["base_transacc"] = np.linalg.norm(base_acc[0:2]) # Don't care about z acceleration
 
     ### Sim2real stability rewards ###
-    q["action_penalty"] = np.abs(action).sum()
+    q["action_penalty"] = np.abs(action[[0, 1, 5, 6]]).sum() # Only penalize hip roll/yaw
     if self.last_action is not None:
         q["ctrl_penalty"] = sum(np.abs(self.last_action - action)) / len(action)
     else:
@@ -103,7 +110,7 @@ def compute_reward(self, action):
         torque = self.sim.get_torque(state_est = self.state_est)
     else:
         torque = self.sim.get_torque()
-    q["trq_penalty"] = sum(np.abs(torque)) / len(torque)
+    q["trq_penalty"] = sum(np.abs(torque[[0, 1, 5, 6]])) / 4 # Only penalize hip roll/yaw
 
     ### Add up all reward components ###
     self.reward = 0

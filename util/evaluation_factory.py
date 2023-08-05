@@ -58,7 +58,7 @@ def simple_eval(actor, env, episode_length_max=300):
                         env.sim.init_renderer(offscreen=env.offscreen,
                                               width=env.depth_image_dim[0], height=env.depth_image_dim[1])
 
-def interactive_eval(actor, env, episode_length_max=300):
+def interactive_eval(actor, env, episode_length_max=300, critic=None):
     """Simply evaluating policy in visualization window with user input
 
     Args:
@@ -74,13 +74,15 @@ def interactive_eval(actor, env, episode_length_max=300):
     print(f"{OKGREEN}Feeding keyboard inputs to policy for interactive eval mode.")
     print("Type commands into the terminal window to avoid interacting with the mujoco viewer keybinds." + '\033[0m')
     with torch.no_grad():
-        state = env.reset()
+        state = env.reset(interactive_evaluation=True)
         done = False
         episode_length = 0
         episode_reward = []
 
         if hasattr(actor, 'init_hidden_state'):
             actor.init_hidden_state()
+        if hasattr(critic, 'init_hidden_state'):
+            critic.init_hidden_state()
 
         env.sim.viewer_init()
         render_state = env.sim.viewer_render()
@@ -95,6 +97,12 @@ def interactive_eval(actor, env, episode_length_max=300):
                 state, reward, done, _ = env.step(action)
                 episode_length += 1
                 episode_reward.append(reward)
+                if critic is not None:
+                    if hasattr(env, 'get_privilege_state'):
+                        critic_state = env.get_privilege_state()
+                    else:
+                        critic_state = state
+                    # print(f"Critic value = {critic(torch.Tensor(critic_state)).numpy() if critic is not None else 'N/A'}")
             if cmd is not None:
                 env.interactive_control(cmd)
             if cmd == "quit":
@@ -107,7 +115,7 @@ def interactive_eval(actor, env, episode_length_max=300):
             delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
             time.sleep(delaytime)
             if done:
-                state = env.reset()
+                state = env.reset(interactive_evaluation=True)
                 env.display_control_commands(erase=True)
                 print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
                 env.display_control_commands()

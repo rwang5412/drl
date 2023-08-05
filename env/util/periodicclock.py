@@ -50,6 +50,16 @@ class PeriodicClock:
         clock = [np.sin(2 * np.pi * ((self._phase/self._cycle_time)+s)) for s in self._period_shifts]
         return clock
 
+    def input_full_clock(self):
+        """Clock in two sine/cosine pairs, one for each leg.
+        """
+        t = self._phase / self._cycle_time
+        clock = [np.sin(2 * np.pi * ((t) + self._period_shifts[0])),
+                 np.cos(2 * np.pi * ((t) + self._period_shifts[0])),
+                 np.sin(2 * np.pi * ((t) + self._period_shifts[1])),
+                 np.cos(2 * np.pi * ((t) + self._period_shifts[1]))]
+        return clock
+
     def linear_clock(self, percent_transition: float = 0.2):
         """
         Implements piecewise linear clock function used for cyclic foot reward components. Uses the

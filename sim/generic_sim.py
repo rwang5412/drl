@@ -77,6 +77,21 @@ class GenericSim(object):
         self.set_geom_friction(np.multiply(1 + np.random.uniform(
                                    *dr_ranges["friction"]["ranges"], size=3),
                                    self.default_dyn_params["friction"]), name="floor")
+        # Spring stiffness
+        if "cassie" in self.__class__.__name__.lower():
+            k_knee = np.random.uniform(2000, 3000)
+            self.set_jnt_stiffness(name='left-shin', stiffness=k_knee)
+            self.set_jnt_stiffness(name='right-shin', stiffness=k_knee)
+            k_heel = np.random.uniform(1000, 1500)
+            self.set_jnt_stiffness(name='left-heel-spring', stiffness=k_heel)
+            self.set_jnt_stiffness(name='right-heel-spring', stiffness=k_heel)
+        if "digit" in self.__class__.__name__.lower():
+            k_knee = np.random.uniform(5500, 6500)
+            self.set_jnt_stiffness(name='left-leg/shin', stiffness=k_knee)
+            self.set_jnt_stiffness(name='right-leg/shin', stiffness=k_knee)
+            k_heel = np.random.uniform(4000, 4750)
+            self.set_jnt_stiffness(name='left-leg/heel-spring', stiffness=k_heel)
+            self.set_jnt_stiffness(name='right-leg/heel-spring', stiffness=k_heel)
 
     def default_dynamics(self):
         """

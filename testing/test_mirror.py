@@ -27,15 +27,13 @@ def test_mirror():
                     policy_rate=50,
                     dynamics_randomization=False,
                     state_est=False,
-                    state_noise=0,
-                    velocity_noise=0)
+                    state_noise=0)
 
     digit = DigitEnv(simulator_type='mujoco',
                     terrain=False,
                     policy_rate=50,
                     dynamics_randomization=False,
                     state_noise=0,
-                    velocity_noise=0,
                     state_est=False)
 
     """

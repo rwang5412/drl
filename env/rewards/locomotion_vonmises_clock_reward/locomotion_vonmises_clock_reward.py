@@ -1,4 +1,5 @@
 import numpy as np
+import mujoco as mj
 
 from env.util.quaternion import quaternion_distance, euler2quat, quaternion_product, quaternion2euler
 from util.check_number import is_variable_valid
@@ -37,9 +38,15 @@ def compute_reward(self, action):
     q["right_speed"] = r_stance * r_foot_vel
 
     ### Speed rewards ###
-    base_vel = self.sim.get_body_velocity(self.sim.base_body_name)
-    x_vel = np.abs(base_vel[0] - self.x_velocity)
-    y_vel = np.abs(base_vel[1] - self.y_velocity)
+    base_vel = self.sim.get_base_linear_velocity()
+    # Offset velocity in local frame by target orient_add to get target velocity in world frame
+    target_vel_in_local = np.array([self.x_velocity, self.y_velocity, 0])
+    quat = euler2quat(z = self.orient_add, y = 0, x = 0)
+    target_vel = np.zeros(3)
+    mj.mju_rotVecQuat(target_vel, target_vel_in_local, quat)
+    # Compare velocity in the same frame
+    x_vel = np.abs(base_vel[0] - target_vel[0])
+    y_vel = np.abs(base_vel[1] - target_vel[1])
     # We have deadzones around the speed reward since it is impossible (and we actually don't want)
     # for base velocity to be constant the whole time.
     if x_vel < 0.05:
@@ -78,9 +85,8 @@ def compute_reward(self, action):
     if self.simulator_type == "libcassie" and self.state_est:
         base_acc = self.sim.robot_estimator_state.pelvis.translationalAcceleration[:]
     else:
-        base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)[0:3]
+        base_acc = self.sim.get_body_acceleration(self.sim.base_body_name)
     q["stable_base"] = np.abs(base_acc).sum()
-    q["action_penalty"] = np.abs(action).sum()
     if self.last_action is not None:
         q["ctrl_penalty"] = sum(np.abs(self.last_action - action)) / len(action)
     else:
@@ -89,7 +95,19 @@ def compute_reward(self, action):
         torque = self.sim.get_torque(state_est = self.state_est)
     else:
         torque = self.sim.get_torque()
-    q["trq_penalty"] = sum(np.abs(torque)) / len(torque)
+    # Normalized by torque limit, sum worst case is 10, usually around 1 to 2
+    q["trq_penalty"] = sum(np.abs(torque)/self.sim.output_torque_limit)
+
+    if "digit" in self.__class__.__name__.lower():
+        l_hand_pose = self.sim.get_site_pose(self.sim.hand_site_name[0])
+        r_hand_pose = self.sim.get_site_pose(self.sim.hand_site_name[1])
+        l_hand_in_base = self.sim.get_relative_pose(base_pose, l_hand_pose)
+        r_hand_in_base = self.sim.get_relative_pose(base_pose, r_hand_pose)
+        l_hand_target = np.array([[0.15, 0.3, -0.1]])
+        r_hand_target = np.array([[0.15, -0.3, -0.1]])
+        l_hand_distance = np.linalg.norm(l_hand_in_base[:3] - l_hand_target)
+        r_hand_distance = np.linalg.norm(r_hand_in_base[:3] - r_hand_target)
+        q['arm'] = l_hand_distance + r_hand_distance
 
     ### Add up all reward components ###
     self.reward = 0
@@ -107,8 +125,13 @@ def compute_reward(self, action):
 # Termination condition: If orientation too far off terminate
 def compute_done(self):
     base_pose = self.sim.get_body_pose(self.sim.base_body_name)
+    base_height = base_pose[2]
     base_euler = quaternion2euler(base_pose[3:])
-    if np.abs(base_euler[1]) > 0.6 or np.abs(base_euler[0]) > 0.6:
+    for b in self.sim.knee_walking_list:
+        collide = self.sim.is_body_collision(b)
+        if collide:
+            break
+    if np.abs(base_euler[1]) > 20/180*np.pi or np.abs(base_euler[0]) > 20/180*np.pi or collide or base_height < 0.65:
         return True
     else:
         return False

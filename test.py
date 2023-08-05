@@ -13,6 +13,7 @@ if __name__ == "__main__":
     parser.add_argument("--render", default=False, action='store_true')
     parser.add_argument("--timing", default=False, action='store_true')
     parser.add_argument("--all", default=False, action='store_true')
+    parser.add_argument("--train", default=False, action='store_true')
     args = parser.parse_args()
 
     if args.all:
@@ -66,5 +67,8 @@ if __name__ == "__main__":
         from testing.tracker_test import tracker_test
         from testing.sampling_speed import sampling_speed, run_PD_env_compare
         sampling_speed()
-        run_PD_env_compare()
-        tracker_test()
+        # run_PD_env_compare()
+        # tracker_test()
+    if args.train:
+        from testing.test_algo import train
+        train()

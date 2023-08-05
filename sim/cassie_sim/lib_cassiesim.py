@@ -513,3 +513,6 @@ class LibCassieSim(GenericSim):
                 f"friction but should be shape ({self.ngeom}, 3).{ENDC}"
             fric = fric.flatten()
         self.sim.set_geom_friction(fric, name)
+
+    def set_geom_quat(self, name: str, quat: np.ndarray):
+        self.sim.set_geom_quat(quat, name)

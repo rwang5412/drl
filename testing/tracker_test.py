@@ -17,7 +17,6 @@ def tracker_test():
     previous_args_dict['env_args'].dynamics_randomization = False
     previous_args_dict['env_args'].simulator_type = "mujoco"
     previous_args_dict['env_args'].state_noise = 0.0
-    previous_args_dict['env_args'].velocity_noise = 0.0
 
     # Load environment
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()

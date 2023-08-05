@@ -165,7 +165,7 @@
                       <joint name='left-leg/toe-roll' type='hinge' axis='0 0 1' range='-37 33' stiffness='0' frictionloss='0' damping='0.1' armature='0' limited='true' pos='0 0 0'/>
                       <geom type='mesh' mesh='left-leg/toe-roll-0' pos='0 0 0' euler='-0 0 -0' material='robot'/>
                       <geom name='left-foot' type='box' size='0.04 0.1175 0.0115' pos='0 -0.0437 -0.0255' euler='-60.00002314 0 -0' friction='0.7 0.01 0.005' contype='1' conaffinity='-2' mass='0.531283' rgba='0.5 0.5 0.5 0.0' class='collision' group='1'/>
-                      <site name="left-foot-mid" type="sphere" pos="0 0 0" euler="120 180 90" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
+                      <site name="left-foot-mid" type="sphere" pos="0 -0.065 -0.02" euler="120 180 90" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
                     </body>
                   </body>
                 </body>
@@ -195,6 +195,7 @@
               <geom type='mesh' mesh='left-arm/elbow-0' pos='0 0 0' euler='-0 0 -0' material='robot'/>
               <geom type='cylinder' size='0.013 0.1565' pos='0.184 0.01 -0.026' euler='169.9999264 78.00000889 -179.9999524' friction='0.7 0.01 0.005' contype='2' conaffinity='-3' mass='0.550582' rgba='0.5 0.5 0.5 0.0' class='collision' group='1'/>
               <geom type='sphere' size='0.015' pos='0.37937 0 -0.061912' euler='-0 0 -0' friction='0.7 0.01 0.005' contype='2' conaffinity='-3' mass='0.550582' rgba='0.5 0.5 0.5 0.0' class='collision' group='1'/>
+              <site name="left-hand" type="sphere" pos="0.35 0 -0.05" euler="0 0 0" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
             </body>
           </body>
         </body>
@@ -272,7 +273,7 @@
                       <joint name='right-leg/toe-roll' type='hinge' axis='0 0 1' range='-33 37' stiffness='0' frictionloss='0' damping='0.1' armature='0' limited='true' pos='0 0 0'/>
                       <geom type='mesh' mesh='right-leg/toe-roll-0' pos='0 0 0' euler='-0 0 -0' material='robot'/>
                       <geom name='right-foot' type='box' size='0.04 0.1175 0.0115' pos='0 0.0437 -0.0255' euler='60.00002314 0 -0' friction='0.7 0.01 0.005' contype='4' conaffinity='-5' mass='0.531283' rgba='0.5 0.5 0.5 0.0' class='collision' group='1'/>
-                      <site name="right-foot-mid" type="sphere" pos="0 0 0" euler="60 0 90" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
+                      <site name="right-foot-mid" type="sphere" pos="0 0.065 -0.02" euler="60 0 90" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
                     </body>
                   </body>
                 </body>
@@ -302,6 +303,7 @@
               <geom type='mesh' mesh='right-arm/elbow-0' pos='0 0 0' euler='-0 0 -0' material='robot'/>
               <geom type='cylinder' size='0.013 0.1565' pos='0.184 -0.01 -0.026' euler='-169.9999264 78.00000889 179.9999524' friction='0.7 0.01 0.005' contype='8' conaffinity='-9' mass='0.550582' rgba='0.5 0.5 0.5 0.0' class='collision' group='1'/>
               <geom type='sphere' size='0.015' pos='0.37937 0 -0.061912' euler='-0 0 -0' friction='0.7 0.01 0.005' contype='8' conaffinity='-9' mass='0.550582' rgba='0.5 0.5 0.5 0.0' class='collision' group='1'/>
+              <site name="right-hand" type="sphere" pos="0.35 0 -0.05" euler="0 0 0" size="0.005" rgba="0.7 0.2 0.1 1.0"/>
             </body>
           </body>
         </body>

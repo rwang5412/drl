@@ -22,6 +22,12 @@ from util.env_factory import env_factory
 # entry file for run a specified udp setup
 # cassie-async (sim), digit-ar-control-async (sim), cassie-real, digit-real
 
+def remap(val, min1, max1, min2, max2):
+    span1 = max1 - min1
+    span2 = max2 - min2
+    scaled = (val - min1) / span1
+    return np.clip(min2 + (scaled * span2), min2, max2)
+
 def save_log():
     global log_hf_ind, log_lf_ind, logdir, part_num, sto_num, time_hf_log, output_log, state_log, target_log, speed_log, orient_log, phaseadd_log, time_lf_log, input_log
 
@@ -107,8 +113,9 @@ def execute(policy, env, args, do_log, exec_rate=1):
     env.x_velocity = 0
     env.clock._phase = 0
     env.clock._cycle_time = 0.8
-    env.clock._swing_ratios = [0.4, 0.4]
+    env.clock._swing_ratios = [0.5, 0.5]
     env.clock._period_shifts = [0, 0.5]
+    env.clock._von_mises_buf = None
 
     # 0: walking
     # 1: standing
@@ -187,17 +194,29 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     STO = False
                     logged = False
 
-                # Orientation control (Do manually instead of turn_rate)
-                env.turn_rate = state.radio.channel[3] * np.pi/8
-                # X and Y speed control
-                env.x_velocity += state.radio.channel[0] / (60.0*env.default_policy_rate)
-                env.y_velocity += state.radio.channel[1] / (60.0*env.default_policy_rate)
                 # Example of setting things manually instead. Reference to what radio channel corresponds to what joystick/knob:
                 # https://github.com/agilityrobotics/cassie-doc/wiki/Radio#user-content-input-configuration
-                # env.cmd_dict['step_freq'] = 1 + state.radio.channel[5]
-                # ratio = 0.5 + state.radio.channel[6] / 2
-                # env.cmd_dict['ratio'] = [ratio, 1-ratio]
-                # env.cmd_dict['period_shift'] = [0, (state.radio.channel[7]+1)/2]
+                # Radio control deadzones
+                l_stick_x = state.radio.channel[0]
+                l_stick_y = state.radio.channel[1]
+                r_stick_y = state.radio.channel[3]
+                if abs(l_stick_x) < 0.05:
+                    l_stick_x = 0
+                if abs(l_stick_y) < 0.05:
+                    l_stick_y = 0
+                if abs(r_stick_y) < 0.05:
+                    r_stick_y = 0
+                # Orientation control
+                env.turn_rate = remap(r_stick_y, -1, 1, -0.5, 0.5)
+                env.orient_add += env.turn_rate / env.default_policy_rate
+                # X and Y speed control
+                env.x_velocity = remap(l_stick_x, -1, 1, -1.0, 1.0)
+                env.y_velocity = -remap(l_stick_y, -1, 1, -0.3, 0.3)
+                env.x_velocity = np.clip(env.x_velocity, -0.3, 1.0)
+                env.y_velocity = np.clip(env.y_velocity, -0.3, 0.3)
+                # Gait parameters control
+                cycle_time = remap(state.radio.channel[5], -1, 1, 0.7, 1.0)
+                env.clock.set_cycle_time(cycle_time)
 
             else:
                 """
@@ -342,6 +361,9 @@ args = parser.parse_args()
 # Load environment
 previous_args_dict['env_args'].simulator_type = "libcassie"
 previous_args_dict['env_args'].state_est = True
+previous_args_dict['env_args'].velocity_noise = 0.0
+previous_args_dict['env_args'].state_noise = 0.0
+previous_args_dict['env_args'].dynamics_randomization = False
 env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
 
 # Load model class and checkpoint
@@ -350,14 +372,14 @@ load_checkpoint(model=actor, model_dict=actor_checkpoint)
 actor.eval()
 actor.training = False
 
-LOG_NAME = os.path.basename(os.path.normpath(args.path))
+LOG_NAME = args.path.rsplit('/', 3)[1] + "/"
 directory = os.path.dirname(os.path.realpath(__file__)) + "/hardware_logs/"
 filename = "logdata"
-timestr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M') + "/"
+timestr = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
 if not os.path.exists(directory + timestr + LOG_NAME + "/"):
-    os.makedirs(directory + timestr + LOG_NAME + "/")
-logdir = directory + timestr + LOG_NAME + "/"
-filename = directory + timestr + LOG_NAME + "/" + filename + ".pkl"
+    os.makedirs(directory + LOG_NAME + timestr + "/")
+logdir = directory + LOG_NAME + timestr + "/"
+filename = directory + LOG_NAME + timestr + "/" + filename + ".pkl"
 
 # Global data for logging
 log_size = 100000

@@ -9,7 +9,8 @@ from env.util.quaternion import (
     euler2quat,
     inverse_quaternion,
     rotate_by_quaternion,
-    quaternion_product
+    quaternion_product,
+    quaternion2euler
 )
 from util.colors import FAIL, WARNING, ENDC
 from pathlib import Path
@@ -21,7 +22,6 @@ class CassieEnv(GenericEnv):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
-                 velocity_noise: float,
                  state_est: bool):
         """Template class for Cassie with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
@@ -54,13 +54,15 @@ class CassieEnv(GenericEnv):
 
         # Low-level control specifics
         self.offset = np.array([0.0045, 0.0, 0.4973, -1.1997, -1.5968, 0.0045, 0.0, 0.4973, -1.1997, -1.5968])
-        self.kp = np.array([80,  80,  88,  96,  50, 80, 80,  88,  96,  50])
-        self.kd = np.array([8.0, 8.0, 8.0, 9.6, 5.0, 8.0, 8.0, 8.0, 9.6, 5.0])
+        self.kp = np.array([80, 80, 110, 110, 50,
+                            80, 80, 110, 110, 50])
+        self.kd = np.array([8, 8, 10, 10, 5,
+                            8, 8, 10, 10, 5])
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
         self.orient_add = 0
-        self.trackers = {self.update_tracker_grf: {"frequency": 100},
-                         self.update_tracker_velocity: {"frequency": 100},
+        self.trackers = {self.update_tracker_grf: {"frequency": 50},
+                         self.update_tracker_velocity: {"frequency": 50},
                          self.update_tracker_torque: {"frequency": 50},
                         }
         if self.simulator_type == "mujoco":
@@ -75,7 +77,7 @@ class CassieEnv(GenericEnv):
                       f"Rounding to {self.sim.simulator_rate / steps:.2f}Hz instead.{ENDC}")
             tracker_dict["num_step"] = steps
 
-        self.torque_tracker_avg = np.zeros(10) # log torque in 2kHz
+        self.torque_tracker_avg = np.zeros(self.sim.num_actuators) # log torque in 2kHz
         self.feet_grf_tracker_avg = {} # log GRFs in 2kHz
         self.feet_velocity_tracker_avg = {} # log feet velocity in 2kHz
         for foot in self.sim.feet_body_name:
@@ -127,7 +129,6 @@ class CassieEnv(GenericEnv):
             self.dr_ranges["encoder-noise"] = {"ranges": dyn_rand_data["encoder-noise"]}
             dyn_rand_file.close()
         self.state_noise = state_noise
-        self.velocity_noise = velocity_noise
         self.motor_encoder_noise = np.zeros(10)
         self.joint_encoder_noise = np.zeros(4)
 
@@ -166,24 +167,18 @@ class CassieEnv(GenericEnv):
             self.sim.randomize_dynamics(self.dr_ranges)
             self.motor_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=10)
             self.joint_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=4)
+            # NOTE: this creates very wrong floor slipperiness
+            # if self.terrain != "hfield":
+            #     rand_euler = np.random.uniform(-.05, .05, size=2)
+            #     rand_quat = euler2quat(z=0, y=rand_euler[0], x=rand_euler[1])
+            #     self.sim.set_geom_quat("floor", rand_quat)
         else:
             self.sim.default_dynamics()
             self.motor_encoder_noise = np.zeros(10)
             self.joint_encoder_noise = np.zeros(4)
-
-        # Do randomization on x and y pelvis velocity as well as quaternion
-        # qpos = copy.deepcopy(self.sim.reset_qpos)
-        # qvel = np.zeros(self.sim.nv)
-        # x_size = 0.3
-        # y_size = 0.2
-        # qvel[0] = np.random.random() * 2 * x_size - x_size
-        # qvel[1] = np.random.random() * 2 * y_size - y_size
-        # orientation = np.random.randint(-10, 10) * np.pi / 25
-        # quaternion = euler2quat(z=orientation, y=0, x=0)
-        # qpos[3:7] = quaternion
         self.sim.reset()
 
-    def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int):
+    def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int, integral_action: bool = False):
         """This loop sends actions into control interfaces, update torques, simulate step,
         and update 2kHz simulation states.
         User should add any 2kHz signals inside this function as member variables and
@@ -195,8 +190,11 @@ class CassieEnv(GenericEnv):
         # Reset trackers
         for tracker_fn, tracker_dict in self.trackers.items():
             tracker_fn(weighting = 0, sim_step = 0)
-        # Explore around neutral offset
-        setpoint = action + self.offset
+        if integral_action:
+            setpoint = action + self.sim.get_motor_position()
+        else:
+            # Explore around neutral offset
+            setpoint = action + self.offset
         # If using DR, need to subtract the motor encoder noise that we added in the robot_state
         if self.dynamics_randomization:
             setpoint -= self.motor_encoder_noise
@@ -231,16 +229,29 @@ class CassieEnv(GenericEnv):
             base_orient = self.rotate_to_heading(self.sim.get_base_orientation())
             base_ang_vel = self.sim.get_base_angular_velocity()
             motor_pos = self.sim.get_motor_position()
-            motor_vel = np.array(self.sim.get_motor_velocity())
+            motor_vel = self.sim.get_motor_velocity()
             joint_pos = self.sim.get_joint_position()
-            joint_vel = np.array(self.sim.get_joint_velocity())
+            joint_vel = self.sim.get_joint_velocity()
 
+        # Add noise to motor and joint encoders per episode
         if self.dynamics_randomization:
             motor_pos += self.motor_encoder_noise
             joint_pos += self.joint_encoder_noise
 
-        motor_vel += np.random.normal(0, self.velocity_noise, size = 10)
-        joint_vel += np.random.normal(0, self.velocity_noise, size = 4)
+        # Apply noise to proprioceptive states per step
+        if isinstance(self.state_noise, list):
+            orig_euler = quaternion2euler(base_orient)
+            noise_euler = orig_euler + np.random.normal(0, self.state_noise[0], size = 3)
+            noise_quat = euler2quat(x = noise_euler[0], y = noise_euler[1], z = noise_euler[2])
+            base_orient = noise_quat
+            base_ang_vel = base_ang_vel + np.random.normal(0, self.state_noise[1], size = 3)
+            motor_pos = motor_pos + np.random.normal(0, self.state_noise[2], size = self.sim.num_actuators)
+            motor_vel = motor_vel + np.random.normal(0, self.state_noise[3], size = self.sim.num_actuators)
+            joint_pos = joint_pos + np.random.normal(0, self.state_noise[4], size = self.sim.num_joints)
+            joint_vel = joint_vel + np.random.normal(0, self.state_noise[5], size = self.sim.num_joints)
+        else:
+            pass
+            # raise NotImplementedError("state_noise must be a list of 6 elements")
 
         robot_state = np.concatenate([
             base_orient,
@@ -250,8 +261,6 @@ class CassieEnv(GenericEnv):
             joint_pos,
             joint_vel
         ])
-
-        robot_state += np.random.normal(0, self.state_noise, size = robot_state.shape)
         return robot_state
 
     def update_tracker_grf(self, weighting: float, sim_step: int):

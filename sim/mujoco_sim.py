@@ -52,6 +52,8 @@ class MujocoSim(GenericSim):
         # Motor constants for torque limit, compute once to save time later
         self.ctrlrange2 = 2 * self.model.actuator_ctrlrange[:, 1]
         self.twmax = self.ctrlrange2 / (self.model.actuator_user[:, 0] * 2 * np.pi / 60)
+        self.gear_ratio = self.model.actuator_gear[:, 0]
+        self.torque_limit = self.model.actuator_ctrlrange[:, 1]
 
         self.default_dyn_params = {"damping": self.get_dof_damping(),
                                    "mass": self.get_body_mass(),
@@ -112,8 +114,8 @@ class MujocoSim(GenericSim):
 
         # Torque limit based on motor speed
         tlim = self.ctrlrange2 - self.twmax * abs(self.data.actuator_velocity[:])
-        tlim = np.core.umath.clip(tlim, 0, self.model.actuator_ctrlrange[:, 1])
-        motor_torque = self.torque_efficiency * np.minimum(tlim, output_torque / self.model.actuator_gear[:, 0])
+        tlim = np.core.umath.clip(tlim, 0, self.torque_limit)
+        motor_torque = self.torque_efficiency * np.minimum(tlim, output_torque / self.gear_ratio)
         self.torque_buffer[self.torque_buffer_ind, :] = motor_torque
 
         self.torque_buffer_ind += 1
@@ -130,6 +132,9 @@ class MujocoSim(GenericSim):
                 assert args[arg].shape == (self.model.nu,), \
                 f"{FAIL}set_PD {arg} was not a 1 dimensional array of size {self.model.nu}{ENDC}"
         torque = kp * (setpoint - self.data.qpos[self.motor_position_inds])
+        # NOTE: 2 options for damping control below, implicit is recommended by mujoco doc
+        # Explicit damping
+        # torque += kd * (0 - self.data.qvel[self.motor_velocity_inds])
         # Implicit damping
         self.model.dof_damping[self.motor_velocity_inds] = kd
         self.set_torque(torque)
@@ -465,7 +470,7 @@ class MujocoSim(GenericSim):
         return output
 
     def get_torque(self):
-        return self.data.ctrl[:] * self.model.actuator_gear[:, 0]
+        return self.data.ctrl[:] * copy.deepcopy(self.model.actuator_gear[:, 0])
 
     def get_joint_qpos_adr(self, name: str):
         return self.model.jnt_qposadr[mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)]
@@ -530,7 +535,7 @@ class MujocoSim(GenericSim):
         Returns:
             ndarray: size [3x]
         """
-        return self.model.geom(name).size
+        return copy.deepcopy(self.model.geom(name).size)
 
     def get_relative_pose(self, pose1: np.ndarray, pose2: np.ndarray):
         """Computes relative pose of object2 in the frame of object1.
@@ -831,6 +836,24 @@ class MujocoSim(GenericSim):
                 f"dofs but should be shape ({self.model.nv},).{ENDC}"
             self.model.dof_damping = damp
 
+    def set_jnt_stiffness(self, stiffness: float | int | np.ndarray, name: str = None):
+        if name:
+            num_dof = len(self.model.joint(name).stiffness)
+            if num_dof == 1:
+                assert isinstance(stiffness, (float, int)), \
+                    f"{FAIL}set_dof_damping got a {type(stiffness)} when setting damping for single dof " \
+                    f"{name} but should be a float or int.{ENDC}"
+            else:
+                assert stiffness.shape == (num_dof,), \
+                    f"{FAIL}set_dof_damping got array of shape {stiffness.shape} when setting damping " \
+                    f"for single dof {name} but should be shape ({num_dof},).{ENDC}"
+            self.model.joint(name).stiffness = stiffness
+        else:
+            assert stiffness.shape == (self.model.njnt,), \
+                f"{FAIL}set_dof_damping got array of shape {stiffness.shape} when setting all joint " \
+                f"dofs but should be shape ({self.model.njnt},).{ENDC}"
+            self.model.jnt_stiffness = stiffness
+
     def set_geom_friction(self, fric: np.ndarray, name: str = None):
         if name:
             assert fric.shape == (3, ), \
@@ -847,6 +870,9 @@ class MujocoSim(GenericSim):
     def set_geom_pose(self, name: str, pose: np.ndarray):
         self.model.geom(name).pos = pose[0:3]
         self.model.geom(name).quat = pose[3:7]
+
+    def set_geom_quat(self, name: str, quat: np.ndarray):
+        self.model.geom(name).quat = quat[:]
 
     def set_geom_size(self, name: str, size: np.ndarray):
         self.model.geom(name).size = size
