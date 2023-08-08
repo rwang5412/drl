@@ -11,6 +11,7 @@ from env.util.quaternion import scipy2mj, mj2scipy
 from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
 from pathlib import Path
+from scipy.spatial.transform import Rotation as R
 from types import SimpleNamespace
 from util.colors import FAIL, WARNING, ENDC
 from util.check_number import is_variable_valid
