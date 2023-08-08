@@ -144,7 +144,7 @@ class PPOOptim(AlgoWorker):
         pdf       = self.actor.pdf(states)
         log_probs = pdf.log_prob(actions).sum(-1, keepdim=True)
 
-        ratio      = (log_probs - old_log_probs).exp()
+        ratio      = ((log_probs - old_log_probs) * mask).exp()
         cpi_loss   = ratio * advantages
         clip_loss  = ratio.clamp(1.0 - self.clip, 1 + self.clip) * advantages
         actor_loss = -(torch.min(cpi_loss, clip_loss) * mask).sum() / active_sum
