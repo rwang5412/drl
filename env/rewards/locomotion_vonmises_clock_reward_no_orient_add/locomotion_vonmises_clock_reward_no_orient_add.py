@@ -48,6 +48,7 @@ def compute_reward(self, action):
     # Compare velocity in the same frame
     x_vel = np.abs(base_vel[0] - target_vel[0])
     y_vel = np.abs(base_vel[1] - target_vel[1])
+    z_vel = np.abs(self.sim.get_base_angular_velocity()[2] - self.turn_rate)
     # print("actual x vel: ", base_vel[0], "actual y vel: ", base_vel[1])
     # print("target x vel: ", target_vel[0], "target y vel: ", target_vel[1])
     # print()
@@ -59,12 +60,14 @@ def compute_reward(self, action):
         y_vel = 0
     q["x_vel"] = x_vel
     q["y_vel"] = y_vel
+    q['z_vel'] = z_vel
 
     ### Orientation rewards (base and feet) ###
     base_pose = self.sim.get_body_pose(self.sim.base_body_name)
     target_quat = np.array([1, 0, 0, 0])
     if self.orient_add != 0:
-        command_quat = R.from_euler('xyz', [0,0,self.orient_add])
+        euler = R.from_quat(mj2scipy(self.sim.get_base_orientation())).as_euler('xyz')
+        command_quat = R.from_euler('xyz', [0,0,euler[2]])
         target_quat = R.from_quat(mj2scipy(target_quat)) * command_quat
         target_quat = scipy2mj(target_quat.as_quat())
     orientation_error = quaternion_distance(base_pose[3:], target_quat)

@@ -91,6 +91,19 @@ def euler2quat(z=0, y=0, x=0):
         result = -result
     return result
 
+def scipy2mj(q):
+    x, y, z, w = q
+    # quat to rotation is 2 to 1, so always pick the positive w
+    if w < 0:
+        return np.array([-w, -x, -y, -z])
+    return np.array([w, x, y, z])
+
+def mj2scipy(q):
+    w, x, y, z = q
+    # quat to rotation is 2 to 1, so always pick the positive w
+    if w < 0:
+        return np.array([-x, -y, -z, -w])
+    return np.array([x, y, z, w])
 
 def euler2so3(z=0, y=0, x=0):
 

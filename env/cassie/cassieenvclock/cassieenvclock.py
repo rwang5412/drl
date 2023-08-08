@@ -7,7 +7,7 @@ import traceback
 
 from decimal import Decimal
 from env.util.periodicclock import PeriodicClock
-from env.util.quaternion import euler2so3
+from env.util.quaternion import scipy2mj, mj2scipy
 from env.cassie.cassieenv import CassieEnv
 from importlib import import_module
 from pathlib import Path
@@ -115,7 +115,10 @@ class CassieEnvClock(CassieEnv):
         self.reset_simulation()
         self.randomize_commands(init=True)
         self.randomize_commands_at = np.random.randint(*self._randomize_commands_bounds)
-        self.orient_add = 0
+        self.orient_add = np.random.uniform(-np.pi, np.pi)
+        q = R.from_euler(seq='xyz', angles=[0,0,self.orient_add], degrees=False)
+        quaternion = scipy2mj(q.as_quat())
+        self.sim.set_base_orientation(quaternion)
 
         # Update clock
         self.randomize_clock(init=True)
@@ -173,7 +176,7 @@ class CassieEnvClock(CassieEnv):
         # Update CoP marker
         if self.sim.viewer is not None:
             if self.cop_marker_id is None:
-                so3 = euler2so3(z=0, x=0, y=0)
+                so3 = R.from_euler(seq='xyz', angles=[0,0,0]).as_matrix()
                 self.cop_marker_id = self.sim.viewer.add_marker("sphere", "", [0, 0, 0], [0.03, 0.03, 0.03], [0.99, 0.1, 0.1, 1.0], so3)
             if self.cop is not None:
                 cop_pos = np.concatenate([self.cop, [0]])

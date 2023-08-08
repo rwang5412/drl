@@ -345,5 +345,6 @@
     <gyro name='torso/base/imu-gyro' site='torso/base/imu' cutoff='34.9' noise='0.00173'/>
     <accelerometer name='torso/base/imu-accelerometer' site='torso/base/imu' cutoff='157' noise='0.0396'/>
     <magnetometer name='torso/base/imu-magnetometer' site='torso/base/imu' cutoff='2.5' noise='0.001'/>
+    <framequat name='torso/base/imu-orientation' objtype='site' objname='torso/base/imu'/>
   </sensor>
 </mujoco>

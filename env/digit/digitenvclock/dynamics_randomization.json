@@ -115,6 +115,6 @@
         "right-arm/shoulder-yaw": [-0.05, 0.05],
         "right-arm/elbow": [-0.05, 0.05]
     },
-    "friction": [-0.3, 0.2],
+    "friction": [-0.2, 0.2],
     "encoder-noise": [-0.05, 0.05]
 }

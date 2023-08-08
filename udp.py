@@ -361,9 +361,10 @@ args = parser.parse_args()
 # Load environment
 previous_args_dict['env_args'].simulator_type = "libcassie"
 previous_args_dict['env_args'].state_est = True
-previous_args_dict['env_args'].velocity_noise = 0.0
 previous_args_dict['env_args'].state_noise = 0.0
 previous_args_dict['env_args'].dynamics_randomization = False
+if hasattr(previous_args_dict['env_args'], 'velocity_noise'):
+    delattr(previous_args_dict['env_args'], 'velocity_noise')
 env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
 
 # Load model class and checkpoint

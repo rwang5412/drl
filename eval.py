@@ -65,6 +65,8 @@ if __name__ == "__main__":
 
     if hasattr(previous_args_dict['env_args'], 'offscreen'):
         previous_args_dict['env_args'].offscreen = True if evaluation_type == 'offscreen' else False
+    if hasattr(previous_args_dict['env_args'], 'velocity_noise'):
+        delattr(previous_args_dict['env_args'], 'velocity_noise')
 
     # Load environment
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()

@@ -3,13 +3,8 @@ import numpy as np
 
 from env.genericenv import GenericEnv
 from sim import MjDigitSim, ArDigitSim
-from env.util.quaternion import (
-    euler2quat,
-    inverse_quaternion,
-    rotate_by_quaternion,
-    quaternion_product,
-    quaternion2euler
-)
+from env.util.quaternion import *
+from scipy.spatial.transform import Rotation as R
 from util.colors import WARNING, ENDC
 from pathlib import Path
 
@@ -61,6 +56,7 @@ class DigitEnv(GenericEnv):
                          self.update_tracker_torque: {"frequency": 50},
                          self.update_tracker_cop: {"frequency": 50},
                         }
+        # self.trackers[self.update_tracker_cop] = {"frequency": 50}
         # Double check tracker frequencies and convert to number of sim steps
         for tracker, tracker_dict in self.trackers.items():
             freq = tracker_dict["frequency"]
@@ -203,15 +199,21 @@ class DigitEnv(GenericEnv):
                         tracker_fn(weighting = 1 / np.ceil(simulator_repeat_steps / tracker_dict["num_step"]),
                                 sim_step = sim_step)
 
-    def get_robot_state(self):
+    def get_robot_state(self, use_imu=False):
         """Get standard robot prorioceptive states. Sub-env can override this function to define its
         own get_robot_state().
 
         Returns:
             robot_state (np.ndarray): robot state
         """
-        base_orient = self.rotate_to_heading(self.sim.get_base_orientation())
-        base_ang_vel = self.sim.get_base_angular_velocity()
+        if use_imu:
+            q = self.sim.data.sensor('torso/base/imu-orientation').data
+        else:
+            q = self.sim.get_base_orientation()
+
+        base_orient = self.rotate_to_heading(q)
+        # NOTE: do not use floating base angular velocity and it's bad on hardware
+        base_ang_vel = self.sim.data.sensor('torso/base/imu-gyro').data
         motor_pos = self.sim.get_motor_position()
         motor_vel = self.sim.get_motor_velocity()
         joint_pos = self.sim.get_joint_position()
@@ -287,7 +289,7 @@ class DigitEnv(GenericEnv):
         else:
             self.cop = self.sim.compute_cop()
 
-    def rotate_to_heading(self, orientation: np.ndarray):
+    def rotate_to_heading(self, orientation: np.ndarray, hardware_imu: bool = False):
         """Offset robot heading in world frame by self.orient_add amount
 
         Args:
@@ -296,15 +298,14 @@ class DigitEnv(GenericEnv):
         Returns:
             new_orient (list): Offset orientation
         """
-        quaternion  = euler2quat(z=self.orient_add, y=0, x=0)
-        iquaternion = inverse_quaternion(quaternion)
-
-        if len(orientation) == 3:
-            return rotate_by_quaternion(orientation, iquaternion)
-
-        elif len(orientation) == 4:
-            new_orient = quaternion_product(iquaternion, orientation)
-            return new_orient
+        if hardware_imu:
+            # Hardware LLAPI returns IMU orientation with 180 off in X
+            quat = R.from_euler('xyz',[-np.pi,0,self.orient_add], degrees=False)
+        else:
+            quat = R.from_euler('xyz',[0,0,self.orient_add], degrees=False)
+        new_quat = quat.inv() * R.from_quat(mj2scipy(orientation))
+        q = scipy2mj(new_quat.as_quat())
+        return q
 
     def check_observation_action_size(self):
         """Check the size of observation/action/mirror. Subenv needs to define
