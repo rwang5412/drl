@@ -1,11 +1,20 @@
-read -p "[u]pgrade or [c]reate new conda env: " mode
+mode="$1"
+varname="$2"
+
+if [ -z "$mode" ]; then
+    read -p "[u]pgrade or [c]reate new conda env: " mode
+fi
+
+
 echo $mode
 if [ "$mode" == "u" ]; then
     conda env update --file environment.yaml --prune
     exit 0
 elif [ "$mode" == "c" ]; then
-    echo enter name for new conda environment
-    read varname
+    if [ -z "$varname" ]; then
+        echo enter name for new conda environment
+        read varname
+    fi
     #build conda env
     conda env create -n $varname --file environment.yaml
     eval "$(conda shell.bash hook)"

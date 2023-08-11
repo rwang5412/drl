@@ -14,7 +14,12 @@ if __name__ == "__main__":
     parser.add_argument("--timing", default=False, action='store_true')
     parser.add_argument("--all", default=False, action='store_true')
     parser.add_argument("--train", default=False, action='store_true')
+    parser.add_argument("--CI", default=False, action='store_true')
     args = parser.parse_args()
+
+    if not any(vars(args).values()):
+        parser.print_help()
+        exit()
 
     if args.all:
         args.algo = True
@@ -26,6 +31,17 @@ if __name__ == "__main__":
         args.render = True
         args.duality = True
         args.timing = True
+    elif args.CI: # Tests run by CI
+        args.algo = True
+        args.env = True
+        args.sim = False
+        args.clock = True
+        args.nn = True
+        args.mirror = True
+        args.render = False
+        args.duality = True
+        args.timing = True
+        args.train = False # GLFW error on CI
 
     if args.algo:
         from testing.test_algo import test_all_algos

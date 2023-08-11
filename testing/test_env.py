@@ -6,9 +6,6 @@ import traceback
 from env.cassie.cassieenv import CassieEnv
 from env.digit.digitenv import DigitEnv
 from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
-from env.cassie.cassieenvclockold.cassieenvclockold import CassieEnvClockOld
-from env.cassie.cassieenvclockoldff.cassieenvclockoldff import CassieEnvClockOldFF
-from env.cassie.cassieenvclockoldvonmises.cassieenvclockoldvonmises import CassieEnvClockOldVonMises
 from env.digit.digitenvclock.digitenvclock import DigitEnvClock
 from util.env_factory import env_factory
 from util.colors import FAIL, ENDC, OKGREEN

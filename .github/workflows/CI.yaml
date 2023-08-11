@@ -1,0 +1,27 @@
+name: Running Tests
+
+on:
+  push:
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: true
+          activate-environment: ''
+
+      - name: Create, Activate Conda environment and Run test.py
+        run: |
+          ./setup.sh c testing
+          eval "$(conda shell.bash hook)"
+          conda activate testing
+          python test.py --CI
