@@ -5,7 +5,7 @@ import atexit
 import numpy as np
 import time
 
-from .digit_ar_sim.llapi.llapictypes import (
+from .digit_ar_sim.interface_ctypes import (
     llapi_command_t, 
     llapi_observation_t, 
     NUM_MOTORS, 
@@ -13,7 +13,7 @@ from .digit_ar_sim.llapi.llapictypes import (
     Locomotion
 )
 
-from .digit_ar_sim.llapi.llapictypes import (
+from .digit_ar_sim.interface_ctypes import (
     llapi_init, 
     llapi_get_limits, 
     llapi_get_observation, 

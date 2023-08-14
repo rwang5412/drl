@@ -226,10 +226,10 @@ class DigitEnv(GenericEnv):
 
         # Apply noise to proprioceptive states per step
         if isinstance(self.state_noise, list):
-            orig_euler = quaternion2euler(base_orient)
-            noise_euler = orig_euler + np.random.normal(0, self.state_noise[0], size = 3)
-            noise_quat = euler2quat(x = noise_euler[0], y = noise_euler[1], z = noise_euler[2])
-            base_orient = noise_quat
+            noise_euler = np.random.normal(0, self.state_noise[0], size = 3)
+            noise_quat_add = R.from_euler('xyz', noise_euler)
+            noise_quat = noise_quat_add * R.from_quat(mj2scipy(base_orient))
+            base_orient = scipy2mj(noise_quat.as_quat())
             base_ang_vel = base_ang_vel + np.random.normal(0, self.state_noise[1], size = 3)
             motor_pos = motor_pos + np.random.normal(0, self.state_noise[2], size = self.sim.num_actuators)
             motor_vel = motor_vel + np.random.normal(0, self.state_noise[3], size = self.sim.num_actuators)

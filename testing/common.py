@@ -53,6 +53,14 @@ MOTOR_POSITION_SET['pos3'] = [
 0.3, -0.0943845, 0.0, 0.3633,
 ]
 
+MOTOR_POSITION_SET['stand'] = \
+[ 3.74746713e-01, -1.76407791e-04,  3.11254289e-01,  3.44019160e-01,
+ -1.23124968e-01,  1.22818172e-01, -3.75034334e-01,  2.83786446e-04,
+ -3.11326195e-01, -3.44019160e-01,  1.23347395e-01, -1.22756813e-01,
+ -7.73270128e-02,  1.14505434e+00,  1.32689338e-03, -4.25919353e-02,
+  7.73701560e-02, -1.14534196e+00, -1.21184482e-03,  4.25487921e-02,
+]
+
 # Readable strings for motor and joint definitions. These are also used for Mujoco.
 # The order of each list is aligned with XML not hardware header file.
 DIGIT_MOTOR_NAME = [
@@ -107,21 +115,11 @@ DIGIT_JOINT_NAME_LLAPI = [
   'right-leg/heel-spring',
 ]
 
-# Find the index each entry in DIGIT_MOTOR_NAME that matches the name in the DIGIT_MOTOR_NAME_LLAPI
-# DIGIT_MOTOR_NAME_LLAPI_INDEX = []
-# for name in DIGIT_MOTOR_NAME:
-#   DIGIT_MOTOR_NAME_LLAPI_INDEX.append(DIGIT_MOTOR_NAME_LLAPI.index(name))
-# print(DIGIT_MOTOR_NAME_LLAPI_INDEX)
-
 DIGIT_MOTOR_MJ2LLAPI_INDEX = [0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 6, 7, 8, 9, 16, 17, 18, 19]
-
-# Find the index each entry in DIGIT_JOINT_NAME that matches the name in the DIGIT_JOINT_NAME_LLAPI
-# DIGIT_JOINT_NAME_LLAPI_INDEX = []
-# for name in DIGIT_JOINT_NAME_LLAPI:
-#   DIGIT_JOINT_NAME_LLAPI_INDEX.append(DIGIT_JOINT_NAME.index(name))
-# print(DIGIT_JOINT_NAME_LLAPI_INDEX)
+DIGIT_MOTOR_LLAPI2MJ_INDEX = [0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19]
 
 DIGIT_JOINT_MJ2LLAPI_INDEX = [0, 1, 3, 4, 2, 5, 6, 8, 9, 7]
+DIGIT_JOINT_LLAPI2MJ_INDEX = [0, 1, 4, 2, 3, 5, 6, 9, 7, 8]
 
 # Followings are copied from LLAPI, ordered in LLAPI
 # Output torque limit is in Nm
