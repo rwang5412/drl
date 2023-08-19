@@ -115,21 +115,14 @@ class Buffer:
                                     back up and calculate returns for the whole trajectory
         """
         self.traj_idx += [self.size]
-        rewards = self.rewards[self.traj_idx[-2]:self.traj_idx[-1]]
+        rewards = np.array(self.rewards[self.traj_idx[-2]:self.traj_idx[-1]]).squeeze()
+        values = self.values[self.traj_idx[-2]:self.traj_idx[-1]] + [terminal_value]
 
-        values = self.values[self.traj_idx[-2]:self.traj_idx[-1]]
-
+        # Compute GAE + returns
         returns = []
-
-        R = terminal_value
-
-        # Compute GAE
         gae = 0
-        for t in range(len(values) - 1, -1, -1):
-            if t == len(values) - 1:
-                delta = rewards[t] + self.discount * R - values[t]
-            else:
-                delta = rewards[t] + self.discount * values[t + 1] - values[t]
+        for t in range(len(values) - 2, -1, -1):
+            delta = rewards[t] + self.discount * values[t + 1] - values[t]
             gae = delta + self.discount * self.gae_lambda * gae
             returns.insert(0, gae + values[t])
 
@@ -240,8 +233,6 @@ class Buffer:
                 yield batch
 
     def __add__(self, buf2):
-        offset = len(self.states)
-
         new_buf = Buffer(self.discount, self.gae_lambda)
         new_buf.states      = self.states + buf2.states
         new_buf.actions     = self.actions + buf2.actions
@@ -252,8 +243,8 @@ class Buffer:
         new_buf.ep_returns  = self.ep_returns + buf2.ep_returns
         new_buf.ep_lens     = self.ep_lens + buf2.ep_lens
 
+        new_buf.traj_idx    = self.traj_idx + [self.size + i for i in buf2.traj_idx[1:]]
         new_buf.size        = self.size + buf2.size
-        new_buf.traj_idx    = self.traj_idx + [offset + i for i in buf2.traj_idx[1:]]
 
         # Add operation for additional info
         for key in self.additional_info_keys:
@@ -282,6 +273,7 @@ class AlgoSampler(AlgoWorker):
         dynamics_randomization: if dynamics_randomization is enabled in environment
     """
     def __init__(self, actor, critic, env_fn, gamma, gae_lambda, worker_id: int):
+        torch.set_num_threads(1)
         self.gamma  = gamma
         self.gae_lambda  = gae_lambda
         self.env    = env_fn()
@@ -307,7 +299,6 @@ class AlgoSampler(AlgoWorker):
             update_normalization_param: if True, update normalization parameters
         """
         start_t = time()
-        torch.set_num_threads(1)
         # Toggle models to eval mode
         self.actor.eval()
         self.critic.eval()

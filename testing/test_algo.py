@@ -28,6 +28,7 @@ def test_ppo():
                            num_steps    = 100,
                            workers      = 2,
                            mirror       = 1,
+                           backprop_workers = 1,
                            arch         = "lstm")
     env_args = SimpleNamespace()
 

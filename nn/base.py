@@ -93,6 +93,42 @@ class LSTMBase(Net):
     The base class for LSTM networks.
     """
     def __init__(self, in_dim, layers):
+        super().__init__()
+        self.layers = layers
+        for layer in self.layers:
+            assert layer == self.layers[0], "LSTMBase only supports layers of equal size"
+        self.lstm = nn.LSTM(in_dim, self.layers[0], len(self.layers))
+        self.init_hidden_state()
+
+    def init_hidden_state(self, **kwargs):
+        self.hx = None
+
+    def get_hidden_state(self):
+        return self.hx[0], self.hx[1]
+
+    def set_hidden_state(self, hidden, cells):
+        self.hx = (hidden, cells)
+
+    def _base_forward(self, x):
+        dims = len(x.size())
+        if dims == 1:  # if we get a single timestep (if not, assume we got a batch of single timesteps)
+            x = x.view(1, -1)
+        elif dims == 3:
+            self.init_hidden_state()
+
+        x, self.hx = self.lstm(x, self.hx)
+
+        if dims == 1:
+            x = x.view(-1)
+
+        return x
+
+
+class LSTMBase_(Net):
+    """
+    (DEPRECATED) Will be removed in future. Use this class only for compatibility with old models.
+    """
+    def __init__(self, in_dim, layers):
         super(LSTMBase, self).__init__()
         self.layers = create_layers(nn.LSTMCell, in_dim, layers)
 
@@ -137,6 +173,7 @@ class LSTMBase(Net):
             if dims == 1:
                 x = x.view(-1)
         return x
+
 
 class MixBase(Net):
     def __init__(self,
