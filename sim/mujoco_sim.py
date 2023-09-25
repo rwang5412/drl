@@ -58,6 +58,7 @@ class MujocoSim(GenericSim):
         self.default_dyn_params = {"damping": self.get_dof_damping(),
                                    "mass": self.get_body_mass(),
                                    "ipos": self.get_body_ipos(),
+                                   "spring": self.get_joint_stiffness(),
                                    "friction": self.get_geom_friction("floor")}
 
         # Load geoms/bodies for hfield/box/obstacle/stone/stair
@@ -481,6 +482,9 @@ class MujocoSim(GenericSim):
     def get_body_adr(self, name: str):
         return mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_BODY, name)
 
+    def get_joint_adr(self, name: str):
+        return mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)
+
     def get_simulation_time(self):
         return self.data.time
 
@@ -731,6 +735,12 @@ class MujocoSim(GenericSim):
         else:
             return copy.deepcopy(self.model.dof_damping)
 
+    def get_joint_stiffness(self, name: str = None):
+        if name:
+            return copy.deepcopy(self.model.joint(name).stiffness)
+        else:
+            return copy.deepcopy(self.model.jnt_stiffness)
+
     def get_geom_friction(self, name: str = None):
         if name:
             return copy.deepcopy(self.model.geom(name).friction)
@@ -836,7 +846,7 @@ class MujocoSim(GenericSim):
                 f"dofs but should be shape ({self.model.nv},).{ENDC}"
             self.model.dof_damping = damp
 
-    def set_jnt_stiffness(self, stiffness: float | int | np.ndarray, name: str = None):
+    def set_joint_stiffness(self, stiffness: float | int | np.ndarray, name: str = None):
         if name:
             num_dof = len(self.model.joint(name).stiffness)
             if num_dof == 1:

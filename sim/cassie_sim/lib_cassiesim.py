@@ -64,6 +64,7 @@ class LibCassieSim(GenericSim):
         self.default_dyn_params = {"damping": self.get_dof_damping(),
                                    "mass": self.get_body_mass(),
                                    "ipos": self.get_body_ipos(),
+                                   "spring": self.get_joint_stiffness(),
                                    "friction": self.get_geom_friction("floor")}
 
     def reset(self, qpos: np.ndarray=None, qvel: np.ndarray = None):
@@ -306,6 +307,9 @@ class LibCassieSim(GenericSim):
     def get_body_adr(self, name: str):
         return self.sim.mj_name2id("body", name)
 
+    def get_joint_adr(self, name: str):
+        return self.sim.mj_name2id("joint", name)
+
     def get_simulation_time(self):
         return self.sim.time()
 
@@ -393,6 +397,9 @@ class LibCassieSim(GenericSim):
 
     def get_dof_damping(self, name: str = None):
         return self.sim.get_dof_damping(name)
+
+    def get_joint_stiffness(self, name: str = None):
+        return self.sim.get_joint_stiffness(name)
 
     def get_geom_friction(self, name: str = None):
         return self.sim.get_geom_friction(name)
@@ -501,6 +508,17 @@ class LibCassieSim(GenericSim):
                 f"dofs but should be shape ({self.nv},).{ENDC}"
             damp = damp.flatten()
         self.sim.set_dof_damping(damp, name)
+
+    def set_joint_stiffness(self, stiffness: float | int | np.ndarray, name: str = None):
+        if name:
+            assert isinstance(stiffness, (float, int)), \
+                f"{FAIL}set_joint_stiffness got a {type(stiffness)} instead of a single float when setting " \
+                f"stiffness for a single joint {name}.{ENDC}"
+        else:
+            assert stiffness.shape == (self.njnt,), \
+                f"{FAIL}set_joint_stiffness got array of shape {stiffness.shape} but should be shape " \
+                f"({self.njnt},).{ENDC}"
+        self.sim.set_joint_stiffness(stiffness, name)
 
     def set_geom_friction(self, fric: np.ndarray, name: str = None):
         if name:

@@ -75,6 +75,12 @@
         "right-plantar-rod": [-0.01, 0.01],
         "right-foot": [-0.01, 0.01]
     },
+    "spring": {
+        "left-shin": [-0.2, 0.2],
+        "right-shin": [-0.2, 0.2],
+        "left-heel-spring": [-0.2, 0.2],
+        "right-heel-spring": [-0.2, 0.2]
+    },
     "friction": [-0.2, 0.2],
     "encoder-noise": [-0.05, 0.05]
 }

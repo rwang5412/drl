@@ -114,6 +114,15 @@ class DigitEnv(GenericEnv):
             ipos_ranges = np.array(ipos_ranges)
             self.dr_ranges["ipos"] = {"inds":ipos_inds,
                                     "ranges":ipos_ranges}
+            # Spring stiffness
+            spring_inds = []
+            spring_ranges = []
+            for joint_name, rand_range in dyn_rand_data["spring"].items():
+                spring_inds.append(self.sim.get_joint_adr(joint_name))
+                spring_ranges.append(rand_range)
+            spring_ranges = np.array(spring_ranges)
+            self.dr_ranges["spring"] = {"inds":spring_inds,
+                                        "ranges":spring_ranges}
             # Friction
             self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
             self.dr_ranges["encoder-noise"] = {"ranges": dyn_rand_data["encoder-noise"]}

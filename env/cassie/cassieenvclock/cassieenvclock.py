@@ -175,7 +175,7 @@ class CassieEnvClock(CassieEnv):
         self.step_simulation(action, simulator_repeat_steps, integral_action=self.integral_action)
 
         # Update CoP marker
-        if self.sim.viewer is not None:
+        if self.sim.viewer is not None and self.sim.__class__.__name__ != "LibCassieSim":
             if self.cop_marker_id is None:
                 so3 = R.from_euler(seq='xyz', angles=[0,0,0]).as_matrix()
                 self.cop_marker_id = self.sim.viewer.add_marker("sphere", "", [0, 0, 0], [0.03, 0.03, 0.03], [0.99, 0.1, 0.1, 1.0], so3)

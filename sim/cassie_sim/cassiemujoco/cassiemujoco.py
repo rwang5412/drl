@@ -431,6 +431,17 @@ class CassieSim:
                 ret[i] = ptr[i]
             return ret.reshape((self.nbody, 3))
 
+    def get_joint_stiffness(self, name = None):
+        if name:
+            stiffness = cassie_sim_get_jnt_name_stiffness(self.c, name.encode())
+            return stiffness
+        else:
+            ptr = cassie_sim_jnt_stiffness(self.c)
+            ret = np.zeros(self.njnt)
+            for i in range(self.njnt):
+                ret[i] = ptr[i]
+            return ret
+
     def get_body_pos(self, name):
         ptr = cassie_sim_get_body_name_pos(self.c, name.encode())
         ret = np.zeros(3)
@@ -587,6 +598,25 @@ class CassieSim:
                 c_arr[i] = data[i]
 
             cassie_sim_set_body_ipos(self.c, c_arr)
+
+    def set_joint_stiffness(self, data, name=None):
+        # If no name is provided, set ALL body masses and assume "data" is array
+        # containing masses for every body
+        if name is None:
+            c_arr = (ctypes.c_double * self.njnt)()
+
+            if len(data) != self.njnt:
+                print("SIZE MISMATCH SET_JOINT_STIFFNESS()")
+                exit(1)
+
+            for i in range(self.njnt):
+                c_arr[i] = data[i]
+
+            cassie_sim_set_jnt_stiffness(self.c, c_arr)
+        # If name is provided, only set mass for specified body and assume
+        # "data" is a single double
+        else:
+            cassie_sim_set_jnt_name_stiffness(self.c, name.encode(), ctypes.c_double(data))
 
     def set_geom_friction(self, data, name=None):
         if name is None:

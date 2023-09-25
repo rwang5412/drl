@@ -757,6 +757,22 @@ cassie_sim_set_body_ipos = _libraries['./libcassiemujoco.so'].cassie_sim_set_bod
 cassie_sim_set_body_ipos.restype = None
 cassie_sim_set_body_ipos.argtypes = [POINTER_T(struct_cassie_sim), POINTER_T(ctypes.c_double)]
 
+cassie_sim_jnt_stiffness = _libraries['./libcassiemujoco.so'].cassie_sim_jnt_stiffness
+cassie_sim_jnt_stiffness.restype = POINTER_T(ctypes.c_double)
+cassie_sim_jnt_stiffness.argtypes = [POINTER_T(struct_cassie_sim)]
+
+cassie_sim_set_jnt_stiffness = _libraries['./libcassiemujoco.so'].cassie_sim_set_jnt_stiffness
+cassie_sim_set_jnt_stiffness.restype = None
+cassie_sim_set_jnt_stiffness.argtypes = [POINTER_T(struct_cassie_sim), POINTER_T(ctypes.c_double)]
+
+cassie_sim_set_jnt_name_stiffness = _libraries['./libcassiemujoco.so'].cassie_sim_set_jnt_name_stiffness
+cassie_sim_set_jnt_name_stiffness.restype = None
+cassie_sim_set_jnt_name_stiffness.argtypes = [POINTER_T(struct_cassie_sim), ctypes.c_char_p, ctypes.c_double]
+
+cassie_sim_get_jnt_name_stiffness = _libraries['./libcassiemujoco.so'].cassie_sim_get_jnt_name_stiffness
+cassie_sim_get_jnt_name_stiffness.restype = ctypes.c_double
+cassie_sim_get_jnt_name_stiffness.argtypes = [POINTER_T(struct_cassie_sim), ctypes.c_char_p]
+
 cassie_sim_geom_friction = _libraries['./libcassiemujoco.so'].cassie_sim_geom_friction
 cassie_sim_geom_friction.restype = POINTER_T(ctypes.c_double)
 cassie_sim_geom_friction.argtypes = [POINTER_T(struct_cassie_sim)]
@@ -1234,6 +1250,7 @@ __all__ = \
     'cassie_sim_site_xquat', 'cassie_sim_relative_pose',
     'cassie_sim_set_dof_name_damping', 'cassie_sim_get_dof_name_damping', 'cassie_sim_get_joint_num_dof',
     'cassie_sim_get_body_name_mass', 'cassie_sim_set_body_name_ipos', 'cassie_sim_get_body_name_ipos',
-    'cassie_vis_update_marker_type', 'cassie_vis_update_marker_name']
+    'cassie_vis_update_marker_type', 'cassie_vis_update_marker_name', 'cassie_sim_jnt_stiffness',
+    'cassie_sim_set_jnt_stiffness', 'cassie_sim_set_jnt_name_stiffness', 'cassie_sim_get_jnt_name_stiffness']
 
 
