@@ -24,6 +24,8 @@ class MujocoSim(GenericSim):
         super().__init__()
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
+        # Disable midphase collision pruning so we can move geoms around at runtime
+        self.model.opt.disableflags = mj.mjtDisableBit.mjDSBL_MIDPHASE
         self.nq = self.model.nq
         self.nv = self.model.nv
         self.nu = self.model.nu
@@ -729,6 +731,13 @@ class MujocoSim(GenericSim):
         else:
             return copy.deepcopy(self.model.body_ipos)
 
+    def get_body_inertia(self, name: str = None):
+        # If name is None, return all body inertias
+        if name:
+            return copy.deepcopy(self.model.body(name).inertia)
+        else:
+            return copy.deepcopy(self.model.body_inertia)
+
     def get_dof_damping(self, name: str = None):
         if name:
             return copy.deepcopy(self.model.joint(name).damping)
@@ -803,6 +812,10 @@ class MujocoSim(GenericSim):
         self.data.qvel[self.base_angular_velocity_inds] = velocity
         mj.mj_forward(self.model, self.data)
 
+    """The following setters are meant for during simulation or reset, so should not advance
+    simulation by itself.
+    """
+
     def set_body_mass(self, mass: float | int | np.ndarray, name: str = None):
         # If name is None, expect setting all masses
         if name:
@@ -827,6 +840,18 @@ class MujocoSim(GenericSim):
                 f"{FAIL}set_body_mass got array of shape {ipos.shape} but should be shape " \
                 f"({self.model.nbody}, 3).{ENDC}"
             self.model.body_ipos = ipos
+
+    def set_body_inertia(self, inertia: np.ndarray, name: str = None):
+        if name:
+            assert inertia.shape == (3,), \
+                f"{FAIL}set_body_ipos got array of shape {inertia.shape} when setting ipos for " \
+                f"single body {name} but should be shape (3,).{ENDC}"
+            self.model.body(name).inertia = inertia
+        else:
+            assert inertia.shape == (self.model.nbody, 3), \
+                f"{FAIL}set_body_mass got array of shape {inertia.shape} but should be shape " \
+                f"({self.model.nbody}, 3).{ENDC}"
+            self.model.body_inertia = inertia
 
     def set_dof_damping(self, damp: float | int | np.ndarray, name: str = None):
         if name:
@@ -875,8 +900,7 @@ class MujocoSim(GenericSim):
                 f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting all geom " \
                 f"friction but should be shape ({self.model.ngeom}, 3).{ENDC}"
             self.model.geom_friction = fric
-    """The following setters are meant during simulation or reset, so should not advance simulation by itself.
-    """
+
     def set_geom_pose(self, name: str, pose: np.ndarray):
         self.model.geom(name).pos = pose[0:3]
         self.model.geom(name).quat = pose[3:7]
@@ -886,6 +910,28 @@ class MujocoSim(GenericSim):
 
     def set_geom_size(self, name: str, size: np.ndarray):
         self.model.geom(name).size = size
+        # Update radius of bounding sphere for contact detection. Radius depends on geom type,
+        # according to Mujoco source code here:
+        # https://github.com/google-deepmind/mujoco/blob/6f8128dc6ac853f1bd8da63e6e43e5d13141aeaf/src/user/user_objects.cc#L1457
+        print("geom type", self.model.geom(name).type, mj.mju_type2Str(self.model.geom(name).type))
+        match self.model.geom(name).type:
+            case mj.mjtGeom.mjGEOM_SPHERE:
+                self.model.geom(name).rbound = size[0]
+            case mj.mjtGeom.mjGEOM_CAPSULE:
+                self.model.geom(name).rbound = np.sum(size[0:2])
+            case mj.mjtGeom.mjGEOM_CYLINDER:
+                self.model.geom(name).rbound = np.sqrt(np.sum(np.power(size[0:2])))
+            case mj.mjtGeom.mjGEOM_ELLIPSOID:
+                self.model.geom(name).rbound = max(max(size[0], size[1]), size[2])
+            case mj.mjtGeom.mjGEOM_BOX:
+                self.model.geom(name).rbound = np.sqrt(np.sum(np.power(size, 2)))
+            case mj.mjtGeom.mjGEOM_HFIELD | mj.mjtGeom.mjGEOM_SDF | mj.mjtGeom.mjGEOM_MESH:
+                warnings.warn(f"{WARNING}Warning: `set_geom_size` not compatible with height field,"
+                    f" sdf, or mesh type geoms. Use the respective geom type functions instead.{ENDC}")
+
+        geom_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_GEOM, name)
+        self.model.geom_aabb[geom_id, 3:] = size
+        self.model.bvh_aabb[geom_id, 3:] = size
 
     def set_geom_color(self, name: str, color: np.ndarray):
         self.model.geom(name).rgba = color

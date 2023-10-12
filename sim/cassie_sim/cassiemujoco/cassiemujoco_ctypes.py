@@ -419,6 +419,10 @@ cassie_sim_check_self_collision = _libraries['./libcassiemujoco.so'].cassie_sim_
 cassie_sim_check_self_collision.restype = ctypes.c_bool
 cassie_sim_check_self_collision.argtypes = [POINTER_T(struct_cassie_sim)]
 
+cassie_sim_body_collision = _libraries['./libcassiemujoco.so'].cassie_sim_body_collision
+cassie_sim_body_collision.restype = ctypes.c_bool
+cassie_sim_body_collision.argtypes = [POINTER_T(struct_cassie_sim), ctypes.c_char_p]
+
 cassie_sim_foot_forces = _libraries['./libcassiemujoco.so'].cassie_sim_foot_forces
 cassie_sim_foot_forces.restype = None
 cassie_sim_foot_forces.argtypes = [POINTER_T(struct_cassie_sim), ctypes.c_double * 12]
@@ -853,6 +857,10 @@ cassie_sim_set_geom_name_size = _libraries['./libcassiemujoco.so'].cassie_sim_se
 cassie_sim_set_geom_name_size.restype = None
 cassie_sim_set_geom_name_size.argtypes = [POINTER_T(struct_cassie_sim), ctypes.c_char_p, POINTER_T(ctypes.c_double)]
 
+cassie_sim_set_geom_name_color = _libraries['./libcassiemujoco.so'].cassie_sim_set_geom_name_color
+cassie_sim_set_geom_name_color.restype = None
+cassie_sim_set_geom_name_color.argtypes = [POINTER_T(struct_cassie_sim), ctypes.c_char_p, POINTER_T(ctypes.c_double)]
+
 cassie_sim_set_const = _libraries['./libcassiemujoco.so'].cassie_sim_set_const
 cassie_sim_set_const.restype = None
 cassie_sim_set_const.argtypes = [POINTER_T(struct_cassie_sim)]
@@ -1251,6 +1259,7 @@ __all__ = \
     'cassie_sim_set_dof_name_damping', 'cassie_sim_get_dof_name_damping', 'cassie_sim_get_joint_num_dof',
     'cassie_sim_get_body_name_mass', 'cassie_sim_set_body_name_ipos', 'cassie_sim_get_body_name_ipos',
     'cassie_vis_update_marker_type', 'cassie_vis_update_marker_name', 'cassie_sim_jnt_stiffness',
-    'cassie_sim_set_jnt_stiffness', 'cassie_sim_set_jnt_name_stiffness', 'cassie_sim_get_jnt_name_stiffness']
+    'cassie_sim_set_jnt_stiffness', 'cassie_sim_set_jnt_name_stiffness', 'cassie_sim_get_jnt_name_stiffness',
+    'cassie_sim_set_geom_name_color', 'cassie_sim_body_collision']
 
 

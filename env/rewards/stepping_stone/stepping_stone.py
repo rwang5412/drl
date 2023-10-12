@@ -109,10 +109,9 @@ def compute_reward(self, action):
 
 # Termination condition: If orientation too far off terminate
 def compute_done(self):
-    base_pose = self.sim.get_body_pose(self.sim.base_body_name)[3:]
+    base_pose = self.sim.get_body_pose(self.sim.base_body_name)
     target_quat = np.array([1, 0, 0, 0])
     command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
-    target_quat = quaternion_product(target_quat, command_quat)
     orientation_error = 3 * quaternion_distance(base_pose[3:], target_quat)
     base_height = base_pose[2]
     if np.exp(-orientation_error) < 0.8 or base_height < 0.5:

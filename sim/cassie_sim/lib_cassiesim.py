@@ -4,6 +4,7 @@ import time
 
 from .cassiemujoco import pd_in_t, state_out_t, CassieSim, CassieVis
 from sim import GenericSim
+from sim.util.geom import Geom
 from util.colors import FAIL, ENDC
 
 
@@ -66,6 +67,63 @@ class LibCassieSim(GenericSim):
                                    "ipos": self.get_body_ipos(),
                                    "spring": self.get_joint_stiffness(),
                                    "friction": self.get_geom_friction("floor")}
+
+        # List of bodies that cannot (prefer not) collide with environment
+        self.body_collision_list = ['left-tarsus', 'left-achilles-rod', 'left-heel-spring', 'left-foot-crank',\
+            'left-plantar-rod',\
+            'right-tarsus', 'right-achilles-rod', 'right-heel-spring', 'right-foot-crank',\
+            'right-plantar-rod']
+
+        # Load geoms/bodies for hfield/box/obstacle/stone/stair
+        self.load_fixed_object()
+
+    def load_fixed_object(self, num_geoms_in_xml=20):
+        """Load any geoms. can add more types, such as non box types, but is limited at compile.
+        """
+        try:
+            self.box_geoms = [f'box{i}' for i in range(num_geoms_in_xml)]
+            self.geom_generator = Geom(self)
+        except Exception as e:
+            print(f"No box-typed geom listed in XML.\n"
+                  f"Or num of geoms is not equal to {num_geoms_in_xml}.")
+            print(e)
+
+    def adjust_robot_pose(self, terrain_type='geom'):
+        """Adjust robot pose to avoid robot bodies stuck inside hfield or geoms.
+        Make sure to call if env is updating the model.
+        NOTE: Be careful of initializing robot in a bad pose. This function will not fix that mostly.
+        """
+        # Make sure all kinematics are updated
+        # mj.mj_kinematics(self.model, self.data)
+        collision = True
+        base_dx = 0
+        original_base_position = self.get_base_position()
+        while collision:
+            base_position = self.get_base_position()
+            lfoot_pos  = self.get_site_pose(self.feet_site_name[0])[0:3]
+            rfoot_pos  = self.get_site_pose(self.feet_site_name[1])[0:3]
+            if terrain_type == 'geom':
+                # Check iteratively if robot is colliding with geom in XY and move robot up in Z
+                z_deltas = []
+                for (x,y,z) in [lfoot_pos, rfoot_pos]:
+                    box_id, heel_hgt = self.geom_generator.check_step(x - 0.09, y, 0)
+                    box_id, toe_hgt  = self.geom_generator.check_step(x + 0.09, y, 0)
+                    z_hgt = max(heel_hgt, toe_hgt)
+                    z_deltas.append((z_hgt-z))
+                delta = max(z_deltas)
+            else:
+                raise RuntimeError(f"Please implement type {terrain_type} for adjust robot pose().")
+            base_position[2] = original_base_position[2] + delta
+            base_position[0] += base_dx
+            self.set_base_position(base_position)
+            c = []
+            for b in self.body_collision_list:
+                c.append(self.is_body_collision(b))
+            if any(c):
+                collision = True
+                base_dx = np.random.uniform(-0.1, 0.1)
+            else:
+                collision = False
 
     def reset(self, qpos: np.ndarray=None, qvel: np.ndarray = None):
         self.sim.set_const()
@@ -150,6 +208,9 @@ class LibCassieSim(GenericSim):
 
     def release(self):
         self.sim.release()
+
+    def is_body_collision(self, body: str):
+        self.sim.is_body_collision(body)
 
     def viewer_init(self):
         self.viewer = CassieVis(self.sim)
@@ -404,6 +465,12 @@ class LibCassieSim(GenericSim):
     def get_geom_friction(self, name: str = None):
         return self.sim.get_geom_friction(name)
 
+    def get_geom_size(self, name: str = None):
+        return self.sim.get_geom_size(name)
+
+    def get_geom_pose(self, name: str = None):
+        return self.sim.get_geom_pose(name)
+
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
                f"{FAIL}set_joint_position got array of shape {position.shape} but " \
@@ -532,5 +599,15 @@ class LibCassieSim(GenericSim):
             fric = fric.flatten()
         self.sim.set_geom_friction(fric, name)
 
+    def set_geom_pose(self, name: str, pose: np.ndarray):
+        self.sim.set_geom_pos(pose[0:3], name)
+        self.sim.set_geom_quat(pose[3:7], name)
+
     def set_geom_quat(self, name: str, quat: np.ndarray):
         self.sim.set_geom_quat(quat, name)
+
+    def set_geom_size(self, name: str, size: np.ndarray):
+        self.sim.set_geom_size(size, name)
+
+    def set_geom_color(self, name: str, color: np.ndarray):
+        self.sim.set_geom_color(color, name)

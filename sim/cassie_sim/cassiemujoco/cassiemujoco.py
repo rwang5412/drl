@@ -483,6 +483,15 @@ class CassieSim:
                 ret[i] = ptr[i]
         return ret
 
+    def get_geom_pose(self, name=None):
+        pos = self.get_geom_pos(name)
+        quat = self.get_geom_quat(name)
+        if name is not None:
+            pose = np.concatenate((pos, quat))
+        else:
+            pose = np.vstack((pos, quat)).T
+        return pose
+
     def get_geom_quat(self, name=None):
         if name is not None:
             ptr = cassie_sim_geom_name_quat(self.c, name.encode())
@@ -718,6 +727,16 @@ class CassieSim:
                 array[i] = data[i]
             cassie_sim_set_geom_name_size(self.c, name.encode(), array)
 
+    def set_geom_color(self, data, name):
+        if name is None:
+            print("SET_GEOM_SIZE REQUIRES GEOM NAME")
+            exit(1)
+        else:
+            array = (ctypes.c_double * 4)()
+            for i in range(4):
+                array[i] = data[i]
+            cassie_sim_set_geom_name_color(self.c, name.encode(), array)
+
     def get_site_xpos(self, name):
         sitep = cassie_sim_site_xpos(self.c, name.encode())
         return sitep[:3]
@@ -843,6 +862,9 @@ class CassieSim:
 
     def check_obstacle_collision(self):
         return cassie_sim_check_obstacle_collision(self.c)
+
+    def is_body_collision(self, name):
+        return cassie_sim_body_collision(self.c, name.encode())
 
     def mj_name2id(self, obj_type, name):
         return cassie_sim_mj_name2id(self.c, obj_type.encode(), name.encode())
