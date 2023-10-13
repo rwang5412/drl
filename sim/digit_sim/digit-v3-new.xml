@@ -10,8 +10,8 @@
     <texture builtin='gradient' height='128' rgb1='0.4 0.6 0.8' rgb2='0 0 0' type='skybox' width='128'/>
     <mesh name='torso/base-0' scale='1 1 1' file='torso.stl'/>
     <mesh name='torso/base-1' scale='1 1 1' file='hip-roll-housing.stl'/>
-    <mesh name='torso/base-2' scale='-1 1 1' file='hip-roll-housing.stl'/>
-    <mesh name='torso/base-3' scale='-1 -1 1' file='shoulder-roll-housing.stl'/>
+    <mesh name='torso/base-2' scale='1 1 1' file='shoulder-roll-housing.stl'/>
+    <mesh name='torso/base-3' scale='1 -1 1' file='hip-roll-housing.stl'/>
     <mesh name='torso/base-4' scale='1 -1 1' file='shoulder-roll-housing.stl'/>
     <mesh name='left-leg/hip-roll-0' scale='1 1 1' file='hip-yaw-housing.stl'/>
     <mesh name='left-leg/hip-yaw-0' scale='1 1 1' file='hip-pitch-housing.stl'/>
@@ -55,7 +55,7 @@
       <geom conaffinity='1' condim='3' contype='1'/>
     </default>
     <equality solimp='0.9 0.95 0.001 0.1 2' solref='0.001 1.1' />
-    <geom conaffinity='0' condim='1' contype='0' solref='0.01 1' />
+    <geom conaffinity='0' condim='1' contype='0' solref='0.005 1' />
     <joint solreflimit='0.001 1' />
   </default>
   <worldbody>

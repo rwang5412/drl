@@ -707,11 +707,11 @@ class MujocoSim(GenericSim):
                 r_force = np.apply_along_axis(np.linalg.norm, 1, r_multi_force)
                 total_force += np.sum(r_force)
             if total_force > 0:
-                cop = np.zeros(2)
+                cop = np.zeros(3)
                 for i in range(l_multi_force.shape[0]):
-                    cop += l_force[i] / total_force * l_contact_pts[i, 0:2]
+                    cop += l_force[i] / total_force * l_contact_pts[i, :]
                 for i in range(r_multi_force.shape[0]):
-                    cop += r_force[i] / total_force * r_contact_pts[i, 0:2]
+                    cop += r_force[i] / total_force * r_contact_pts[i, :]
             else:
                 cop = None
 
@@ -913,7 +913,6 @@ class MujocoSim(GenericSim):
         # Update radius of bounding sphere for contact detection. Radius depends on geom type,
         # according to Mujoco source code here:
         # https://github.com/google-deepmind/mujoco/blob/6f8128dc6ac853f1bd8da63e6e43e5d13141aeaf/src/user/user_objects.cc#L1457
-        print("geom type", self.model.geom(name).type, mj.mju_type2Str(self.model.geom(name).type))
         match self.model.geom(name).type:
             case mj.mjtGeom.mjGEOM_SPHERE:
                 self.model.geom(name).rbound = size[0]
@@ -930,6 +929,7 @@ class MujocoSim(GenericSim):
                     f" sdf, or mesh type geoms. Use the respective geom type functions instead.{ENDC}")
 
         geom_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_GEOM, name)
+        # Update aabb parameters just in case midphase pruning is enabled
         self.model.geom_aabb[geom_id, 3:] = size
         self.model.bvh_aabb[geom_id, 3:] = size
 

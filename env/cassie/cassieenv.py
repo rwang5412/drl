@@ -1,17 +1,13 @@
 import copy
 import json
+import mujoco as mj
 import numpy as np
 import os
 
 from env.genericenv import GenericEnv
 from sim import MjCassieSim, LibCassieSim
-from env.util.quaternion import (
-    euler2quat,
-    inverse_quaternion,
-    rotate_by_quaternion,
-    quaternion_product,
-    quaternion2euler
-)
+from env.util.quaternion import *
+from scipy.spatial.transform import Rotation as R
 from util.colors import FAIL, WARNING, ENDC
 from pathlib import Path
 
@@ -177,14 +173,18 @@ class CassieEnv(GenericEnv):
             self.motor_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=10)
             self.joint_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=4)
             # NOTE: this creates very wrong floor slipperiness
-            # if self.terrain != "hfield":
-            #     rand_euler = np.random.uniform(-.05, .05, size=2)
-            #     rand_quat = euler2quat(z=0, y=rand_euler[0], x=rand_euler[1])
-            #     self.sim.set_geom_quat("floor", rand_quat)
+            if self.terrain != "hfield":
+                rand_euler = np.random.uniform(-.05, .05, size=2)
+                rand_quat = scipy2mj(R.from_euler("xyz", [rand_euler[0], rand_euler[1], 0]).as_quat())
+                self.sim.set_geom_quat("floor", rand_quat)
         else:
             self.sim.default_dynamics()
             self.motor_encoder_noise = np.zeros(10)
             self.joint_encoder_noise = np.zeros(4)
+            if self.terrain != "hfield":
+                self.sim.model.opt.disableflags = 0
+                self.sim.model.geom("floor").sameframe = 1
+                self.sim.set_geom_quat("floor", np.array([1, 0, 0, 0]))
         self.sim.reset()
 
     def step_simulation(self, action: np.ndarray, simulator_repeat_steps: int, integral_action: bool = False):

@@ -62,8 +62,8 @@ class DigitEnvClock(DigitEnv):
             self._cycle_time_bounds = [0.8, 0.8]
         self._randomize_commands_bounds = [150, 200] # in episode length
 
-        if not self.full_gait and self.full_clock:
-            raise NotImplementedError("Training with full clock only works with full gait.")
+        if self.full_gait and not self.full_clock:
+            raise NotImplementedError("Training with full gait only works with full clock.")
 
         # Load reward module
         self.reward_name = reward_name
@@ -178,8 +178,7 @@ class DigitEnvClock(DigitEnv):
                 so3 = R.from_euler(seq='xyz', angles=[0,0,0]).as_matrix()
                 self.cop_marker_id = self.sim.viewer.add_marker("sphere", "", [0, 0, 0], [0.03, 0.03, 0.03], [0.99, 0.1, 0.1, 1.0], so3)
             if self.cop is not None:
-                cop_pos = np.concatenate([self.cop, [0]])
-                self.sim.viewer.update_marker_position(self.cop_marker_id, cop_pos)
+                self.sim.viewer.update_marker_position(self.cop_marker_id, self.cop)
 
         # Reward for taking current action before changing quantities for new state
         r = self.compute_reward(action)
