@@ -56,12 +56,14 @@ if __name__ == "__main__":
     previous_args_dict = pickle.load(open(os.path.join(model_path, "experiment.pkl"), "rb"))
     actor_checkpoint = torch.load(os.path.join(model_path, 'actor.pt'), map_location='cpu')
     critic_checkpoint = torch.load(os.path.join(model_path, 'critic.pt'), map_location='cpu')
-    add_env_parser(previous_args_dict['all_args'].env_name, parser)
+
+    add_env_parser(previous_args_dict['all_args'].env_name, parser, is_eval=True)
     args = parser.parse_args()
+
     # Overwrite previous env args with current input
-    # for arg, val in vars(args).items():
-    #     if hasattr(previous_args_dict['env_args'], arg):
-    #         setattr(previous_args_dict['env_args'], arg, val)
+    for arg, val in vars(args).items():
+        if hasattr(previous_args_dict['env_args'], arg):
+            setattr(previous_args_dict['env_args'], arg, val)
 
     if hasattr(previous_args_dict['env_args'], 'offscreen'):
         previous_args_dict['env_args'].offscreen = True if evaluation_type == 'offscreen' else False

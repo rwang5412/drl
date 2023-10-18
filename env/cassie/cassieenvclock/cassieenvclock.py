@@ -376,7 +376,7 @@ class CassieEnvClock(CassieEnv):
             self._update_control_commands_dict()
             self.display_control_commands()
 
-def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace):
+def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace, is_eval : bool = False):
     """
     Function to add handling of arguments relevant to this environment construction. Handles both
     the case where the input is an argument parser (in which case it will use `add_argument`) and
@@ -388,6 +388,8 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
     Args:
         parser (argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace): The argument
             parser or Namespace object to add arguments to
+        is_eval (bool): Whether the environment is being used for evaluation with new env args passed in
+            command line. If True it will supress loading default env args.
 
     Returns:
         argparse.ArgumentParser or SimpleNamespace, or argparse.Namespace: Returns the same object
@@ -398,7 +400,7 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "terrain" : ("", "What terrain to train with (default is flat terrain)"),
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
-        "state-noise" : (0.0, "Amount of noise to add to proprioceptive state."),
+        "state-noise" : ([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "Amount of noise to add to proprioceptive state."),
         "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
                        libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
@@ -412,15 +414,37 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
     if isinstance(parser, argparse.ArgumentParser):
         env_group = parser.add_argument_group("Env arguments")
         for arg, (default, help_str) in args.items():
-            if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
-                env_group.add_argument("--" + arg, action=argparse.BooleanOptionalAction)
+            # Supress loading default env args if eval called with command line args. However, still
+            # want to use DR and state noise default to off
+            if is_eval and arg not in ("dynamics-randomization", "state-noise"):
+                if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
+                    env_group.add_argument("--" + arg, action = argparse.BooleanOptionalAction,
+                                           default = argparse.SUPPRESS)
+                elif isinstance(default, list): # Arg is list, need to use `nargs`
+                    env_group.add_argument("--" + arg, nargs = len(default), default = argparse.SUPPRESS,
+                                           type = type(default[0]), help = help_str)
+                else:
+                    env_group.add_argument("--" + arg, default = argparse.SUPPRESS,
+                                           type = type(default), help = help_str)
             else:
-                env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
-        env_group.set_defaults(dynamics_randomization=True)
-        env_group.set_defaults(state_est=False)
-        env_group.set_defaults(full_clock=False)
-        env_group.set_defaults(full_gait=False)
-        env_group.set_defaults(integral_action=False)
+                if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
+                    env_group.add_argument("--" + arg, action=argparse.BooleanOptionalAction)
+                elif isinstance(default, list): # Arg is list, need to use `nargs`
+                    env_group.add_argument("--" + arg, nargs=len(default), default=default,
+                                           type=type(default[0]), help=help_str)
+                else:
+                    env_group.add_argument("--" + arg, default = default, type = type(default), help = help_str)
+
+
+        # Set default values if not eval
+        if not is_eval:
+            env_group.set_defaults(dynamics_randomization=True)
+            env_group.set_defaults(state_est=False)
+            env_group.set_defaults(full_clock=False)
+            env_group.set_defaults(full_gait=False)
+            env_group.set_defaults(integral_action=False)
+        else: # If eval set DR to false by default
+            env_group.set_defaults(dynamics_randomization=False)
     elif isinstance(parser, (SimpleNamespace, argparse.Namespace)):
         for arg, (default, help_str) in args.items():
             arg = arg.replace("-", "_")
