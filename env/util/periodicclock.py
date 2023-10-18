@@ -124,7 +124,7 @@ class PeriodicClock:
     def von_mises_full(self, coeff: List[float] = [0.0, 1.0], std: float  = 0.2):
         # This is an alternate version of the von mises clock function. This will do the full
         # computation and allow for different coefficient values which will change the shape of the
-        # clock. I think for most cases the coeffs we woudl use are [0, 1], which simplifies the
+        # clock. I think for most cases the coeffs we would use are [0, 1], which simplifies the
         # computation. In this case, use the regular `von_mises` function which should be faster.
         kappa = 1 / (std ** 2)
 

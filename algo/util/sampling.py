@@ -70,8 +70,7 @@ class Buffer:
              state: np.ndarray,
              action: np.ndarray,
              reward: np.ndarray,
-             value: np.ndarray,
-             done: bool = False):
+             value: np.ndarray):
         """
         Store new PPO state (state, action, reward, value, termination)
 
@@ -81,7 +80,6 @@ class Buffer:
             reward (numpy vector): reward
             value (numpy vector): value function value
             return (numpy vector): return
-            done (bool): last mdp tuple in rollout
         """
         self.states  += [state]
         self.actions += [action]
@@ -286,9 +284,9 @@ class AlgoSampler(AlgoWorker):
 
         AlgoWorker.__init__(self, actor, critic)
 
-    def sample_traj(self, 
-                    max_traj_len: int = 300, 
-                    do_eval: bool = False, 
+    def sample_traj(self,
+                    max_traj_len: int = 300,
+                    do_eval: bool = False,
                     update_normalization_param: bool=False):
         """
         Function to sample experience
