@@ -113,7 +113,7 @@ class Buffer:
                                     back up and calculate returns for the whole trajectory
         """
         self.traj_idx += [self.size]
-        rewards = np.array(self.rewards[self.traj_idx[-2]:self.traj_idx[-1]]).squeeze()
+        rewards = np.array(self.rewards[self.traj_idx[-2]:self.traj_idx[-1]]).squeeze(axis=1)
         values = self.values[self.traj_idx[-2]:self.traj_idx[-1]] + [terminal_value]
 
         # Compute GAE + returns
