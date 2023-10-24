@@ -133,7 +133,17 @@ class CassieEnv(GenericEnv):
             self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
             self.dr_ranges["encoder-noise"] = {"ranges": dyn_rand_data["encoder-noise"]}
             dyn_rand_file.close()
-        self.state_noise = state_noise
+
+        assert isinstance(state_noise, list), \
+                f"{FAIL}Env {self.__class__.__name__} received 'state_noise' arg that was not a " \
+                f"list. State noise must be given as a 6 long list.{ENDC}"
+        assert len(state_noise) == 6, \
+            f"{FAIL}Env {self.__class__.__name__} received 'state_noise' arg that was not 6 long. " \
+            f"State noise must be given as a 6 long list.{ENDC}"
+        if all(noise == 0 for noise in state_noise):
+            self.state_noise = None
+        else:
+            self.state_noise = state_noise
         self.motor_encoder_noise = np.zeros(10)
         self.joint_encoder_noise = np.zeros(4)
 

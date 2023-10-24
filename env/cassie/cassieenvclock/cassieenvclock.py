@@ -90,7 +90,11 @@ class CassieEnvClock(CassieEnv):
             print(traceback.format_exc())
             exit(1)
 
-        self.reset()
+        self.cycle_time = 0.8
+        self.clock = PeriodicClock(0.8, 1 / 50, [0.5, 0.5], [0, 0.5])
+        self.x_velocity = 0
+        self.y_velocity = 0
+        self.turn_rate = 0
 
         # Define env specifics after reset
         self.observation_size = len(self.get_robot_state())
@@ -136,6 +140,25 @@ class CassieEnvClock(CassieEnv):
         self.cop = None
 
         return self.get_state()
+
+    def reset_for_test(self, interactive_evaluation: bool = False):
+        self.turn_rate = 0
+        self.x_velocity = 0
+        self.y_velocity = 0
+        self.orient_add = 0
+        self.cycle_time = 0.8
+        self.clock = PeriodicClock(0.8, 1 / self.default_policy_rate, [0.5, 0.5], [0.0, 0.5])
+        self.clock._phase = 0
+        self.clock._von_mises_buf = None
+
+        # Interactive control/evaluation
+        self._update_control_commands_dict()
+        self.interactive_evaluation = interactive_evaluation
+
+        # Reset env counter variables
+        self.traj_idx = 0
+        self.last_action = None
+        self.cop = None
 
     def randomize_clock(self, init=False):
         phase_add = 1 / self.default_policy_rate

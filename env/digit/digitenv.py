@@ -1,13 +1,16 @@
 import json
 import numpy as np
-import mujoco as mj
 
 from env.genericenv import GenericEnv
-from sim import MjDigitSim, ArDigitSim
 from env.util.quaternion import *
+from sim import MjDigitSim, ArDigitSim
 from scipy.spatial.transform import Rotation as R
-from util.colors import WARNING, ENDC
+from util.colors import FAIL, WARNING, ENDC
 from pathlib import Path
+from testing.common import (
+    DIGIT_JOINT_LLAPI2MJ_INDEX,
+    DIGIT_MOTOR_LLAPI2MJ_INDEX,
+)
 
 class DigitEnv(GenericEnv):
     def __init__(self,
@@ -15,8 +18,7 @@ class DigitEnv(GenericEnv):
                  terrain: str,
                  policy_rate: int,
                  dynamics_randomization: bool,
-                 state_noise: float,
-                 state_est: bool):
+                 state_noise: float):
         """Template class for Digit with common functions.
         This class intends to capture all signals under simulator rate (2kHz).
 
@@ -32,23 +34,43 @@ class DigitEnv(GenericEnv):
         self.dynamics_randomization = dynamics_randomization
         self.default_policy_rate = policy_rate
         self.terrain = terrain
-        # Select simulator
-        self.state_est = state_est
-        self.simulator_type = simulator_type
-        if simulator_type == "mujoco":
-            self.sim = MjDigitSim(terrain=terrain)
-        elif simulator_type == 'ar':
-            self.sim = ArDigitSim()
-        else:
-            raise RuntimeError(f"Simulator type {simulator_type} not correct!"
-                               "Select from 'mujoco' or 'ar'.")
 
-        # Low-level control specifics
-        self.offset = self.sim.reset_qpos[self.sim.motor_position_inds]
         self.kp = np.array([80, 80, 110, 140, 40, 40, 80, 80, 50, 80,
                             80, 80, 110, 140, 40, 40, 80, 80, 50, 80])
         self.kd = np.array([8, 8, 10, 12, 6, 6, 9, 9, 7, 9,
                             8, 8, 10, 12, 6, 6, 9, 9, 7, 9])
+        assert isinstance(state_noise, list), \
+                f"{FAIL}Env {self.__class__.__name__} received 'state_noise' arg that was not a " \
+                f"list. State noise must be given as a 6 long list.{ENDC}"
+        assert len(state_noise) == 6, \
+            f"{FAIL}Env {self.__class__.__name__} received 'state_noise' arg that was not 6 long. " \
+            f"State noise must be given as a 6 long list.{ENDC}"
+        if all(noise == 0 for noise in state_noise):
+            self.state_noise = None
+        else:
+            self.state_noise = state_noise
+        self.motor_encoder_noise = np.zeros(20)
+        self.joint_encoder_noise = np.zeros(10)
+
+        # Display menu of available commands for interactive control
+        self._init_interactive_key_bindings()
+        self.set_logging_fields()
+
+        # Select simulator
+        self.simulator_type = simulator_type
+        if simulator_type == "mujoco":
+            self.sim = MjDigitSim(terrain=terrain)
+        elif simulator_type == 'ar_async':
+            self.llapi_obs = None
+            self.mj_sim = MjDigitSim(terrain=terrain)
+            self.offset = self.mj_sim.reset_qpos[self.mj_sim.motor_position_inds]
+            return
+        else:
+            raise RuntimeError(f"{FAIL}Simulator type {simulator_type} not correct!"
+                               "Select from 'mujoco' or 'ar_async'.{ENDC}")
+
+        # Low-level control specifics
+        self.offset = self.sim.reset_qpos[self.sim.motor_position_inds]
 
         # Init trackers to weigh/avg high freq signals and containers for each signal
         self.orient_add = 0
@@ -128,9 +150,6 @@ class DigitEnv(GenericEnv):
             self.dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
             self.dr_ranges["encoder-noise"] = {"ranges": dyn_rand_data["encoder-noise"]}
             dyn_rand_file.close()
-        self.state_noise = state_noise
-        self.motor_encoder_noise = np.zeros(20)
-        self.joint_encoder_noise = np.zeros(10)
 
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
@@ -154,13 +173,15 @@ class DigitEnv(GenericEnv):
                                         -62, -63, -64, -65, -66,      # right joint vel
                                         -57, -58, -59, -60, -61,      # left joint vel
                                         ]
-        # Display menu of available commands for interactive control
-        self._init_interactive_key_bindings()
 
     def reset_simulation(self):
         """Reset simulator.
         Depending on use cases, child class can override this as well.
         """
+        if self.simulator_type == "ar_async":
+            raise RuntimeError(f"{FAIL}ERROR: 'reset_simulation' cannot be called when simulator "
+                               f"type is ar_async.{ENDC}")
+
         if self.dynamics_randomization:
             self.sim.randomize_dynamics(self.dr_ranges)
             self.motor_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=20)
@@ -214,25 +235,36 @@ class DigitEnv(GenericEnv):
                         tracker_fn(weighting = 1 / np.ceil(simulator_repeat_steps / tracker_dict["num_step"]),
                                 sim_step = sim_step)
 
-    def get_robot_state(self, use_imu=False):
+    def get_robot_state(self):
         """Get standard robot prorioceptive states. Sub-env can override this function to define its
         own get_robot_state().
 
         Returns:
             robot_state (np.ndarray): robot state
         """
-        if use_imu:
-            q = self.sim.data.sensor('torso/base/imu-orientation').data
+        if self.simulator_type == "ar_async":
+            if self.llapi_obs is None:
+                print(f"{WARNING}WARNING: llapi_obs is None, can not get robot state.{ENDC}")
+                return False
+            else:
+                q = np.array([self.llapi_obs.base.orientation.w, self.llapi_obs.base.orientation.x,
+                              self.llapi_obs.base.orientation.y, self.llapi_obs.base.orientation.z])
+                base_ang_vel = np.array(self.llapi_obs.imu.angular_velocity[:])
+                motor_pos = np.array(self.llapi_obs.motor.position[:])[DIGIT_MOTOR_LLAPI2MJ_INDEX]
+                motor_vel = np.array(self.llapi_obs.motor.velocity[:])[DIGIT_MOTOR_LLAPI2MJ_INDEX]
+                joint_pos = np.array(self.llapi_obs.joint.position[:])[DIGIT_JOINT_LLAPI2MJ_INDEX]
+                joint_vel = np.array(self.llapi_obs.joint.velocity[:])[DIGIT_JOINT_LLAPI2MJ_INDEX]
+
         else:
             q = self.sim.get_base_orientation()
+            # NOTE: do not use floating base angular velocity and it's bad on hardware
+            base_ang_vel = self.sim.data.sensor('torso/base/imu-gyro').data
+            motor_pos = self.sim.get_motor_position()
+            motor_vel = self.sim.get_motor_velocity()
+            joint_pos = self.sim.get_joint_position()
+            joint_vel = self.sim.get_joint_velocity()
 
         base_orient = self.rotate_to_heading(q)
-        # NOTE: do not use floating base angular velocity and it's bad on hardware
-        base_ang_vel = self.sim.data.sensor('torso/base/imu-gyro').data
-        motor_pos = self.sim.get_motor_position()
-        motor_vel = self.sim.get_motor_velocity()
-        joint_pos = self.sim.get_joint_position()
-        joint_vel = self.sim.get_joint_velocity()
 
         # Add noise to motor and joint encoders per episode
         if self.dynamics_randomization:
@@ -240,7 +272,7 @@ class DigitEnv(GenericEnv):
             joint_pos += self.joint_encoder_noise
 
         # Apply noise to proprioceptive states per step
-        if isinstance(self.state_noise, list):
+        if isinstance(self.state_noise, list) and self.simulator_type != "ar_async":
             noise_euler = np.random.normal(0, self.state_noise[0], size = 3)
             noise_quat_add = R.from_euler('xyz', noise_euler)
             noise_quat = noise_quat_add * R.from_quat(mj2scipy(base_orient))
@@ -250,9 +282,6 @@ class DigitEnv(GenericEnv):
             motor_vel = motor_vel + np.random.normal(0, self.state_noise[3], size = self.sim.num_actuators)
             joint_pos = joint_pos + np.random.normal(0, self.state_noise[4], size = self.sim.num_joints)
             joint_vel = joint_vel + np.random.normal(0, self.state_noise[5], size = self.sim.num_joints)
-        else:
-            pass
-            # raise NotImplementedError("state_noise must be a list of 6 elements")
 
         robot_state = np.concatenate([
             base_orient,
@@ -338,3 +367,24 @@ class DigitEnv(GenericEnv):
 
     def _init_interactive_key_bindings(self):
         pass
+
+    def set_logging_fields(self):
+        # Define names for robot state input and action output
+        self.output_names = ["left-hip-roll", "left-hip-yaw", "left-hip-pitch", "left-knee", "left-foot",
+               "left-shoulder-roll", "left-shoulder-pitch", "left-shoulder-yaw", "left-elbow",
+               "right-hip-roll", "right-hip-yaw", "right-hip-pitch", "right-knee", "right-foot",
+               "right-shoulder-roll", "right-shoulder-pitch", "right-shoulder-yaw", "right-elbow"]
+        self.robot_state_names = ["base-orientation-w", "base-orientation-x", "base-orientation-y", "base-orientation-z",
+                            "base-roll-velocity", "base-pitch-velocity", "base-yaw-velocity",
+                            "left-hip-roll-pos", "left-hip-yaw-pos", "left-hip-pitch-pos", "left-knee-pos", "left-foot-a-pos", "left-foot-b-pos",
+                            "left-shoulder-roll-pos", "left-shoulder-pitch-pos", "left-shoulder-yaw-pos", "left-elbow-pos",
+                            "right-hip-roll-pos", "right-hip-yaw-pos", "right-hip-pitch-pos", "right-knee-pos", "right-foot-a-pos", "right-foot-b-pos",
+                            "right-shoulder-roll-pos", "right-shoulder-pitch-pos", "right-shoulder-yaw-pos", "right-elbow-pos",
+                            "left-hip-roll-vel", "left-hip-yaw-vel", "left-hip-pitch-vel", "left-knee-vel", "left-foot-a-vel", "left-foot-b-vel",
+                            "left-shoulder-roll-vel", "left-shoulder-pitch-vel", "left-shoulder-yaw-vel", "left-elbow-vel",
+                            "right-hip-roll-vel", "right-hip-yaw-vel", "right-hip-pitch-vel", "right-knee-vel", "right-foot-a-vel", "right-foot-b-vel",
+                            "right-shoulder-roll-vel", "right-shoulder-pitch-vel", "right-shoulder-yaw-vel", "right-elbow-vel",
+                            "left-shin-pos", "left-tarsus-pos", "left-heel-spring-pos", "left-toe-pitch-pos", "left-toe-roll-pos",
+                            "right-shin-pos", "right-tarsus-pos", "right-heel-spring-pos", "right-toe-pitch-pos", "right-toe-roll-pos",
+                            "left-shin-vel", "left-tarsus-vel", "left-heel-spring-vel", "left-toe-pitch-vel", "left-toe-roll-vel",
+                            "right-shin-vel", "right-tarsus-vel", "right-heel-spring-vel", "right-toe-pitch-vel", "right-toe-roll-vel"]

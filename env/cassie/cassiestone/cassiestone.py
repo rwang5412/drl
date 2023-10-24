@@ -74,7 +74,21 @@ class CassieStone(CassieEnv):
             print(traceback.format_exc())
             exit(1)
 
-        self.reset()
+        self.clock = PeriodicClock(0.8, 1 / 50, [0.5, 0.5], [0, 0.5])
+        self.x_velocity = 0
+        self.y_velocity = 0
+        self.turn_rate = 0
+        stones = self.generate_fixed_stones(z_step=self.z_step)
+        for s in range(len(self.sim.geom_generator.geoms)):
+            stone_size = 0.15 if s < 2 else 0.1
+            self.sim.geom_generator._create_geom(f'box{s}', *stones[s], rise=.01,
+                                                  length=stone_size, width=stone_size)
+        self.sim.adjust_robot_pose()
+        self.touchdown_by_clock_flag = [False, False]
+        self.is_stance_previous = [False, False]
+        self.steps_active_idx = 0
+        self.steps_commands_pelvis = self.steps_target_global[self.steps_active_idx] - \
+                                     self.sim.get_body_pose(self.sim.base_body_name)[0:3]
 
         # Define env specifics after reset
         self.observation_size = len(self.get_robot_state())
@@ -96,6 +110,7 @@ class CassieStone(CassieEnv):
             state (np.ndarray): the s in (s, a, s')
         """
         self.reset_simulation()
+        self.sim.set_geom_quat("floor", np.array([1,0,0,0]))
         self.orient_add = 0
 
         # Update clock
@@ -129,6 +144,39 @@ class CassieStone(CassieEnv):
         self.last_base_position = self.sim.get_base_position()
 
         return self.get_state()
+
+    def reset_for_test(self, interactive_evaluation: bool = False):
+        self.turn_rate = 0
+        self.x_velocity = 0
+        self.y_velocity = 0
+        self.orient_add = 0
+        self.clock = PeriodicClock(0.8, 1 / self.default_policy_rate, [0.5, 0.5], [0.0, 0.5])
+        self.clock._phase = 0
+        self.clock._von_mises_buf = None
+
+        # Stone reset
+        stones = self.generate_fixed_stones(z_step=self.z_step)
+        for s in range(len(self.sim.geom_generator.geoms)):
+            stone_size = 0.15 if s < 2 else 0.1
+            self.sim.geom_generator._create_geom(f'box{s}', *stones[s], rise=.01,
+                                                  length=stone_size, width=stone_size)
+        # self.sim.set_geom_color('box0',np.array([255, 0, 0, 1]))
+        self.sim.adjust_robot_pose()
+
+        self.touchdown_by_clock_flag = [False, False]
+        self.is_stance_previous = [False, False]
+        self.steps_active_idx = 0
+        self.steps_commands_pelvis = self.steps_target_global[self.steps_active_idx] - \
+                                     self.sim.get_body_pose(self.sim.base_body_name)[0:3]
+
+        # Interactive control/evaluation
+        self._update_control_commands_dict()
+        self.interactive_evaluation = interactive_evaluation
+
+        # Reset env counter variables
+        self.traj_idx = 0
+        self.last_action = None
+        self.cop = None
 
     def step(self, action: np.ndarray):
         # Unpack actions besides motor actions

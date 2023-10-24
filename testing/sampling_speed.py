@@ -31,11 +31,13 @@ def sampling_speed():
                         reward_name = "locomotion_linear_clock_reward",
                         dynamics_randomization = False)
     mj_env = env_factory("CassieEnvClock", args)()
+    mj_env.reset()
     args = SimpleNamespace(simulator_type = "libcassie",
                         clock_type = "linear",
                         reward_name = "locomotion_linear_clock_reward",
                         dynamics_randomization = False)
     lib_env = env_factory("CassieEnvClock", args)()
+    lib_env.reset()
 
     # Test env sampling speed
     env_steps = 1000

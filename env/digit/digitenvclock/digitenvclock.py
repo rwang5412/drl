@@ -26,7 +26,6 @@ class DigitEnvClock(DigitEnv):
                  policy_rate: int,
                  dynamics_randomization: bool,
                  state_noise: float,
-                 state_est: bool,
                  full_clock: bool = False,
                  full_gait: bool = False,
                  integral_action: bool = False):
@@ -34,18 +33,17 @@ class DigitEnvClock(DigitEnv):
             f"{FAIL}CassieEnvClock received invalid clock type {clock_type}. Only \"linear\" or " \
             f"\"von_mises\" are valid clock types.{ENDC}"
 
+        # Clock variables
+        self.clock_type = clock_type
+        self.full_clock = full_clock
+
         super().__init__(simulator_type=simulator_type,
                          terrain=terrain,
                          policy_rate=policy_rate,
                          dynamics_randomization=dynamics_randomization,
-                         state_noise=state_noise,
-                         state_est=state_est)
+                         state_noise=state_noise)
 
         self.integral_action = integral_action
-
-        # Clock variables
-        self.clock_type = clock_type
-        self.full_clock = full_clock
 
         # Command randomization ranges
         self._x_velocity_bounds = [-0.5, 2.0]
@@ -89,22 +87,26 @@ class DigitEnvClock(DigitEnv):
             print(traceback.format_exc())
             exit(1)
 
-        self.reset()
+        self.clock = PeriodicClock(0.8, 1 / 50, [0.5, 0.5], [0, 0.5])
+        self.x_velocity = 0
+        self.y_velocity = 0
+        self.turn_rate = 0
 
         # Define env specifics after reset
-        self.observation_size = len(self.get_robot_state())
-        self.observation_size += 3 # XY velocity and turn command
-        self.observation_size += 2 # swing ratio
-        self.observation_size += 2 # period shift
-        # input clock
-        if self.full_clock:
-            self.observation_size += 4
-        else:
-            self.observation_size += 2
-        self.action_size = self.sim.num_actuators
-        # Only check sizes if calling current class. If is child class, don't need to check
-        if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
-            self.check_observation_action_size()
+        if self.simulator_type != "ar_async":
+            self.observation_size = len(self.get_robot_state())
+            self.observation_size += 3 # XY velocity and turn command
+            self.observation_size += 2 # swing ratio
+            self.observation_size += 2 # period shift
+            # input clock
+            if self.full_clock:
+                self.observation_size += 4
+            else:
+                self.observation_size += 2
+            self.action_size = self.sim.num_actuators
+            # Only check sizes if calling current class. If is child class, don't need to check
+            if os.path.basename(__file__).split(".")[0] == self.__class__.__name__.lower():
+                self.check_observation_action_size()
 
     def reset(self, interactive_evaluation: bool = False):
         """Reset simulator and env variables.
@@ -134,6 +136,24 @@ class DigitEnvClock(DigitEnv):
         self.last_action = None
         self.cop = None
         return self.get_state()
+
+    def reset_for_test(self, interactive_evaluation: bool = False):
+        self.turn_rate = 0
+        self.x_velocity = 0
+        self.y_velocity = 0
+        self.orient_add = 0
+        self.clock = PeriodicClock(0.8, 1 / self.default_policy_rate, [0.5, 0.5], [0.0, 0.5])
+        self.clock._phase = 0
+        self.clock._von_mises_buf = None
+
+        # Interactive control/evaluation
+        self._update_control_commands_dict()
+        self.interactive_evaluation = interactive_evaluation
+
+        # Reset env counter variables
+        self.traj_idx = 0
+        self.last_action = None
+        self.cop = None
 
     def randomize_clock(self, init=False):
         phase_add = 1 / self.default_policy_rate
@@ -196,6 +216,10 @@ class DigitEnvClock(DigitEnv):
                 self.randomize_clock()
 
         return self.get_state(), r, self.compute_done(), {}
+
+    def hw_step(self):
+        self.orient_add += self.turn_rate / self.default_policy_rate
+        self.clock.increment()
 
     def randomize_commands(self, init=False):
         # Randomize commands
@@ -284,11 +308,11 @@ class DigitEnvClock(DigitEnv):
         }
         self.input_keys_dict["e"] = {
             "description": "decrease turn rate",
-            "func": lambda self: setattr(self, "turn_rate", self.turn_rate - 0.01 * np.pi/4)
+            "func": lambda self: setattr(self, "turn_rate", self.turn_rate - 0.05 * np.pi/4)
         }
         self.input_keys_dict["q"] = {
             "description": "increase turn rate",
-            "func": lambda self: setattr(self, "turn_rate", self.turn_rate + 0.01 * np.pi/4)}
+            "func": lambda self: setattr(self, "turn_rate", self.turn_rate + 0.05 * np.pi/4)}
         self.input_keys_dict["o"] = {
             "description": "increase clock cycle time",
             "func": lambda self: setattr(self.clock, "_cycle_time", np.clip(
@@ -371,6 +395,17 @@ class DigitEnvClock(DigitEnv):
             self._update_control_commands_dict()
             self.display_control_commands()
 
+    def set_logging_fields(self):
+        super().set_logging_fields()
+
+        # Define names for each extra input beyond robot state
+        self.extra_input_names = ['x-velocity', 'y-velocity', 'turn-rate',
+                         'swing-ratio-left', 'swing-ratio-right', 'period-shift-left', 'period-shift-right']
+        if self.full_clock:
+            self.extra_input_names += ['clock-sin-left', 'clock-cos-left', 'clock-sin-right', 'clock-cos-right']
+        else:
+            self.extra_input_names += ['clock-sin', 'clock-cos']
+
 def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Namespace, is_eval: bool = False):
     """
     Function to add handling of arguments relevant to this environment construction. Handles both
@@ -396,8 +431,6 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         "policy-rate" : (50, "Rate at which policy runs in Hz"),
         "dynamics-randomization" : (True, "Whether to use dynamics randomization or not (default is True)"),
         "state-noise" : ([0.0, 0.0, 0.0, 0.0, 0.0, 0.0], "Amount of noise to add to proprioceptive state."),
-        "state-est" : (False, "Whether to use true sim state or state estimate. Only used for \
-                       libcassie sim."),
         "reward-name" : ("locomotion_linear_clock_reward", "Which reward to use"),
         "clock-type" : ("linear", "Which clock to use (\"linear\" or \"von_mises\")"),
         "full-clock" : (False, "Whether to input the full clock (sine/cosine for each leg) or just \
@@ -412,7 +445,6 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
             # Supress loading default env args if eval called with command line args. However, still
             # want to use DR and state noise default to off
             if is_eval and arg not in ("dynamics-randomization", "state-noise"):
-                print("add arg", arg)
                 if isinstance(default, bool):   # Arg is bool, need action 'store_true' or 'store_false'
                     env_group.add_argument("--" + arg, action=argparse.BooleanOptionalAction,
                                            default = argparse.SUPPRESS)
@@ -434,7 +466,6 @@ def add_env_args(parser: argparse.ArgumentParser | SimpleNamespace | argparse.Na
         # Set default values if not eval
         if not is_eval:
             env_group.set_defaults(dynamics_randomization=True)
-            env_group.set_defaults(state_est=False)
             env_group.set_defaults(full_clock=False)
             env_group.set_defaults(full_gait=False)
             env_group.set_defaults(integral_action=False)

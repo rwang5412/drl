@@ -1,5 +1,6 @@
 import agility
 import agility.messages as msg
+import atexit
 import argparse
 import asyncio
 import datetime
@@ -22,37 +23,16 @@ from scipy.spatial.transform import Rotation as R
 from sim.digit_sim.digit_ar_sim.digit_udp import DigitUdp
 from sim.digit_sim.digit_ar_sim.interface_ctypes import *
 from testing.common import (
-    DIGIT_JOINT_MJ2LLAPI_INDEX,
     DIGIT_MOTOR_MJ2LLAPI_INDEX,
-    DIGIT_JOINT_LLAPI2MJ_INDEX,
-    DIGIT_MOTOR_LLAPI2MJ_INDEX,
     MOTOR_POSITION_SET
 )
+from util.colors import WARNING, ENDC
 from util.digit_topic import DigitStateTopic
-from util.env_factory import env_factory
+from util.env_factory import add_env_parser, env_factory
 from util.nn_factory import load_checkpoint, nn_factory
 
-MOTOR_NAMES = ["left-hip-roll", "left-hip-yaw", "left-hip-pitch", "left-knee", "left-foot",
-               "left-shoulder-roll", "left-shoulder-pitch", "left-shoulder-yaw", "left-elbow",
-               "right-hip-roll", "right-hip-yaw", "right-hip-pitch", "right-knee", "right-foot",
-               "right-shoulder-roll", "right-shoulder-pitch", "right-shoulder-yaw", "right-elbow"]
-ROBOT_STATE_NAMES = ["base-orientation-w", "base-orientation-x", "base-orientation-y", "base-orientation-z",
-                     "base-roll-velocity", "base-pitch-velocity", "base-yaw-velocity",
-                     "left-hip-roll-pos", "left-hip-yaw-pos", "left-hip-pitch-pos", "left-knee-pos", "left-foot-a-pos", "left-foot-b-pos",
-                     "left-shoulder-roll-pos", "left-shoulder-pitch-pos", "left-shoulder-yaw-pos", "left-elbow-pos",
-                     "right-hip-roll-pos", "right-hip-yaw-pos", "right-hip-pitch-pos", "right-knee-pos", "right-foot-a-pos", "right-foot-b-pos",
-                     "right-shoulder-roll-pos", "right-shoulder-pitch-pos", "right-shoulder-yaw-pos", "right-elbow-pos",
-                     "left-hip-roll-vel", "left-hip-yaw-vel", "left-hip-pitch-vel", "left-knee-vel", "left-foot-a-vel", "left-foot-b-vel",
-                     "left-shoulder-roll-vel", "left-shoulder-pitch-vel", "left-shoulder-yaw-vel", "left-elbow-vel",
-                     "right-hip-roll-vel", "right-hip-yaw-vel", "right-hip-pitch-vel", "right-knee-vel", "right-foot-a-vel", "right-foot-b-vel",
-                     "right-shoulder-roll-vel", "right-shoulder-pitch-vel", "right-shoulder-yaw-vel", "right-elbow-vel",
-                     "left-shin-pos", "left-tarsus-pos", "left-heel-spring-pos", "left-toe-pitch-pos", "left-toe-roll-pos",
-                     "right-shin-pos", "right-tarsus-pos", "right-heel-spring-pos", "right-toe-pitch-pos", "right-toe-roll-pos",
-                     "left-shin-vel", "left-tarsus-vel", "left-heel-spring-vel", "left-toe-pitch-vel", "left-toe-roll-vel",
-                     "right-shin-vel", "right-tarsus-vel", "right-heel-spring-vel", "right-toe-pitch-vel", "right-toe-roll-vel"]
-
 def save_log():
-    global logdir, log_size, part_num, log_ind, time_log, input_log, output_log, phase_log, orient_add_log
+    global logdir, log_size, part_num, log_ind, time_log, input_log, output_log, orient_add_log
 
     filename = os.path.join(logdir, f"logdata_part{part_num}.pkl")
     print("Logging to {}".format(filename))
@@ -66,35 +46,31 @@ def save_log():
     data = {"time": time_log[:log_ind],
             "output": output_log,
             "input": input_log,
-            "phase": phase_log[:log_ind],
             "orient_add": orient_add_log[:log_ind]}
     with open(filename, "wb") as filep:
         pickle.dump(data, filep)
     part_num += 1
 
-def signal_handler(sig, frame):
-    global final_save
-    # Need extra check here in case need multiple ctrl-c to exit
-    if not final_save:
-        save_log()
-        final_save = True
-    sys.exit(0)
+def close_ar_sim(ar_sim):
+    ar_sim.close()
 
 async def run(actor, env, do_log = True, pol_name = "test"):
 
-    global log_size, log_ind, part_num, time_log, input_log, output_log, phase_log, orient_add_log
+    global log_size, log_ind, part_num, time_log, input_log, output_log, orient_add_log
 
     # Start ar-control
     ar_control_path = os.path.expanduser("~/ar-software-2023.01.13a/ar-software/ar-control")
     toml_path = os.path.abspath("./sim/digit_sim/digit_ar_sim/llapi/digit-rl.toml")
-    print("ar path", ar_control_path, toml_path)
     if os.path.isfile(ar_control_path):
         print("Starting ar-control")
         ar_sim = agility.Simulator(ar_control_path, toml_path)
     else:
-        print("Assuming ar-control already running")
+        print(f"{WARNING}Assuming ar-control already running{ENDC}")
 
     save_log_p = None   # Save log process for async file saving
+    if do_log:
+        atexit.register(save_log)
+    atexit.register(close_ar_sim, ar_sim)
 
     if platform.node() == "digit-nuc":
         ROBOT_ADDRESS = '10.10.1.1'
@@ -113,22 +89,13 @@ async def run(actor, env, do_log = True, pol_name = "test"):
     digit_udp = DigitUdp(robot_address=ROBOT_ADDRESS)
     topic = DigitStateTopic(digit_udp)
 
-    env.turn_rate = 0
-    env.x_velocity = 0
-    env.y_velocity = 0
-    env.orient_add = 0
-    env.clock._phase = 0
-    env.clock._cycle_time = 0.8
-    env.clock._swing_ratios = [0.5, 0.5]
-    env.clock._period_shifts = [0.0, 0.5]
-    env.clock._von_mises_buf = None
+    env.reset_for_test()
     cmd_policy = llapi_command_pd_t()
     for i in range(NUM_MOTORS):
         cmd_policy.kp[i] = env.kp[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
         cmd_policy.kd[i] = env.kd[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
         cmd_policy.feedforward_torque[i] = 0.0
 
-    first_policy_eval = True
     query_json = True
     api_mode = "locomotion"
 
@@ -161,10 +128,9 @@ async def run(actor, env, do_log = True, pol_name = "test"):
         return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
     old_settings = termios.tcgetattr(sys.stdin)
 
-    print(f"x vel: {env.x_velocity: .3f}, "
-          f"y vel: {env.y_velocity: .3f}, "
-          f"turn rate: {env.turn_rate: .3f} "
-          f"delay: {0.000:.3f}", end="")
+    env.display_controls_menu()
+    env.display_control_commands()
+    print(f"\033[{env.num_menu_backspace_lines}B\033[K", end='\r')
     loop_start_time = time.perf_counter()
     pol_time = time.perf_counter()
     try:
@@ -178,19 +144,10 @@ async def run(actor, env, do_log = True, pol_name = "test"):
 
             if isData():
                 c = sys.stdin.read(1)
-                if c == "w":
-                    env.x_velocity += 0.05
-                elif c == "s":
-                    env.x_velocity -= 0.05
-                elif c == "a":
-                    env.y_velocity += 0.05
-                elif c == "d":
-                    env.y_velocity -= 0.05
-                elif c == "q":
-                    env.turn_rate += 0.05
-                elif c == "e":
-                    env.turn_rate -= 0.05
-                elif c == "m":  # Toggle api mode
+                print(f"\033[{env.num_menu_backspace_lines}A\033[K", end='\r')
+                env.interactive_control(c)
+                print(f"\033[{env.num_menu_backspace_lines}B\033[K", end='\r')
+                if c == "m":  # Toggle api mode
                     if api_mode == "locomotion":
                         api_mode = "llapi"
                         await api.request_privilege('change-action-command')
@@ -210,54 +167,29 @@ async def run(actor, env, do_log = True, pol_name = "test"):
             if update_time >= 1 / env.default_policy_rate:
 
                 query_json = True
-                input_clock = env.clock.input_full_clock()
-                q = np.array([obs.base.orientation.w,
-                              obs.base.orientation.x,
-                              obs.base.orientation.y,
-                              obs.base.orientation.z])
-                base_orient = np.array(env.rotate_to_heading(q, hardware_imu=False))
-                base_ang_vel = np.array(obs.imu.angular_velocity[:])
-                motor_pos = np.array(obs.motor.position[:])[DIGIT_MOTOR_LLAPI2MJ_INDEX]
-                motor_vel = np.array(obs.motor.velocity[:])[DIGIT_MOTOR_LLAPI2MJ_INDEX]
-                joint_pos = np.array(obs.joint.position[:])[DIGIT_JOINT_LLAPI2MJ_INDEX]
-                joint_vel = np.array(obs.joint.velocity[:])[DIGIT_JOINT_LLAPI2MJ_INDEX]
+                env.llapi_obs = obs
+                robot_state = env.get_robot_state()
+                RL_state = env.get_state()
 
-                robot_state = np.concatenate([
-                    base_orient,
-                    base_ang_vel,
-                    motor_pos,
-                    motor_vel,
-                    joint_pos,
-                    joint_vel
-                ])
-                RL_state = np.concatenate((robot_state,
-                                        [env.x_velocity, env.y_velocity, env.turn_rate],
-                                        [env.clock.get_swing_ratios()[0], 1 - env.clock.get_swing_ratios()[0]],
-                                        env.clock.get_period_shifts(),
-                                        input_clock))
                 with torch.no_grad():
                     action = actor(torch.tensor(RL_state).float(), deterministic=True).numpy()
                 action_sum = env.offset + action
                 for i in range(NUM_MOTORS):
                     cmd_policy.position[i] = action_sum[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
                 digit_udp.send_pd(cmd_policy)
-                env.orient_add += env.turn_rate / env.default_policy_rate
-                env.clock.increment()
-                print(f"\rx vel: {env.x_velocity: .3f}, "
-                      f"y vel: {env.y_velocity: .3f}, "
-                      f"turn rate: {env.turn_rate: .3f} "
-                      f"delay: {((time.perf_counter() - pol_time) - (1 / env.default_policy_rate)) * 100:.3f} ms", end="")
+                env.hw_step()
+                print(f"mode: {api_mode}, "
+                      f"delay: {((time.perf_counter() - pol_time) - (1 / env.default_policy_rate)) * 100:.3f} ms", end="\r")
                 pol_time = time.perf_counter()
 
                 if do_log:
                     time_log[log_ind] = pol_time
-                    for i in range(len(ROBOT_STATE_NAMES)):
-                        input_log[ROBOT_STATE_NAMES[i]][log_ind] = robot_state[i]
-                    for i in range(len(EXTRA_INPUT_NAMES)):
-                        input_log[EXTRA_INPUT_NAMES[i]][log_ind] = RL_state[len(ROBOT_STATE_NAMES) + i]
-                    for i in range(len(MOTOR_NAMES)):
-                        output_log[MOTOR_NAMES[i]][log_ind] = action_sum[i]
-                    phase_log[log_ind] = env.clock._phase
+                    for i in range(len(env.robot_state_names)):
+                        input_log[env.robot_state_names[i]][log_ind] = robot_state[i]
+                    for i in range(len(env.extra_input_names)):
+                        input_log[env.extra_input_names[i]][log_ind] = RL_state[len(env.robot_state_names) + i]
+                    for i in range(len(env.output_names)):
+                        output_log[env.output_names[i]][log_ind] = action_sum[i]
                     orient_add_log[log_ind] = env.orient_add
                     log_ind += 1
                     if log_ind >= log_size:
@@ -266,9 +198,6 @@ async def run(actor, env, do_log = True, pol_name = "test"):
                         save_log_p = Process(target=save_log)
                         log_ind = 0
                         part_num += 1
-
-            if do_log:
-                signal.signal(signal.SIGINT, signal_handler)
 
             delaytime = 1/1000 - (time.perf_counter() - loop_start_time)
             while delaytime > 0:
@@ -296,18 +225,20 @@ if __name__ == "__main__":
 
     previous_args_dict = pickle.load(open(os.path.join(model_path, "experiment.pkl"), "rb"))
     actor_checkpoint = torch.load(os.path.join(model_path, 'actor.pt'), map_location='cpu')
+    add_env_parser(previous_args_dict['all_args'].env_name, parser, is_eval=True)
     args = parser.parse_args()
 
+    # Overwrite previous env args with current input
+    for arg, val in vars(args).items():
+        if hasattr(previous_args_dict['env_args'], arg):
+            setattr(previous_args_dict['env_args'], arg, val)
+
     # Load environment
-    previous_args_dict['env_args'].simulator_type = "mujoco"
-    previous_args_dict['env_args'].state_est = False
-    previous_args_dict['env_args'].velocity_noise = 0.0
-    previous_args_dict['env_args'].state_noise = 0.0
-    previous_args_dict['env_args'].dynamics_randomization = False
-    previous_args_dict['env_args'].reward_name = "locomotion_vonmises_clock_reward"
-    previous_args_dict['env_args'].full_gait = True
+    previous_args_dict['env_args'].simulator_type = "ar_async"
     if hasattr(previous_args_dict['env_args'], 'velocity_noise'):
         delattr(previous_args_dict['env_args'], 'velocity_noise')
+    if hasattr(previous_args_dict['env_args'], 'state_est'):
+        delattr(previous_args_dict['env_args'], 'state_est')
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
 
     # Load model class and checkpoint
@@ -318,12 +249,6 @@ if __name__ == "__main__":
     if hasattr(actor, 'init_hidden_state'):
         actor.init_hidden_state()
 
-    # Extra names for input logging
-    global EXTRA_INPUT_NAMES
-    EXTRA_INPUT_NAMES = ['x-velocity', 'y-velocity', 'turn-rate',
-                         'swing-ratio-left', 'swing-ratio-right', 'period-shift-left', 'period-shift-right',
-                         'clock-sin-left', 'clock-cos-left', 'clock-sin-right', 'clock-cos-right']
-                        #  'clock-sin', 'clock-cos']
     # Global data for logging
     global log_size
     global log_ind
@@ -331,7 +256,6 @@ if __name__ == "__main__":
     global time_log # time stamp
     global input_log # network inputs
     global output_log # network outputs
-    global phase_log # clock phase
     global orient_add_log # heading offset
     global final_save
     log_size = 100000
@@ -340,12 +264,11 @@ if __name__ == "__main__":
     time_log   = [time.time()] * log_size # time stamp
     input_log = {} # network inputs
     final_save = False
-    for name in ROBOT_STATE_NAMES + EXTRA_INPUT_NAMES:
+    for name in env.robot_state_names + env.extra_input_names:
         input_log[name] = [0.0] * log_size
     output_log = {}
-    for motor in MOTOR_NAMES:
+    for motor in env.output_names:
         output_log[motor] = [0.0] * log_size
-    phase_log = [0.0] * log_size # clock phase
     orient_add_log = [0.0] * log_size # heading offset
 
     global logdir

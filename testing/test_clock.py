@@ -176,6 +176,7 @@ def test_cassieclockenv():
                          dynamics_randomization = False,
                          state_est=False,
                          state_noise=0)
+    env.reset()
     init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
@@ -191,6 +192,7 @@ def test_cassieclockenv():
                          dynamics_randomization = False,
                          state_est=False,
                          state_noise=0)
+    env.reset()
     init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
@@ -210,6 +212,7 @@ def test_digitclockenv():
                          dynamics_randomization = False,
                          state_noise=0,
                          state_est=False)
+    env.reset()
     init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(20))
@@ -225,6 +228,7 @@ def test_digitclockenv():
                          dynamics_randomization = False,
                          state_noise=0,
                          state_est=False)
+    env.reset()
     init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(20))
