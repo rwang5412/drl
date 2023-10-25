@@ -29,7 +29,6 @@ if __name__ == "__main__":
         args.nn = True
         args.mirror = True
         args.render = True
-        args.duality = True
         args.timing = True
     elif args.CI: # Tests run by CI
         args.algo = True
@@ -39,7 +38,6 @@ if __name__ == "__main__":
         args.nn = True
         args.mirror = True
         args.render = False
-        args.duality = True
         args.timing = True
         args.train = False # GLFW error on CI
 

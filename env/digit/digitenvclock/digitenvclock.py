@@ -239,9 +239,9 @@ class DigitEnvClock(DigitEnv):
             case 'walk-turn':
                 self.turn_rate = np.random.uniform(*self._turn_rate_bounds)
         # Clip to avoid useless commands
-        if self.x_velocity <= 0.1:
+        if abs(self.x_velocity) <= 0.1:
             self.x_velocity = 0
-        if self.y_velocity <= 0.1:
+        if abs(self.y_velocity) <= 0.1:
             self.y_velocity = 0
 
     def compute_reward(self, action: np.ndarray):

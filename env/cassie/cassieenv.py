@@ -183,7 +183,7 @@ class CassieEnv(GenericEnv):
             self.motor_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=10)
             self.joint_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=4)
             # NOTE: this creates very wrong floor slipperiness
-            if self.terrain != "hfield":
+            if self.terrain != "hfield" and self.simulator_type == "mujoco":
                 rand_euler = np.random.uniform(-.05, .05, size=2)
                 rand_quat = scipy2mj(R.from_euler("xyz", [rand_euler[0], rand_euler[1], 0]).as_quat())
                 self.sim.set_geom_quat("floor", rand_quat)
@@ -191,7 +191,7 @@ class CassieEnv(GenericEnv):
             self.sim.default_dynamics()
             self.motor_encoder_noise = np.zeros(10)
             self.joint_encoder_noise = np.zeros(4)
-            if self.terrain != "hfield":
+            if self.terrain != "hfield" and self.simulator_type == "mujoco":
                 self.sim.model.opt.disableflags = 0
                 self.sim.model.geom("floor").sameframe = 1
                 self.sim.set_geom_quat("floor", np.array([1, 0, 0, 0]))

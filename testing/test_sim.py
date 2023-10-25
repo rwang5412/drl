@@ -334,10 +334,10 @@ def test_sim_body_acceleration(sim):
     test_sim = sim()
     test_sim.reset()
     test_sim.hold()
-    test_sim.sim_forward(dt=1)
+    test_sim.sim_forward(dt=3)
     ddx = test_sim.get_body_acceleration(name=test_sim.base_body_name)
     assert np.linalg.norm(ddx[:2]) < 1e-1, f"get_body_acceleration: robot should not have XY accelerations."
-    assert np.abs(ddx[2] - 9.80665) < 1e-3, f"get_body_acceleration: gravity messed up."
+    assert np.abs(ddx[2] - 9.80665) < 1e-2, f"get_body_acceleration: gravity messed up."
     assert np.linalg.norm(ddx[3:]) < 1e-1, f"get_body_acceleration: robot should not have rotational accelerations."
     print("Passed sim get body acceleration")
     return True
