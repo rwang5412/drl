@@ -40,6 +40,10 @@ class Buffer:
     def __len__(self):
         return self.size
 
+    @property
+    def num_trajs(self):
+        return len(self.traj_idx) - 1
+
     def clear(self):
         """
         Clear out/reset all buffer values. Should always be called before starting new sampling iteration

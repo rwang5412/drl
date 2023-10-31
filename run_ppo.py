@@ -1,19 +1,12 @@
-import argparse
+import torch # first import to prevent ray 1 core bug
 import numpy as np
-import os
-import pickle
-import sys
 
 from algo.ppo import add_algo_args, run_experiment
-from algo.util.log import create_logger
-from util.colors import BOLD, ORANGE, FAIL, ENDC
-from util.env_factory import env_factory
 from types import SimpleNamespace
 
 def run_ppo():
     # Setup arg Namespaces and get default values for algo args
     args = SimpleNamespace()
-    env_args = SimpleNamespace()
 
     # Overwrite with whatever optimization args you want here
     args.seed = np.random.randint(0, 100000)

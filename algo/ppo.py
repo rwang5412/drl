@@ -16,6 +16,7 @@ from algo.util.sampling import AlgoSampler
 from algo.util.worker import AlgoWorker
 from algo.util.sampling import Buffer
 from util.mirror import mirror_tensor
+from util.nn_factory import save_checkpoint
 
 class PPOOptim(AlgoWorker):
     """
@@ -78,7 +79,7 @@ class PPOOptim(AlgoWorker):
         # create buffer with random data
         memory = Buffer(kwargs['discount'], kwargs['gae_lambda'])
         while len(memory) < kwargs['num_steps']:
-            for _ in range(300): # TODO maybe randomize this or get it live
+            for _ in range(300):
                 fake_state = np.random.random((kwargs['obs_dim']))
                 fake_action = np.random.random((kwargs['action_dim']))
                 fake_reward = np.random.random((1))
@@ -119,7 +120,7 @@ class PPOOptim(AlgoWorker):
         return optimal_cpu_count
 
     def optimize(self,
-                 memory,
+                 memory: Buffer,
                  epochs=4,
                  batch_size=32,
                  kl_thresh=0.02,
@@ -298,19 +299,21 @@ class PPO(AlgoWorker):
         AlgoWorker.__init__(self, actor, critic)
 
         if actor.is_recurrent or critic.is_recurrent:
-            self.recurrent = True
+            args.recurrent = True
         else:
-            self.recurrent = False
-        args.recurrent = self.recurrent
+            args.recurrent = False
 
-        self.env_fn        = env_fn
-        self.discount      = args.discount
-        self.gae_lambda    = args.gae_lambda
-        self.entropy_coeff = args.entropy_coeff
-        self.grad_clip     = args.grad_clip
-        self.mirror        = args.mirror
+        self.args          = args
         self.env           = env_fn()
-        self.eval_freq     = args.eval_freq
+
+        # Create actor/critic dict to include model_state_dict and other class attributes
+        self.actor_dict = {'model_class_name': actor._get_name()}
+        self.critic_dict = {'model_class_name': critic._get_name()}
+
+        self.best_test_reward = None
+        self.best_train_reward = None
+        self.collect_eval_data_next_iter = False
+        self.eval_threshold_reached = False
 
         if not ray.is_initialized():
             if args.redis is not None:
@@ -320,44 +323,37 @@ class PPO(AlgoWorker):
 
         self.state_mirror_indices = None
         self.action_mirror_indices = None
-        if hasattr(self.env, 'get_observation_mirror_indices'):
-            self.state_mirror_indices = self.env.get_observation_mirror_indices()
-            args.state_mirror_indices = self.state_mirror_indices
-        if hasattr(self.env, 'get_action_mirror_indices'):
-            self.action_mirror_indices = self.env.get_action_mirror_indices()
-            args.action_mirror_indices = self.action_mirror_indices
+        if self.args.mirror > 0:
+            if hasattr(self.env, 'get_observation_mirror_indices'):
+                self.state_mirror_indices = self.env.get_observation_mirror_indices()
+                args.state_mirror_indices = self.state_mirror_indices
+            if hasattr(self.env, 'get_action_mirror_indices'):
+                self.action_mirror_indices = self.env.get_action_mirror_indices()
+                args.action_mirror_indices = self.action_mirror_indices
 
         self.workers = [AlgoSampler.remote(actor, critic, env_fn, args.discount, args.gae_lambda, i) for i in \
                         range(args.workers)]
         self.optim = PPOOptim(actor, critic, **vars(args))
 
-    def do_iteration(self,
-                     num_steps,
-                     max_traj_len,
-                     num_eval_eps,
-                     epochs,
-                     itr,
-                     kl_thresh=0.02,
-                     verbose=True,
-                     batch_size=64,
-                     mirror=False):
+    def do_iteration(self, itr, verbose=True):
         """
         Function to do a single iteration of PPO
 
         Args:
-            max_traj_len (int): maximum trajectory length of an episode
-            num_steps (int): number of steps to collect experience for
-            epochs (int): optimzation epochs
-            batch_size (int): optimzation batch size
-            mirror (bool): Mirror loss enabled or not
-            kl_thresh (float): threshold for max kl divergence
+            itr (int): iteration number
             verbose (bool): verbose logging output
         """
+        start_iter = monotonic()
+
         # Output dicts for logging
         time_results = {}
         test_results = {}
         train_results = {}
         optimizer_results = {}
+
+        # Whether to do evaluation this iteration
+        eval_this_iter = (itr % self.args.eval_freq == 0 or self.collect_eval_data_next_iter) and self.eval_threshold_reached
+        self.collect_eval_data_next_iter = False
 
         # Sync up network parameters from main thread to each worker
         copy_start = time()
@@ -370,43 +366,53 @@ class PPO(AlgoWorker):
         if verbose:
             print("\t{:5.4f}s to sync up networks params to workers.".format(time() - copy_start))
 
+        # Start sampling both eval and train
         sampling_start = time()
 
-        # Sampling for evaluation
-        if itr % self.eval_freq == 0:
-            # start only num_eval_eps eval workers asynchronously
-            eval_jobs = [w.sample_traj.remote(max_traj_len=max_traj_len, do_eval=True) for w in self.workers[:num_eval_eps]]
-            eval_memory = Buffer(discount=self.discount, gae_lambda=self.gae_lambda)
-        else:
-            num_eval_eps = 0
-            eval_jobs = []
-
-        # Sampling for optimization
-        sampled_steps = 0
         avg_efficiency = 0
-        num_traj = 0
-        sample_memory = Buffer(discount=self.discount, gae_lambda=self.gae_lambda)
-        sample_jobs = [w.sample_traj.remote(max_traj_len) for w in self.workers[num_eval_eps:]]
+        num_eval_workers = 0
+        eval_jobs = []
+
+        if eval_this_iter:
+            num_eval_workers = min(self.args.workers, self.args.num_eval_eps)
+            eval_jobs = [w.sample_traj.remote(max_traj_len=self.args.traj_len, do_eval=True) for w in self.workers[:num_eval_workers]]
+            eval_memory = Buffer(discount=self.args.discount, gae_lambda=self.args.gae_lambda)
+
+        sample_memory = Buffer(discount=self.args.discount, gae_lambda=self.args.gae_lambda)
+        sample_jobs = [w.sample_traj.remote(self.args.traj_len) for w in self.workers[num_eval_workers:]]
         jobs = eval_jobs + sample_jobs
-        while sampled_steps < num_steps:
+        while len(sample_memory) < self.args.num_steps:
+            # Wait for a job to finish 
             done_id, remain_id = ray.wait(jobs, num_returns = 1)
             buf, efficiency, work_id = ray.get(done_id)[0]
-            if done_id[0] in eval_jobs:
+
+            if done_id[0] in eval_jobs: # collect and reassign eval workers
                 eval_memory += buf
-                eval_jobs.remove(done_id[0]) # Remove this job from the list, recycle worker for sampling
-            else:
+                if eval_memory.num_trajs < self.args.num_eval_eps: # Sample more eval episodes if needed
+                    eval_jobs[work_id] = self.workers[work_id].sample_traj.remote(self.args.traj_len, do_eval=True)
+                    jobs[work_id] = eval_jobs[work_id]
+                else: # No more eval episodes needed, repurpose worker for train sampling
+                    jobs[work_id] = self.workers[work_id].sample_traj.remote(self.args.traj_len)
+
+            else: # collect and reassign train workers
                 sample_memory += buf
-                num_traj += 1
-                sampled_steps += len(buf)
-                avg_efficiency += (efficiency - avg_efficiency) / num_traj
-            jobs[work_id] = self.workers[work_id].sample_traj.remote(max_traj_len)
+                avg_efficiency += (efficiency - avg_efficiency) / sample_memory.num_trajs
+                jobs[work_id] = self.workers[work_id].sample_traj.remote(self.args.traj_len)
 
         map(ray.cancel, sample_jobs) # Cancel leftover unneeded jobs
 
-        if itr % self.eval_freq == 0:
-            # Collect eval results
+        if eval_this_iter:
+            # Collect eval results in dict
             test_results["Return"] = np.mean(eval_memory.ep_returns)
             test_results["Episode Length"] = np.mean(eval_memory.ep_lens)
+
+            # Save policy if best eval results ever
+            if self.best_test_reward is None or test_results["Return"] > self.best_test_reward:
+                if verbose:
+                    print(f"\tBest eval policy so far! saving checkpoint to {self.args.save_actor_path}")
+                self.best_test_reward = test_results["Return"]
+                save_checkpoint(self.actor, self.actor_dict, self.args.save_actor_path)
+                save_checkpoint(self.critic, self.critic_dict, self.args.save_critic_path)
 
         # Collect timing results
         total_steps = len(sample_memory)
@@ -426,22 +432,26 @@ class PPO(AlgoWorker):
             print(f"\tIdealized efficiency {time_results['Ideal Sample Rate']:3.2f}k/s \t | Time lost to " \
                   f"overhead {time_results['Overhead Loss']:.2f}s")
 
+        # Check if best train reward
+        if (self.best_train_reward is None or train_results["Return"] > self.best_train_reward) and self.eval_threshold_reached:
+            if verbose:
+                print(f"\tBest train reward so far! Will do eval next iteration.")
+            self.best_train_reward = train_results["Return"]
+            self.collect_eval_data_next_iter = True # collect test episodes next iteration, high prob of good policy
+
+        # Check if we should start collecting evals from here on out
+        if train_results["Episode Length"] > self.args.min_eplen_ratio_eval * self.args.traj_len:
+            self.eval_threshold_reached = True
+
         # Optimization
-        if self.mirror > 0 and self.state_mirror_indices is not None and \
-           self.action_mirror_indices is not None:
-            state_mirror_indices = self.state_mirror_indices
-            action_mirror_indices = self.action_mirror_indices
-        else:
-            state_mirror_indices = None
-            action_mirror_indices = None
         optim_start = time()
         losses = self.optim.optimize(sample_memory,
-                                     epochs=epochs,
-                                     batch_size=batch_size,
-                                     kl_thresh=kl_thresh,
-                                     recurrent=self.recurrent,
-                                     state_mirror_indices=state_mirror_indices,
-                                     action_mirror_indices=action_mirror_indices,
+                                     epochs=self.args.epochs,
+                                     batch_size=self.args.batch_size,
+                                     kl_thresh=self.args.kl,
+                                     recurrent=self.args.recurrent,
+                                     state_mirror_indices=self.state_mirror_indices,
+                                     action_mirror_indices=self.action_mirror_indices,
                                      verbose=verbose)
 
         a_loss, c_loss, m_loss, kls = losses
@@ -458,8 +468,22 @@ class PPO(AlgoWorker):
         if verbose:
             print(f"\t{time_results['Optimize Time']:3.2f}s to update policy.")
 
-        return {"Test": test_results, "Train": train_results, "Optimizer": optimizer_results, \
-                "Time": time_results}
+        # Always save latest policies
+        save_checkpoint(self.actor, self.actor_dict, self.args.save_actor_path[:-3] + "_latest.pt")
+        save_checkpoint(self.critic, self.critic_dict, self.args.save_critic_path[:-3] + "_latest.pt")
+
+        # Save policy every save_freq iterations
+        if self.args.save_freq > 0 and itr % self.args.save_freq == 0:
+            print(f"saving policy at iteration {itr} to {self.args.save_actor_path[:-3] + f'_{itr}.pt'}")
+            save_checkpoint(self.actor, self.actor_dict, self.args.save_actor_path[:-3] + f"_{itr}.pt")
+            save_checkpoint(self.critic, self.critic_dict, self.args.save_critic_path[:-3] + f"_{itr}.pt")
+
+        # Record timesteps per second
+        end_iter = monotonic()
+        time_results["Timesteps per Second (FULL)"] = round(self.args.num_steps / (end_iter - start_iter))
+
+        return {"Test": test_results, "Train": train_results, "Optimizer": optimizer_results, "Time": time_results}
+
 
 def add_algo_args(parser):
     default_values = {
@@ -485,7 +509,11 @@ def add_algo_args(parser):
         "backprop-workers"   : (-1, "Number of parallel workers to use for backprop. -1 for auto."),
         "redis"              : (None, "Ray redis address"),
         "previous"           : ("", "Previous model to bootstrap from"),
-        "save-freq"          : (-1, "Save model once every save-freq iterations. -1 for no saving. Does not affect saving of best models."),
+        "save-freq"          : (-1, "Save model once every save-freq iterations. -1 for no saving. \
+                                     Does not affect saving of best models."),
+        "min-eplen-ratio-eval" : (0.0, "Episode length ratio to start collecting eval data. Range [0,1]. \
+                                       Will only start collecting eval samples if train episode length \
+                                       has been greater than this ratio of traj_len at least once."),
     }
     if isinstance(parser, argparse.ArgumentParser):
         ppo_group = parser.add_argument_group("PPO arguments")
@@ -504,7 +532,6 @@ def add_algo_args(parser):
 
     return parser
 
-
 def run_experiment(parser, env_name):
     """
     Function to run a PPO experiment.
@@ -515,7 +542,7 @@ def run_experiment(parser, env_name):
     from algo.util.normalization import train_normalizer
     from algo.util.log import create_logger
     from util.env_factory import env_factory, add_env_parser
-    from util.nn_factory import nn_factory, load_checkpoint, save_checkpoint, add_nn_parser
+    from util.nn_factory import nn_factory, load_checkpoint, add_nn_parser
     from util.colors import FAIL, ENDC, WARNING
 
     import pickle
@@ -597,10 +624,6 @@ def run_experiment(parser, env_name):
         train_normalizer(env_fn, policy, args.prenormalize_steps, max_traj_len=args.traj_len, noise=1)
         critic.copy_normalizer_stats(policy)
 
-    # Create actor/critic dict to include model_state_dict and other class attributes
-    actor_dict = {'model_class_name': policy._get_name()}
-    critic_dict = {'model_class_name': critic._get_name()}
-
     # Create a tensorboard logging object
     # before create logger files, double check that all args are updated in case any other of
     # ppo_args, env_args, nn_args changed
@@ -615,11 +638,6 @@ def run_experiment(parser, env_name):
     args.save_critic_path = os.path.join(logger.dir, 'critic.pt')
     args.save_path = logger.dir
 
-    # set number of eval episodes
-    num_eval_eps = min(args.num_eval_eps, args.workers)
-    if args.num_eval_eps > args.workers:
-        print(f"WARNING: only using {args.workers} test episodes for eval because args.workers < args.num_eval_eps")
-
     # Create algo class
     policy.train(True)
     critic.train(True)
@@ -631,19 +649,8 @@ def run_experiment(parser, env_name):
 
     itr = 0
     total_timesteps = 0
-    best_reward = None
-    past500_reward = -1
     while total_timesteps < args.timesteps:
-        start = monotonic()
-        ret = algo.do_iteration(num_steps=args.num_steps,
-                                max_traj_len=args.traj_len,
-                                num_eval_eps=num_eval_eps,
-                                epochs=args.epochs,
-                                batch_size=args.batch_size,
-                                kl_thresh=args.kl,
-                                itr=itr)
-        end = monotonic()
-        ret["Time"]["Timesteps per Second (FULL)"] = round(args.num_steps / (end - start))
+        ret = algo.do_iteration(itr=itr)
 
         print(f"iter {itr:4d} | return: {ret['Train']['Return']:5.2f} | " \
               f"KL {ret['Optimizer']['KL']:5.4f} | " \
@@ -652,23 +659,6 @@ def run_experiment(parser, env_name):
               f"Mirror {ret['Optimizer']['Mirror Loss']:6.5f}", end='\n')
         total_timesteps += ret["Time"]["Timesteps per Iteration"]
         print(f"\tTotal timesteps so far {total_timesteps:n}")
-
-        # Saving checkpoints for best reward
-        if "Return" in ret["Test"].keys():
-            if best_reward is None or ret["Test"]["Return"] > best_reward:
-                print(f"\tbest policy so far! saving checkpoint to {args.save_actor_path}")
-                best_reward = ret["Test"]["Return"]
-                save_checkpoint(algo.actor, actor_dict, args.save_actor_path)
-                save_checkpoint(algo.critic, critic_dict, args.save_critic_path)
-
-        if args.save_freq > 0 and itr % args.save_freq == 0:
-            print(f"saving policy at iteration {itr} to {args.save_actor_path[:-3] + f'_{itr}.pt'}")
-            save_checkpoint(algo.actor, actor_dict, args.save_actor_path[:-3] + f"_{itr}.pt")
-            save_checkpoint(algo.critic, critic_dict, args.save_critic_path[:-3] + f"_{itr}.pt")
-
-        # always save latest policies
-        save_checkpoint(algo.actor, actor_dict, args.save_actor_path[:-3] + "_latest.pt")
-        save_checkpoint(algo.critic, critic_dict, args.save_critic_path[:-3] + "_latest.pt")
 
         if logger is not None:
             for key, val in ret.items():
