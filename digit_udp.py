@@ -31,32 +31,45 @@ from util.digit_topic import DigitStateTopic
 from util.env_factory import add_env_parser, env_factory
 from util.nn_factory import load_checkpoint, nn_factory
 
-def save_log():
-    global logdir, log_size, part_num, log_ind, time_log, input_log, output_log, orient_add_log
+LOGSIZE = 100000
 
+def save_log(log_data):
+    global logdir, log_ind, part_num
     filename = os.path.join(logdir, f"logdata_part{part_num}.pkl")
     print("Logging to {}".format(filename))
     # Truncate log data to actual size
-    if log_ind < log_size:
-        for key, val in input_log.items():
-            input_log[key] = val[:log_ind]
-        for key, val in output_log.items():
-            output_log[key] = val[:log_ind]
+    if log_ind < LOGSIZE:
+        for key, val in log_data.items():
+            if isinstance(val, dict):
+                for key2, val2 in val.items():
+                    log_data[key][key2] = val2[:log_ind]
+            else:
+                log_data[key] = val[:log_ind]
 
-    data = {"time": time_log[:log_ind],
-            "output": output_log,
-            "input": input_log,
-            "orient_add": orient_add_log[:log_ind]}
     with open(filename, "wb") as filep:
-        pickle.dump(data, filep)
-    part_num += 1
+        pickle.dump(log_data, filep)
 
 def close_ar_sim(ar_sim):
     ar_sim.close()
 
 async def run(actor, env, do_log = True, pol_name = "test"):
 
-    global log_size, log_ind, part_num, time_log, input_log, output_log, orient_add_log
+    global log_ind, part_num
+
+    # Setup logging
+    log_ind = 0
+    part_num = 0
+    log_data = {"time": [time.time()] * LOGSIZE,
+                "orient add": [0.0] * LOGSIZE,}
+    input_log = {} # network inputs
+    for name in env.robot_state_names + env.extra_input_names:
+        input_log[name] = [0.0] * LOGSIZE
+    log_data["input"] = input_log
+    output_log = {}
+    for motor in env.output_names:
+        output_log[motor] = [0.0] * LOGSIZE
+    log_data["output"] = output_log
+    # Init/allocate custom logs here
 
     # Start ar-control
     ar_control_path = os.path.expanduser("~/ar-software-2023.01.13a/ar-software/ar-control")
@@ -69,7 +82,7 @@ async def run(actor, env, do_log = True, pol_name = "test"):
 
     save_log_p = None   # Save log process for async file saving
     if do_log:
-        atexit.register(save_log)
+        atexit.register(save_log, log_data)
     atexit.register(close_ar_sim, ar_sim)
 
     if platform.node() == "digit-nuc":
@@ -182,20 +195,22 @@ async def run(actor, env, do_log = True, pol_name = "test"):
                       f"delay: {((time.perf_counter() - pol_time) - (1 / env.default_policy_rate)) * 100:.3f} ms", end="\r")
                 pol_time = time.perf_counter()
 
-                if do_log:
-                    time_log[log_ind] = pol_time
+                if log_data:
+                    log_data["time"][log_ind] = time.time()
+                    log_data["orient add"][log_ind] = env.orient_add
                     for i in range(len(env.robot_state_names)):
-                        input_log[env.robot_state_names[i]][log_ind] = robot_state[i]
+                        log_data["input"][env.robot_state_names[i]][log_ind] = robot_state[i]
                     for i in range(len(env.extra_input_names)):
-                        input_log[env.extra_input_names[i]][log_ind] = RL_state[len(env.robot_state_names) + i]
+                        log_data["input"][env.extra_input_names[i]][log_ind] = RL_state[len(env.robot_state_names) + i]
                     for i in range(len(env.output_names)):
-                        output_log[env.output_names[i]][log_ind] = action_sum[i]
-                    orient_add_log[log_ind] = env.orient_add
+                        log_data["output"][env.output_names[i]][log_ind] = action_sum[i]
+                    # Add custom logs here
                     log_ind += 1
-                    if log_ind >= log_size:
+                    if log_ind >= LOGSIZE:
                         if save_log_p is not None:
                             save_log_p.join()
-                        save_log_p = Process(target=save_log)
+                        save_log_p = Process(target=save_log, args=(log_data,))
+                        save_log_p.start()
                         log_ind = 0
                         part_num += 1
 
@@ -249,28 +264,7 @@ if __name__ == "__main__":
     if hasattr(actor, 'init_hidden_state'):
         actor.init_hidden_state()
 
-    # Global data for logging
-    global log_size
-    global log_ind
-    global part_num
-    global time_log # time stamp
-    global input_log # network inputs
-    global output_log # network outputs
-    global orient_add_log # heading offset
-    global final_save
-    log_size = 100000
-    log_ind = 0
-    part_num = 0
-    time_log   = [time.time()] * log_size # time stamp
-    input_log = {} # network inputs
-    final_save = False
-    for name in env.robot_state_names + env.extra_input_names:
-        input_log[name] = [0.0] * log_size
-    output_log = {}
-    for motor in env.output_names:
-        output_log[motor] = [0.0] * log_size
-    orient_add_log = [0.0] * log_size # heading offset
-
+    # Setup log directory
     global logdir
     LOG_NAME = args.path.rsplit('/', 3)[1]
     directory = os.path.dirname(os.path.realpath(__file__)) + "/hardware_logs/digit/"
