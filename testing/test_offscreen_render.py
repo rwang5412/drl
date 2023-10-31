@@ -61,7 +61,8 @@ def test_offscreen_rendering():
 
         time_raw_sim_list = []
         time_render_depth = []
-        frames = []
+        depth_frames = []
+        rgb_frames = []
         while render_state:
             paused = False if OFFSCREEN else sim.viewer_paused()
             if not paused:
@@ -72,14 +73,19 @@ def test_offscreen_rendering():
             if not OFFSCREEN:
                 render_state = sim.viewer_render()
             start_t = time.time()
-            depth = sim.get_depth_image(camera_name)
+            depth = sim.get_render_image(camera_name, 'depth')
+            rgb = sim.get_render_image(camera_name, 'rgb')
             time_render_depth.append(time.time() - start_t)
-            frames.append(depth)
+            depth_frames.append(depth)
+            rgb_frames.append(rgb)
             if not OFFSCREEN:
                 depth = crop_from_center(depth, 720, 720)
                 # For visualization purpose and scale depth for better contrast
                 depth /= depth.max()
                 depth = np.clip(depth, 0, 1) * 255
+                rgb = rgb.copy()
+                cv2.namedWindow('rgb', cv2.WINDOW_AUTOSIZE)
+                cv2.imshow('rgb', rgb)
                 cv2.namedWindow('depth', cv2.WINDOW_AUTOSIZE)
                 cv2.imshow('depth', depth.astype(np.uint8))
                 cv2.waitKey(1)
@@ -95,7 +101,8 @@ def test_offscreen_rendering():
                     cv2.destroyAllWindows()
                 break
     if OFFSCREEN:
-        mediapy.write_video(path="test.gif", images=frames, fps=50, codec='gif')
+        mediapy.write_video(path="test_depth.gif", images=depth_frames, fps=50, codec='gif')
+        mediapy.write_video(path="test_rgb.gif", images=rgb_frames, fps=50, codec='gif')
         fig, ((ax1, ax3), (ax2, ax4)) = plt.subplots(2, 2)
         ax1.plot(size, sim_time_avg_list)
         ax1.set_title('sim time [s] per policy step')

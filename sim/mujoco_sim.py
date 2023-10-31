@@ -251,23 +251,36 @@ class MujocoSim(GenericSim):
             # print("Verify the Gl context object, ", self.renderer._gl_context)
         else:
             self.renderer = MujocoRender(self.model, height=height, width=width)
-
-    def get_depth_image(self, camera_name: str):
-        """ Get depth image given camera name. To use depth offscreen rendering,
-        first call this init_offscreen_renderer() at reset(). And then call this function.
+    
+    def get_render_image(self, camera_name: str, type: str = 'depth'):
+        """ Get render image (depth or rgb) given camera name and type. 
+        To use offscreen rendering, first call init_offscreen_renderer() at reset().
+        And then call this function.
         The depth value is in meters. To visualize depth on image with better constrast, use
         depth -= depth.min() or depth /= depth.max().
         """
         if camera_name is None:
             raise RuntimeError("Specify a camera name.")
-        self.renderer.enable_depth_rendering()
-        self.renderer.update_scene(self.data, camera=camera_name)
-        # Deepcopy to avoid modifying the original data
-        depth = copy.deepcopy(self.renderer.render())
-        assert depth.shape == (self.renderer._height, self.renderer._width), \
-        f"Depth image shape {depth.shape} does not match "\
-        f"renderer shape {(self.renderer._height, self.renderer._width)}."
-        return depth
+        
+        if type == 'depth':
+            self.renderer.enable_depth_rendering()
+            self.renderer.update_scene(self.data, camera=camera_name)
+            depth = copy.deepcopy(self.renderer.render())
+            assert depth.shape == (self.renderer._height, self.renderer._width), \
+                f"Depth image shape {depth.shape} does not match " \
+                f"renderer shape {(self.renderer._height, self.renderer._width)}."
+            return depth
+        elif type == 'rgb':
+            self.renderer.disable_depth_rendering()
+            self.renderer.disable_segmentation_rendering()
+            self.renderer.update_scene(self.data, camera=camera_name)
+            rgb = copy.deepcopy(self.renderer.render())
+            assert rgb.shape == (self.renderer._height, self.renderer._width, 3), \
+                f"RGB image shape {rgb.shape} does not match " \
+                f"renderer shape {(self.renderer._height, self.renderer._width), 3}."
+            return rgb
+        else:
+            raise ValueError("Invalid type specified. Choose 'depth' or 'rgb'.")
 
     def init_hfield(self):
         """Initialize hfield relevant params from XML, hfield_data, reset hfield to flat ground.
