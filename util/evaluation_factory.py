@@ -6,6 +6,7 @@ import torch
 
 from util.keyboard import Keyboard
 from util.colors import OKGREEN, FAIL
+from util.reward_plotter import Plotter
 
 def simple_eval(actor, env, episode_length_max=300):
     """Simply evaluating policy in visualization window and no user input
@@ -38,6 +39,7 @@ def simple_eval(actor, env, episode_length_max=300):
                 state, reward, done, _ = env.step(action)
                 episode_length += 1
                 episode_reward.append(reward)
+                env.viewer_update_cop_marker()
             render_state = env.sim.viewer_render()
             delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
             time.sleep(delaytime)
@@ -58,7 +60,7 @@ def simple_eval(actor, env, episode_length_max=300):
                         env.sim.init_renderer(offscreen=env.offscreen,
                                               width=env.depth_image_dim[0], height=env.depth_image_dim[1])
 
-def interactive_eval(actor, env, episode_length_max=300, critic=None):
+def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewards=False):
     """Simply evaluating policy in visualization window with user input
 
     Args:
@@ -73,6 +75,10 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None):
     keyboard = Keyboard()
     print(f"{OKGREEN}Feeding keyboard inputs to policy for interactive eval mode.")
     print("Type commands into the terminal window to avoid interacting with the mujoco viewer keybinds." + '\033[0m')
+
+    if plot_rewards:
+        plotter = Plotter()
+
     with torch.no_grad():
         state = env.reset(interactive_evaluation=True)
         done = False
@@ -83,7 +89,6 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None):
             actor.init_hidden_state()
         if hasattr(critic, 'init_hidden_state'):
             critic.init_hidden_state()
-
         env.sim.viewer_init()
         render_state = env.sim.viewer_render()
         env.display_controls_menu()
@@ -94,15 +99,18 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None):
             if not env.sim.viewer_paused():
                 state = torch.Tensor(state).float()
                 action = actor(state).numpy()
-                state, reward, done, _ = env.step(action)
+                state, reward, done, infos = env.step(action)
                 episode_length += 1
                 episode_reward.append(reward)
+                if plot_rewards:
+                    plotter.add_data(infos, done or cmd == "quit")
                 if critic is not None:
                     if hasattr(env, 'get_privilege_state'):
                         critic_state = env.get_privilege_state()
                     else:
                         critic_state = state
                     # print(f"Critic value = {critic(torch.Tensor(critic_state)).numpy() if critic is not None else 'N/A'}")
+                env.viewer_update_cop_marker()
             if cmd is not None:
                 env.interactive_control(cmd)
             if cmd == "quit":
@@ -112,7 +120,7 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None):
                 env.display_controls_menu()
                 env.display_control_commands()
             render_state = env.sim.viewer_render()
-            delaytime = max(0, env.default_policy_rate/2000 - (time.time() - start_time))
+            delaytime = max(0, 1/env.default_policy_rate - (time.time() - start_time))
             time.sleep(delaytime)
             if done:
                 state = env.reset(interactive_evaluation=True)

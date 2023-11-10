@@ -1,15 +1,12 @@
 import numpy as np
-import mujoco as mj
-
-from env.util.quaternion import *
 from scipy.spatial.transform import Rotation as R
-from util.check_number import is_variable_valid
+
+from env.tasks.locomotionclockenv.locomotionclockenv import LocomotionClockEnv
 from util.colors import FAIL, ENDC
+from util.quaternion import *
 
-def kernel(x):
-  return np.exp(-x)
 
-def compute_reward(self, action):
+def compute_rewards(self: LocomotionClockEnv, action):
     assert hasattr(self, "clock"), \
         f"{FAIL}Environment {self.__class__.__name__} does not have a clock object.{ENDC}"
     assert self.clock is not None, \
@@ -103,7 +100,7 @@ def compute_reward(self, action):
     # Normalized by torque limit, sum worst case is 10, usually around 1 to 2
     q["trq_penalty"] = sum(np.abs(torque)/self.sim.output_torque_limit)
 
-    if "digit" in self.__class__.__name__.lower():
+    if self.robot.robot_name == "digit":
         l_hand_pose = self.sim.get_site_pose(self.sim.hand_site_name[0])
         r_hand_pose = self.sim.get_site_pose(self.sim.hand_site_name[1])
         l_hand_in_base = self.sim.get_relative_pose(base_pose, l_hand_pose)
@@ -114,21 +111,10 @@ def compute_reward(self, action):
         r_hand_distance = np.linalg.norm(r_hand_in_base[:3] - r_hand_target)
         q['arm'] = l_hand_distance + r_hand_distance
 
-    ### Add up all reward components ###
-    self.reward = 0
-    for name in q:
-        if not is_variable_valid(q[name]):
-            raise RuntimeError(f"Reward {name} has Nan or Inf values as {q[name]}.\n"
-                               f"Training stopped.")
-        self.reward += self.reward_weight[name]["weighting"] * \
-                       kernel(self.reward_weight[name]["scaling"] * q[name])
-        # print out reward name and values in a block format
-        # print(f"{name:15s} : {q[name]:.3f} | {self.reward_weight[name]['scaling'] * q[name]:.3f} | {kernel(self.reward_weight[name]['scaling'] * q[name]):.3f}", end="\n")
-
-    return self.reward
+    return q
 
 # Termination condition: If orientation too far off terminate
-def compute_done(self):
+def compute_done(self: LocomotionClockEnv):
     base_pose = self.sim.get_body_pose(self.sim.base_body_name)
     base_height = base_pose[2]
     base_euler = R.from_quat(mj2scipy(base_pose[3:])).as_euler('xyz')

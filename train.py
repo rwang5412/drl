@@ -8,7 +8,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     """Environment"""
-    parser.add_argument("--env-name", default="CassieEnvClock", type=str,
+    parser.add_argument("--env-name", default="LocomotionClockEnv", type=str,
                         help="Name of environment to train on.")
 
     """Logger / Saver"""

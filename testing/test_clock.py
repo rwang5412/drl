@@ -2,8 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
-from env.cassie.cassieenvclock.cassieenvclock import CassieEnvClock
-from env.digit.digitenvclock.digitenvclock import DigitEnvClock
+from env.tasks.locomotionclockenv.locomotionclockenv import LocomotionClockEnv
 from env.util.periodicclock import PeriodicClock
 from util.colors import OKGREEN, FAIL, ENDC
 
@@ -44,8 +43,7 @@ def test_all_clocks():
     # test_vonmises_gallop_clock()
 
     test_vonmises_precompute()
-    test_cassieclockenv()
-    test_digitclockenv()
+    test_clockenv()
     print(f"{OKGREEN}Passed all clock tests!{ENDC}")
 
 def test_linear_walk_clock():
@@ -164,18 +162,20 @@ def test_vonmises_precompute():
         ys[i, :] = tracker.get_von_mises_values()
     print("Precompute time", time.time() - start_t)
 
-def test_cassieclockenv():
-    cycle_time = 1.0
+def test_clockenv():
     clock_type = "linear"
     policy_rate = 50
-    env = CassieEnvClock(clock_type = clock_type,
-                         reward_name = "locomotion_linear_clock_reward",
-                         simulator_type = "mujoco",
-                         terrain = False,
-                         policy_rate = policy_rate,
-                         dynamics_randomization = False,
-                         state_est=False,
-                         state_noise=0)
+    env = LocomotionClockEnv(
+        robot_name="cassie", # same as digit
+        clock_type = clock_type,
+        reward_name = "locomotion_linear_clock_reward",
+        simulator_type = "mujoco",
+        terrain = False,
+        policy_rate = policy_rate,
+        dynamics_randomization = False,
+        state_est=False,
+        state_noise=[0,0,0,0,0,0]
+    )
     env.reset()
     init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
@@ -183,55 +183,23 @@ def test_cassieclockenv():
     assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
         f"Failed CassieClockEnv linear test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"
+
     clock_type = "von_mises"
-    env = CassieEnvClock(clock_type = clock_type,
-                         reward_name = "locomotion_vonmises_clock_reward",
-                         simulator_type = "mujoco",
-                         terrain = False,
-                         policy_rate = policy_rate,
-                         dynamics_randomization = False,
-                         state_est=False,
-                         state_noise=0)
+    env = LocomotionClockEnv(
+        robot_name="cassie", # same as digit
+        clock_type = clock_type,
+        reward_name = "locomotion_vonmises_clock_reward",
+        simulator_type = "mujoco",
+        terrain = False,
+        policy_rate = policy_rate,
+        dynamics_randomization = False,
+        state_est=False,
+        state_noise=[0,0,0,0,0,0]
+    )
     env.reset()
     init_phase = env.clock.get_phase()
     for i in range(int(env.cycle_time * policy_rate)):
         env.step(np.zeros(10))
     assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
         f"Failed CassieClockEnv von mises test, after one cycle phase should be 0, but phase is " \
-        f"{env.clock.get_phase()}"
-
-def test_digitclockenv():
-    cycle_time = 1.0
-    clock_type = "linear"
-    policy_rate = 50
-    env = DigitEnvClock(clock_type = clock_type,
-                         reward_name = "locomotion_linear_clock_reward",
-                         simulator_type = "mujoco",
-                         terrain = False,
-                         policy_rate = policy_rate,
-                         dynamics_randomization = False,
-                         state_noise=0,
-                         state_est=False)
-    env.reset()
-    init_phase = env.clock.get_phase()
-    for i in range(int(env.cycle_time * policy_rate)):
-        env.step(np.zeros(20))
-    assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
-        f"Failed DigitEnvClock linear test, after one cycle phase should be 0, but phase is " \
-        f"{env.clock.get_phase()}"
-    clock_type = "von_mises"
-    env = DigitEnvClock(clock_type = clock_type,
-                         reward_name = "locomotion_vonmises_clock_reward",
-                         simulator_type = "mujoco",
-                         terrain = False,
-                         policy_rate = policy_rate,
-                         dynamics_randomization = False,
-                         state_noise=0,
-                         state_est=False)
-    env.reset()
-    init_phase = env.clock.get_phase()
-    for i in range(int(env.cycle_time * policy_rate)):
-        env.step(np.zeros(20))
-    assert np.abs(env.clock.get_phase() - init_phase) < env.clock._phase_add, \
-        f"Failed DigitEnvClock von mises test, after one cycle phase should be 0, but phase is " \
         f"{env.clock.get_phase()}"

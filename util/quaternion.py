@@ -1,21 +1,6 @@
 import math
 import numpy as np
 
-def inverse_quaternion(quaternion):
-    result = np.copy(quaternion)
-    result[1:4] = -result[1:4]
-    return result
-
-def quaternion_product(q1, q2):
-    result = np.zeros(4)
-    result[0] = q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]-q1[3]*q2[3]
-    result[1] = q1[0]*q2[1]+q2[0]*q1[1]+q1[2]*q2[3]-q1[3]*q2[2]
-    result[2] = q1[0]*q2[2]-q1[1]*q2[3]+q1[2]*q2[0]+q1[3]*q2[1]
-    result[3] = q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1]+q1[3]*q2[0]
-    if result[0] < 0:
-        result = -result
-    return result
-
 def quaternion_distance(q1: np.ndarray, q2: np.ndarray):
     """
     Returns a distance measure between two quaternions. Returns 0 whenever the quaternions represent
@@ -33,16 +18,6 @@ def quaternion_distance(q1: np.ndarray, q2: np.ndarray):
     assert q2.shape == (4,), \
         f"quaternion_similarity received quaternion 2 of shape {q2.shape}, but should be of shape (4,)"
     return 1 - np.inner(q1, q2) ** 2
-
-def rotate_by_quaternion(vector, quaternion):
-    q1 = np.copy(quaternion)
-    q2 = np.zeros(4)
-    q2[1:4] = np.copy(vector)
-    q3 = inverse_quaternion(quaternion)
-    q = quaternion_product(q2, q3)
-    q = quaternion_product(q1, q)
-    result = q[1:4]
-    return result
 
 def quaternion2euler(quaternion):
     w = quaternion[0]
@@ -91,6 +66,19 @@ def euler2quat(z=0, y=0, x=0):
         result = -result
     return result
 
+def scipy2mj(q):
+    x, y, z, w = q
+    # quat to rotation is 2 to 1, so always pick the positive w
+    if w < 0:
+        return np.array([-w, -x, -y, -z])
+    return np.array([w, x, y, z])
+
+def mj2scipy(q):
+    w, x, y, z = q
+    # quat to rotation is 2 to 1, so always pick the positive w
+    if w < 0:
+        return np.array([-x, -y, -z, -w])
+    return np.array([x, y, z, w])
 
 def euler2so3(z=0, y=0, x=0):
 
@@ -114,5 +102,5 @@ def euler2so3(z=0, y=0, x=0):
 
     return R_z @ R_y @ R_x
 
-def add_euler(a, b):
-    return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+# def add_euler(a, b):
+#     return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]

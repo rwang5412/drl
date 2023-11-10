@@ -26,17 +26,23 @@ def sampling_speed():
     for key, val in sim_speeds.items():
         print(f"Sim {key} averaged {val:.4e} seconds per step, running at a rate of {1 / val:.2f} Hz")
 
-    args = SimpleNamespace(simulator_type = "mujoco",
-                        clock_type = "linear",
-                        reward_name = "locomotion_linear_clock_reward",
-                        dynamics_randomization = False)
-    mj_env = env_factory("CassieEnvClock", args)()
+    args = SimpleNamespace(
+        robot_name="cassie",
+        simulator_type = "mujoco",
+        clock_type = "linear",
+        reward_name = "locomotion_linear_clock_reward",
+        dynamics_randomization = False
+    )
+    mj_env = env_factory("LocomotionClockEnv", args)()
     mj_env.reset()
-    args = SimpleNamespace(simulator_type = "libcassie",
-                        clock_type = "linear",
-                        reward_name = "locomotion_linear_clock_reward",
-                        dynamics_randomization = False)
-    lib_env = env_factory("CassieEnvClock", args)()
+    args = SimpleNamespace(
+        robot_name="cassie",
+        simulator_type = "libcassie",
+        clock_type = "linear",
+        reward_name = "locomotion_linear_clock_reward",
+        dynamics_randomization = False
+    )
+    lib_env = env_factory("LocomotionClockEnv", args)()
     lib_env.reset()
 
     # Test env sampling speed
@@ -70,12 +76,16 @@ def sampling_speed():
         f"lose {lib_overhead * 500000000/60/60/24:.2f} days")
 
 def run_PD_env_compare():
-    args = SimpleNamespace(simulator_type = "mujoco",
-                        clock_type = "von_mises",
-                        reward_name = "locomotion_vonmises_clock_reward",
-                        dynamics_randomization = False)
-    env1 = env_factory("CassieEnvClock", args)()
-    env2 = env_factory("DigitEnvClock", args)()
+    args = SimpleNamespace(
+        robot_name="cassie",
+        simulator_type = "mujoco",
+        clock_type = "von_mises",
+        reward_name = "locomotion_vonmises_clock_reward",
+        dynamics_randomization = False
+    )
+    env1 = env_factory("LocomotionClockEnv", args)()
+    args['robot_name'] = "digit"
+    env2 = env_factory("LocomotionClockEnv", args)()
     num_steps = 1000
     env1_time = 0
     env2_time = 0

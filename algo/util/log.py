@@ -68,7 +68,8 @@ def create_logger(all_args, algo_args, env_args, nn_args):
 
     # wandb init before tensorboard.
     if all_args.wandb:
-        wandb.init(group = all_args.run_name,
+        wandb.init(name=all_args.run_name,
+                   group=all_args.wandb_group_name,
                    project=all_args.wandb_project_name,
                    config=all_args,
                    sync_tensorboard=True,

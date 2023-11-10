@@ -1,5 +1,5 @@
 import numpy as np
-from env.util.quaternion import euler2quat
+from util.quaternion import euler2quat
 
 class Geom:
     def __init__(self, sim):

@@ -1,13 +1,11 @@
 import numpy as np
 
-from env.util.quaternion import quaternion_distance, euler2quat, quaternion_product
-from util.check_number import is_variable_valid
+from env.tasks.stoneenv.stoneenv import StoneEnv
 from util.colors import FAIL, ENDC
+from util.quaternion import quaternion_distance, euler2quat
 
-def kernel(x):
-  return np.exp(-x)
 
-def compute_reward(self, action):
+def compute_rewards(self: StoneEnv, action):
     assert hasattr(self, "clock"), \
         f"{FAIL}Environment {self.__class__.__name__} does not have a clock object.{ENDC}"
     assert self.clock is not None, \
@@ -77,19 +75,6 @@ def compute_reward(self, action):
     torque = self.sim.get_torque()
     q["trq_penalty"] = sum(np.abs(torque)) / len(torque)
 
-    ### Add up all reward components ###
-    self.reward = 0
-    for name in q:
-        if not is_variable_valid(q[name]):
-            raise RuntimeError(f"Reward {name} has Nan or Inf values as {q[name]}.\n"
-                               f"Training stopped.")
-        self.reward += self.reward_weight[name]["weighting"] * \
-                       kernel(self.reward_weight[name]["scaling"] * q[name])
-
-    # print()
-    # for name in q:
-    #     print(self.traj_idx, name, kernel(self.reward_weight[name]["scaling"] * q[name]))
-
     ### Stepping stone sparse reward ###
     if any(self.touchdown_by_clock_flag):
         side = self.steps_order[self.steps_active_idx]
@@ -97,18 +82,18 @@ def compute_reward(self, action):
             self.sim.get_site_pose(self.sim.feet_site_name[side])[0:2] - \
             self.steps_target_global[self.steps_active_idx][0:2])
         q['footstep'] = footstep_error
-        footstep_reward = self.reward_weight[name]["weighting"] * \
-                       kernel(self.reward_weight[name]["scaling"] * q[name])
-        self.reward += footstep_reward
+        footstep_reward = self.reward_weight['footstep']["weighting"] * \
+                       self.kernel(self.reward_weight['footstep']["scaling"] * q['footstep'])
         print(f"episode index = {self.traj_idx}. TD clock {self.touchdown_by_clock_flag}\n"
               f"target footstep {self.steps_target_global[self.steps_active_idx][0:2]} "
               f"actual footstep {self.sim.get_site_pose(self.sim.feet_site_name[side])[0:2]}\n"
               f"check side={side}, distance error {footstep_error}, reward is {footstep_reward}.\n")
         print()
-    return self.reward
+
+    return q
 
 # Termination condition: If orientation too far off terminate
-def compute_done(self):
+def compute_done(self: StoneEnv):
     base_pose = self.sim.get_body_pose(self.sim.base_body_name)
     target_quat = np.array([1, 0, 0, 0])
     command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)

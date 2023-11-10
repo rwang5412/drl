@@ -1,11 +1,10 @@
 import numpy as np
-from env.util.quaternion import quaternion_distance, euler2quat, quaternion_product
-from util.check_number import is_variable_valid
 
-def kernel(x):
-  return np.exp(-x)
+from env.genericenv import GenericEnv
+from util.quaternion import quaternion_distance
 
-def compute_reward(self, action):
+
+def compute_rewards(self: GenericEnv, action):
     q = {}
 
     ### Height penalty, match the desired standing height ###
@@ -37,19 +36,10 @@ def compute_reward(self, action):
     torque = self.sim.get_torque()
     q["trq_penalty"] = sum(np.abs(torque)) / len(torque)
 
-    ### Add up all reward components ###
-    self.reward = 0
-    for name in q:
-        if not is_variable_valid(q[name]):
-            raise RuntimeError(f"Reward {name} has Nan or Inf values as {q[name]}.\n"
-                               f"Training stopped.")
-        self.reward += self.reward_weight[name]["weighting"] * \
-                       kernel(self.reward_weight[name]["scaling"] * q[name])
-
-    return self.reward
+    return q
 
 # Termination condition: If height is too low (cassie fell down) terminate
-def compute_done(self):
+def compute_done(self: GenericEnv):
     base_height = self.sim.get_body_pose(self.sim.base_body_name)[2]
     if base_height < 0.4:
         return True

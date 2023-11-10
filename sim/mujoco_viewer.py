@@ -5,7 +5,7 @@ import numpy as np
 
 from threading import Lock
 from util.colors import FAIL, WARNING, ENDC
-from env.util.quaternion import euler2so3
+from util.quaternion import euler2so3
 
 
 """

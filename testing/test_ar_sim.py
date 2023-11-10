@@ -1,4 +1,3 @@
-import asyncio
 import agility.messages as msg
 import numpy as np
 

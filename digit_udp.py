@@ -10,14 +10,13 @@ import os
 import platform
 import pickle
 import select
-import signal
 import sys
 import termios
 import time
 import torch
 import tty
 
-from env.util.quaternion import mj2scipy
+from env.genericenv import GenericEnv
 from multiprocessing import Process
 from scipy.spatial.transform import Rotation as R
 from sim.digit_sim.digit_ar_sim.digit_udp import DigitUdp
@@ -30,6 +29,7 @@ from util.colors import WARNING, ENDC
 from util.digit_topic import DigitStateTopic
 from util.env_factory import add_env_parser, env_factory
 from util.nn_factory import load_checkpoint, nn_factory
+from util.quaternion import mj2scipy
 
 LOGSIZE = 100000
 
@@ -52,7 +52,7 @@ def save_log(log_data):
 def close_ar_sim(ar_sim):
     ar_sim.close()
 
-async def run(actor, env, do_log = True, pol_name = "test"):
+async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
 
     global log_ind, part_num
 
@@ -62,11 +62,11 @@ async def run(actor, env, do_log = True, pol_name = "test"):
     log_data = {"time": [time.time()] * LOGSIZE,
                 "orient add": [0.0] * LOGSIZE,}
     input_log = {} # network inputs
-    for name in env.robot_state_names + env.extra_input_names:
+    for name in env.robot.robot_state_names + env.extra_input_names:
         input_log[name] = [0.0] * LOGSIZE
     log_data["input"] = input_log
     output_log = {}
-    for motor in env.output_names:
+    for motor in env.robot.output_names:
         output_log[motor] = [0.0] * LOGSIZE
     log_data["output"] = output_log
     # Init/allocate custom logs here
@@ -77,22 +77,24 @@ async def run(actor, env, do_log = True, pol_name = "test"):
     if os.path.isfile(ar_control_path):
         print("Starting ar-control")
         ar_sim = agility.Simulator(ar_control_path, toml_path)
+        atexit.register(close_ar_sim, ar_sim)
     else:
         print(f"{WARNING}Assuming ar-control already running{ENDC}")
 
     save_log_p = None   # Save log process for async file saving
     if do_log:
         atexit.register(save_log, log_data)
-    atexit.register(close_ar_sim, ar_sim)
 
     if platform.node() == "digit-nuc":
         ROBOT_ADDRESS = '10.10.1.1'
     else:
         ROBOT_ADDRESS = '127.0.0.1'
 
-    api = agility.JsonApi(address=ROBOT_ADDRESS,
-                          port=8080,
-                          connect_timeout=1)
+    api = agility.JsonApi(
+        address=ROBOT_ADDRESS,
+        port=8080,
+        connect_timeout=1
+    )
     try:
         await api.connect()
     except:
@@ -102,11 +104,10 @@ async def run(actor, env, do_log = True, pol_name = "test"):
     digit_udp = DigitUdp(robot_address=ROBOT_ADDRESS)
     topic = DigitStateTopic(digit_udp)
 
-    env.reset_for_test()
     cmd_policy = llapi_command_pd_t()
     for i in range(NUM_MOTORS):
-        cmd_policy.kp[i] = env.kp[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
-        cmd_policy.kd[i] = env.kd[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
+        cmd_policy.kp[i] = env.robot.kp[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
+        cmd_policy.kd[i] = env.robot.kd[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
         cmd_policy.feedforward_torque[i] = 0.0
 
     query_json = True
@@ -180,13 +181,13 @@ async def run(actor, env, do_log = True, pol_name = "test"):
             if update_time >= 1 / env.default_policy_rate:
 
                 query_json = True
-                env.llapi_obs = obs
+                env.robot.llapi_obs = obs
                 robot_state = env.get_robot_state()
                 RL_state = env.get_state()
 
                 with torch.no_grad():
                     action = actor(torch.tensor(RL_state).float(), deterministic=True).numpy()
-                action_sum = env.offset + action
+                action_sum = env.robot.offset + action
                 for i in range(NUM_MOTORS):
                     cmd_policy.position[i] = action_sum[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
                 digit_udp.send_pd(cmd_policy)
@@ -198,12 +199,12 @@ async def run(actor, env, do_log = True, pol_name = "test"):
                 if log_data:
                     log_data["time"][log_ind] = time.time()
                     log_data["orient add"][log_ind] = env.orient_add
-                    for i in range(len(env.robot_state_names)):
-                        log_data["input"][env.robot_state_names[i]][log_ind] = robot_state[i]
+                    for i in range(len(env.robot.robot_state_names)):
+                        log_data["input"][env.robot.robot_state_names[i]][log_ind] = robot_state[i]
                     for i in range(len(env.extra_input_names)):
-                        log_data["input"][env.extra_input_names[i]][log_ind] = RL_state[len(env.robot_state_names) + i]
-                    for i in range(len(env.output_names)):
-                        log_data["output"][env.output_names[i]][log_ind] = action_sum[i]
+                        log_data["input"][env.extra_input_names[i]][log_ind] = RL_state[len(env.robot.robot_state_names) + i]
+                    for i in range(len(env.robot.output_names)):
+                        log_data["output"][env.robot.output_names[i]][log_ind] = action_sum[i]
                     # Add custom logs here
                     log_ind += 1
                     if log_ind >= LOGSIZE:

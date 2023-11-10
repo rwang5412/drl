@@ -1,14 +1,13 @@
 import numpy as np
 import mujoco as mj
+from scipy.spatial.transform import Rotation as R
 
-from env.util.quaternion import quaternion_distance, euler2quat, quaternion_product
-from util.check_number import is_variable_valid
+from env.tasks.locomotionclockenv.locomotionclockenv import LocomotionClockEnv
 from util.colors import FAIL, ENDC
+from util.quaternion import quaternion_distance, euler2quat, mj2scipy, scipy2mj
 
-def kernel(x):
-  return np.exp(-x)
 
-def compute_reward(self, action):
+def compute_rewards(self: LocomotionClockEnv, action):
     assert hasattr(self, "clock"), \
         f"{FAIL}Environment {self.__class__.__name__} does not have a clock object.{ENDC}"
     assert self.clock is not None, \
@@ -76,8 +75,9 @@ def compute_reward(self, action):
     base_quat = self.sim.get_body_pose(self.sim.base_body_name)[3:]
     target_quat = np.array([1, 0, 0, 0])
     if self.orient_add != 0:
-        command_quat = euler2quat(z = self.orient_add, y = 0, x = 0)
-        target_quat = quaternion_product(target_quat, command_quat)
+        command_quat = R.from_euler('xyz', [0,0,self.orient_add])
+        target_quat = R.from_quat(mj2scipy(target_quat)) * command_quat
+        target_quat = scipy2mj(target_quat.as_quat())
     orientation_error = quaternion_distance(base_quat, target_quat)
     # Deadzone around quaternion as well
     if orientation_error < 5e-3:
@@ -112,21 +112,10 @@ def compute_reward(self, action):
         torque = self.sim.get_torque()
     q["trq_penalty"] = sum(np.abs(torque[[0, 1, 5, 6]])) / 4 # Only penalize hip roll/yaw
 
-    ### Add up all reward components ###
-    self.reward = 0
-    for name in q:
-        if not is_variable_valid(q[name]):
-            raise RuntimeError(f"Reward {name} has Nan or Inf values as {q[name]}.\n"
-                               f"Training stopped.")
-        self.reward += self.reward_weight[name]["weighting"] * \
-                       kernel(self.reward_weight[name]["scaling"] * q[name])
-    #     print(f"{name:15s} : {q[name]:.3f} | {self.reward_weight[name]['scaling'] * q[name]:.3f} | {kernel(self.reward_weight[name]['scaling'] * q[name]):.3f}", end="\n")
-    # print()
-
-    return self.reward
+    return q
 
 # Termination condition: If reward is too low or height is too low (cassie fell down) terminate
-def compute_done(self):
+def compute_done(self: LocomotionClockEnv):
     base_height = self.sim.get_body_pose(self.sim.base_body_name)[2]
     if base_height < 0.6 or self.reward < 0.4:
         return True

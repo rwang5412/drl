@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     if evaluation_type == 'test':
         parser = argparse.ArgumentParser()
-        parser.add_argument('--env-name', default="CassieEnvClock", type=str)
+        parser.add_argument('--env-name', default="LocomotionClockEnv", type=str)
         # Manually handle env-name argument
         try:
             env_name_idx = sys.argv.index("--env-name")
@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str)
     parser.add_argument('--traj-len', default=300, type=int)
+    parser.add_argument('--plot-rewards', default=False, action='store_true')
     # Manually handle path argument
     try:
         path_idx = sys.argv.index("--path")
@@ -88,7 +89,7 @@ if __name__ == "__main__":
     elif evaluation_type == 'interactive':
         if not hasattr(env, 'interactive_control'):
             raise RuntimeError("this environment does not support interactive control")
-        interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len, critic=critic)
+        interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len, critic=critic, plot_rewards=args.plot_rewards)
     elif evaluation_type == "offscreen":
         simple_eval_offscreen(actor=actor, env=env, episode_length_max=args.traj_len)
     else:

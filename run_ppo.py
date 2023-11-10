@@ -1,10 +1,11 @@
 import torch # first import to prevent ray 1 core bug
 import numpy as np
+import argparse
 
 from algo.ppo import add_algo_args, run_experiment
 from types import SimpleNamespace
 
-def run_ppo():
+def get_ppo_args():
     # Setup arg Namespaces and get default values for algo args
     args = SimpleNamespace()
 
@@ -26,8 +27,9 @@ def run_ppo():
     args.c_lr = 3e-4
     args.std = 0.13
 
-    # Set env and logging args
-    args.env_name = "CassieEnvClock"
+    # Set env and robot
+    args.env_name = "LocomotionClockEnv"
+    args.robot_name = "cassie"
 
     # Set env args
     args.simulator_type = "mujoco"
@@ -48,12 +50,31 @@ def run_ppo():
     args.full_clock = True
     args.integral_action = False
 
-    args.run_name = f"feet"
-    args.wandb = True
-    args.wandb_project_name = "roadrunner_refactor"
+    args.wandb = False
+    args.run_name = f"{args.robot_name}-{args.env_name}-insert name here"
+    args.wandb_group_name = f"insert group name here"
+    args.wandb_project_name = "insert project name here"
+
     #NOTE: If running on vlab pur your tier1 folder here, ex. "/tier1/osu/username/"
     args.logdir = "/tier2/osu/dugarp/trained_models/"
     args.wandb_dir = "/tier2/osu/dugarp/"
 
     args = add_algo_args(args)
-    run_experiment(args, args.env_name)
+    return args
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--test", action="store_true", help="Run a small local test of the run.")
+    args = parser.parse_args()
+
+    ppo_args = get_ppo_args()
+
+    if args.test:
+        ppo_args.backprop_workers = 8
+        ppo_args.workers = 8
+        ppo_args.wandb = False
+        ppo_args.num_steps = 5000
+        ppo_args.logdir = "test_logs/"
+
+    run_experiment(ppo_args, ppo_args.env_name)

@@ -1,7 +1,6 @@
 import torch
 import numpy as np
-from env.cassie.cassieenv import CassieEnv
-from env.digit.digitenv import DigitEnv
+from env.tasks.locomotionenv.locomotionenv import LocomotionEnv
 from util.mirror import mirror_tensor
 
 """
@@ -22,40 +21,48 @@ def compare_inds(inds1, inds2, name):
         f"{name} mirror inds have duplicate values \ninds1 = {inds1}\ninds2={inds2}."
 
 def test_mirror():
-    cassie = CassieEnv(simulator_type='mujoco',
-                    terrain=False,
-                    policy_rate=50,
-                    dynamics_randomization=False,
-                    state_est=False,
-                    state_noise=0)
+    cassie = LocomotionEnv(
+        robot_name="cassie",
+        reward_name="feet_air_time",
+        simulator_type='mujoco',
+        terrain=False,
+        policy_rate=50,
+        dynamics_randomization=False,
+        state_est=False,
+        state_noise=[0,0,0,0,0,0]
+    )
 
-    digit = DigitEnv(simulator_type='mujoco',
-                    terrain=False,
-                    policy_rate=50,
-                    dynamics_randomization=False,
-                    state_noise=0,
-                    state_est=False)
+    digit = LocomotionEnv(
+        robot_name="digit",
+        reward_name="feet_air_time",
+        simulator_type='mujoco',
+        terrain=False,
+        policy_rate=50,
+        dynamics_randomization=False,
+        state_noise=[0,0,0,0,0,0],
+        state_est=False
+    )
 
     """
     Check if any mirror ind array has duplicate values by mistake
     """
     # Cassie state
-    inds_from_mirror = np.sort(np.floor(np.abs(cassie.robot_state_mirror_indices)))
+    inds_from_mirror = np.sort(np.floor(np.abs(cassie.robot.robot_state_mirror_indices)))
     inds_from_getstate = np.arange(len(cassie.get_robot_state()))
     compare_inds(inds_from_mirror, inds_from_getstate, "Cassie state")
 
     # Cassie action
-    inds_from_mirror = np.sort(np.floor(np.abs(cassie.motor_mirror_indices)))
+    inds_from_mirror = np.sort(np.floor(np.abs(cassie.robot.motor_mirror_indices)))
     inds_from_getstate = np.arange(cassie.sim.num_actuators)
     compare_inds(inds_from_mirror, inds_from_getstate, "Cassie action")
 
     # Digit state
-    inds_from_mirror = np.sort(np.floor(np.abs(digit.robot_state_mirror_indices)))
+    inds_from_mirror = np.sort(np.floor(np.abs(digit.robot.robot_state_mirror_indices)))
     inds_from_getstate = np.arange(len(digit.get_robot_state()))
     compare_inds(inds_from_mirror, inds_from_getstate, "Digit state")
 
     # Digit action
-    inds_from_mirror = np.sort(np.floor(np.abs(digit.motor_mirror_indices)))
+    inds_from_mirror = np.sort(np.floor(np.abs(digit.robot.motor_mirror_indices)))
     inds_from_getstate = np.arange(digit.sim.num_actuators)
     compare_inds(inds_from_mirror, inds_from_getstate, "Digit action")
 

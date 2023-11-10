@@ -1,23 +1,18 @@
 import argparse, time, pickle, platform
 import os, sys, datetime
 import select, termios, tty, atexit
-from math import floor
 
 import numpy as np
 import torch
 from multiprocessing import Process
 from sim.cassie_sim.cassiemujoco.cassieUDP import *
 from sim.cassie_sim.cassiemujoco.cassiemujoco_ctypes import *
-from env.util.quaternion import (
-    euler2quat,
-    inverse_quaternion,
-    rotate_by_quaternion,
-    quaternion_product,
-    quaternion2euler
-)
 
 from util.nn_factory import load_checkpoint, nn_factory
 from util.env_factory import env_factory
+from util.tarsus_patch_wrapper import TarsusPatchWrapper
+from util.quaternion import quaternion2euler
+
 
 # entry file for run a specified udp setup
 # cassie-async (sim), digit-ar-control-async (sim), cassie-real, digit-real
@@ -29,7 +24,7 @@ def remap(val, min1, max1, min2, max2):
     return np.clip(min2 + (scaled * span2), min2, max2)
 
 def save_log():
-    global log_hf_ind, log_lf_ind, logdir, part_num, sto_num, time_hf_log, output_log, state_log, target_log, speed_log, orient_log, phaseadd_log, time_lf_log, input_log
+    global log_hf_ind, log_lf_ind, logdir, part_num, sto_num, time_hf_log, output_log, state_log, target_log, speed_log, orient_log, time_lf_log, input_log
 
     filename = "logdata_part" + str(part_num) + "_sto" + str(sto_num) + ".pkl"
     filename = os.path.join(logdir, filename)
@@ -45,7 +40,6 @@ def save_log():
             "target": target_log[:log_hf_ind],
             "speed": speed_log[:log_hf_ind],
             "orient": orient_log[:log_hf_ind],
-            "phase_add": phaseadd_log[:log_hf_ind],
             "simrate": 50}
     with open(filename, "wb") as filep:
         pickle.dump(data, filep)
@@ -81,7 +75,7 @@ def PD_step(cassie_udp, cassie_env, action):
     return target
 
 def execute(policy, env, args, do_log, exec_rate=1):
-    global log_size, log_hf_ind, log_lf_ind, part_num, sto_num, save_dict, time_hf_log, output_log, state_log, target_log, speed_log, orient_log, phaseadd_log, time_lf_log, input_log
+    global log_size, log_hf_ind, log_lf_ind, part_num, sto_num, save_dict, time_hf_log, output_log, state_log, target_log, speed_log, orient_log, time_lf_log, input_log
 
     # Determine whether running in simulation or on the robot
     if platform.node() == 'cassie':
@@ -111,11 +105,6 @@ def execute(policy, env, args, do_log, exec_rate=1):
     env.turn_rate = 0
     env.y_velocity = 0
     env.x_velocity = 0
-    env.clock._phase = 0
-    env.clock._cycle_time = 0.8
-    env.clock._swing_ratios = [0.5, 0.5]
-    env.clock._period_shifts = [0, 0.5]
-    env.clock._von_mises_buf = None
 
     # 0: walking
     # 1: standing
@@ -206,17 +195,15 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     l_stick_y = 0
                 if abs(r_stick_y) < 0.05:
                     r_stick_y = 0
-                # Orientation control
-                env.turn_rate = remap(r_stick_y, -1, 1, -0.5, 0.5)
+                # Turn rate control
+                env.turn_rate = remap(r_stick_y, -1, 1, -np.pi/4, np.pi/4)
+                env.turn_rate = np.clip(env.turn_rate, -np.pi/4, np.pi/4)
                 env.orient_add += env.turn_rate / env.default_policy_rate
                 # X and Y speed control
-                env.x_velocity = remap(l_stick_x, -1, 1, -1.0, 1.0)
+                env.x_velocity = remap(l_stick_x, -1, 1, -0.6, 0.6)
                 env.y_velocity = -remap(l_stick_y, -1, 1, -0.3, 0.3)
-                env.x_velocity = np.clip(env.x_velocity, -0.3, 1.0)
+                env.x_velocity = np.clip(env.x_velocity, -0.2, 0.6)
                 env.y_velocity = np.clip(env.y_velocity, -0.3, 0.3)
-                # Gait parameters control
-                cycle_time = remap(state.radio.channel[5], -1, 1, 0.7, 1.0)
-                env.clock.set_cycle_time(cycle_time)
 
             else:
                 """
@@ -234,8 +221,6 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     else:
                         env.interactive_control(c)
 
-            env.x_velocity = np.clip(env.x_velocity, args.min_x, args.max_x)
-            env.y_velocity = np.clip(env.y_velocity, args.min_y, args.max_y)
 
             if STO:
                 if not logged:
@@ -272,8 +257,7 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     target = PD_step(cassieudp, env, action)
                     pol_time = time.monotonic()
                     # Update env quantities
-                    env.orient_add += env.turn_rate / (2000 / 50)
-                    env.clock.increment()
+                    env.hw_step()
 
                     if do_log:
                         time_lf_log[log_lf_ind] = time.time()
@@ -281,16 +265,17 @@ def execute(policy, env, args, do_log, exec_rate=1):
                         target_log[log_lf_ind] = target
                         log_lf_ind += 1
 
-                    # Measure delay
-                    # print('delay: {:6.1f} ms'.format((time.monotonic() - t) * 1000))
-                    # print("compute time:", (time.time() - new_time)*1000)
                     measured_delay = (update_time - 1 / env.default_policy_rate) * 1000
                     if not first:
-                        sys.stdout.write("Speed: {:.2f}\t count : {:02d}/{:02d} \tdelay: {:2.2f} ms\r".format(env.x_velocity, count, (2000//env.default_policy_rate)//exec_rate, measured_delay))
+                        sys.stdout.write(
+                            f"x_vel: {env.x_velocity:.2f}\t"
+                            f"y_vel: {env.y_velocity:.2f}\t"
+                            f"turn_rate: {env.turn_rate:.2f}  \t"
+                            f"inference delay: {measured_delay:.2f} ms\r"
+                        )
                         sys.stdout.flush()
                     first = False
                     count = 0
-                    # pol_time = new_time
 
 
                 """
@@ -303,7 +288,6 @@ def execute(policy, env, args, do_log, exec_rate=1):
                     state_log[log_hf_ind] = state
                     speed_log[log_hf_ind] = env.x_velocity
                     orient_log[log_hf_ind] = env.orient_add
-                    phaseadd_log[log_hf_ind] = env.clock._cycle_time
                     log_hf_ind += 1
 
                 if log_hf_ind == log_size and do_log:
@@ -339,10 +323,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--path", type=str, default=None, help="path to folder containing policy and run details")
 parser.add_argument("--exec_rate", default=1, type=int, help="Controls the execution rate of the script. Is 1 (full 2kHz) be default")
 parser.add_argument("--no_log", dest='do_log', default=True, action="store_false", help="Whether to log data or not. True by default")
-parser.add_argument("--max_x", default=4.0, type=float, help="Maximum x speed")
-parser.add_argument("--min_x", default=0.0, type=float, help="Minimum x speed")
-parser.add_argument("--max_y", default=0.5, type=float, help="Maximum y speed")
-parser.add_argument("--min_y", default=-0.5, type=float, help="Minimum y speed")
+
 
 # Manually handle path argument
 try:
@@ -370,6 +351,8 @@ env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['e
 # Load model class and checkpoint
 actor, critic = nn_factory(args=previous_args_dict['nn_args'], env=env)
 load_checkpoint(model=actor, model_dict=actor_checkpoint)
+# wrap actor in tarsus predictor:
+actor = TarsusPatchWrapper(actor)
 actor.eval()
 actor.training = False
 
@@ -394,7 +377,6 @@ state_log  = [state_out_t()] * log_size  # cassie state
 target_log = [np.ones(10)] * log_size  # PD target log
 speed_log  = [0.0] * log_size # speed input commands
 orient_log  = [0.0] * log_size # orient input commands
-phaseadd_log  = [0.0] * log_size # frequency input commands
 
 part_num = 0
 sto_num = 0

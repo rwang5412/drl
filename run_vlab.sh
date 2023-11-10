@@ -5,4 +5,4 @@ PROJECT_DIR=~/roadrunner_refactor/
 cd $PROJECT_DIR
 source activate env1
 
-python test.py --train
+python run_ppo.py

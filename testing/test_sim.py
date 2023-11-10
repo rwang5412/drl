@@ -16,8 +16,8 @@ from .common import (
     CASSIE_JOINT_NAME,
 )
 
-from env.util.quaternion import quaternion2euler, euler2so3
 from util.colors import FAIL, ENDC, OKGREEN
+from util.quaternion import quaternion2euler, euler2so3
 
 def test_all_sim():
     sim_list = [LibCassieSim, MjCassieSim, MjDigitSim]

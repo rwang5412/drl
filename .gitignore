@@ -1,5 +1,7 @@
 docs/build/*
 
+offline_data/
+test_logs/
 ./trained_models/
 .vscode/
 MUJOCO_LOG.TXT

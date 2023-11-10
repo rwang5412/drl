@@ -8,7 +8,6 @@ import torch
 from env.util.periodicclock import PeriodicClock
 from util.env_factory import env_factory
 from util.nn_factory import nn_factory, load_checkpoint
-from types import SimpleNamespace
 
 def tracker_test():
     model_path = "./pretrained_models/CassieEnvClockOld/"
