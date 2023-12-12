@@ -296,9 +296,15 @@ class MujocoViewer():
                 elif key == glfw.KEY_Q:
                     glfw.set_window_should_close(self.window, True)
                     return
+            # Toggle geom/site group
+            if mods == glfw.MOD_SHIFT:
+                for i in range(mj.mjNGROUP):
+                    if key == i + 48:
+                        self.vopt.geomgroup[i] = 1 - self.vopt.geomgroup[i]
+                        return
             # Toggle visualization flags
             for i in range(mj.mjtVisFlag.mjNVISFLAG):
-                if glfw.get_key_name(key, scancode) == mj.mjVISSTRING[i][2][0].lower():
+                if glfw.get_key_name(key, scancode) == mj.mjVISSTRING[i][2].lower():
                     self.vopt.flags[i] = 1 - self.vopt.flags[i]
                     # return
                     # Don't return here due to overlapping key in VISSTRING and RNDSTRING. "," key
@@ -487,8 +493,9 @@ class MujocoViewer():
             selpnt = np.zeros((3, 1), dtype=np.float64)
             selgeom = np.zeros((1, 1), dtype=np.int32)
             selskin = np.zeros((1, 1), dtype=np.int32)
+            selflex = np.zeros((1, 1), dtype=np.int32)
             selbody = mj.mjv_select(self.model, self.data, self.vopt, aspectratio, relx, rely,
-                self.scn, selpnt, selgeom, selskin)
+                self.scn, selpnt, selgeom, selflex, selskin)
 
             # set lookat point, start tracking is requested
             if selmode == 2 or selmode == 3:

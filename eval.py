@@ -74,7 +74,6 @@ if __name__ == "__main__":
         delattr(previous_args_dict['env_args'], 'state_est')
 
     # Load environment
-    print("state noise", previous_args_dict['env_args'].state_noise)
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
 
     # Load model class and checkpoint

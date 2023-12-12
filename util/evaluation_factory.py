@@ -113,6 +113,10 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewar
                 env.viewer_update_cop_marker()
             if cmd is not None:
                 env.interactive_control(cmd)
+            if cmd == "r":
+                env.reset(interactive_evaluation=True)
+                if hasattr(actor, 'init_hidden_state'):
+                    actor.init_hidden_state()
             if cmd == "quit":
                 done = True
             if cmd == "menu":
@@ -132,7 +136,7 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewar
                     actor.init_hidden_state()
 
         # clear terminal on ctrl+q
-        print(f"\033[{env.num_menu_backspace_lines - 1}B\033[K")
+        print(f"\033[{len(env.control_commands_dict) + 3 - 1}B\033[K")
         termios.tcdrain(sys.stdout)
         time.sleep(0.1)
         termios.tcflush(sys.stdout, termios.TCIOFLUSH)

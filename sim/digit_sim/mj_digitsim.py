@@ -10,7 +10,7 @@ class MjDigitSim(MujocoSim):
     """
     Wrapper for Digit Mujoco. This class only defines several specifics for Digit.
     """
-    def __init__(self, model_name: str = "digit-v3-new.xml", terrain=None):
+    def __init__(self, model_name: str = "digit-v3.xml", terrain=None):
         if terrain == 'hfield':
             model_name = "digit-v3-hfield.xml"
         model_path = pathlib.Path(__file__).parent.resolve() / model_name

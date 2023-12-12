@@ -23,8 +23,7 @@ import numpy as np
 _dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Initialize libcassiesim
-default_model = _dir_path +  "/cassie.xml"
-cassie_mujoco_init(str.encode(default_model))
+default_model = _dir_path +  "/cassie_lib.xml"
 
 # Interface classes
 # Note: Making the optional argument be a global var be default is perhaps not the safest thing to do
@@ -39,7 +38,7 @@ class CassieSim:
                 base += '_perception'
             if terrain:
                 base += '_hfield'
-            self.modelfile = os.path.join(_dir_path, base + '.xml')
+            self.modelfile = os.path.join(_dir_path, base + '_lib.xml')
 
         self.c = cassie_sim_init(self.modelfile.encode('utf-8'), True)
 

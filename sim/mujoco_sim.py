@@ -24,8 +24,6 @@ class MujocoSim(GenericSim):
         super().__init__()
         self.model = mj.MjModel.from_xml_path(str(model_path))
         self.data = mj.MjData(self.model)
-        # Disable midphase collision pruning so we can move geoms around at runtime
-        self.model.opt.disableflags = mj.mjtDisableBit.mjDSBL_MIDPHASE
         self.nq = self.model.nq
         self.nv = self.model.nv
         self.nu = self.model.nu
@@ -444,8 +442,8 @@ class MujocoSim(GenericSim):
         """ Check for self collisions. Returns True if there are self collisions, and False otherwise
         """
         for contact_id, contact_struct in enumerate(self.data.contact):
-            if self.model.geom_group[contact_struct.geom1] == 1 and \
-               self.model.geom_group[contact_struct.geom2] == 1:
+            if self.model.geom_user[contact_struct.geom1] == 1 and \
+               self.model.geom_user[contact_struct.geom2] == 1:
                 return True
         return False
 

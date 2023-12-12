@@ -2,7 +2,9 @@
 <mujoco model='cassie'>
   <compiler inertiafromgeom='auto' angle='degree' eulerseq='zyx' meshdir='cassie-stl-meshes'/>
   <size nuser_actuator='1' nuser_sensor='1' nuser_geom='1' nconmax='1000'/>
-  <option timestep='0.0005' iterations='50' solver='Newton' gravity='0 0 -9.80665'/>
+  <option timestep='0.0005' iterations='50' solver='Newton' gravity='0 0 -9.80665'>
+    <flag midphase="disable"/>
+  </option>
   <!-- Timestep is set to 0.0005 because our controller runs at 2 kHz -->
   <!-- Larger values still have stable dynamics -->
 
@@ -17,16 +19,16 @@
     <geom contype='0' conaffinity='0' condim='1' solref='0.005 1'/>
     <equality solref='0.005 1'/>
     <default class='cassie'>
-      <geom material='cassie'/>
+      <geom material='cassie' group='1'/>
     </default>
     <default class='collision'>
       <!-- User parameter for geoms is used to identify collision types -->
       <geom material='collision' contype='1' user='2'/>
       <default class='collision-left'>
-        <geom contype='2' conaffinity='4' group='1'/>
+        <geom contype='2' conaffinity='4' user='1' group='3'/>
       </default>
       <default class='collision-right'>
-        <geom contype='4' conaffinity='2' group='1'/>
+        <geom contype='4' conaffinity='2' user='1' group='3'/>
       </default>
     </default>
     <default class='obstacle'>
@@ -39,7 +41,7 @@
     <texture name='plane' type='2d' builtin='checker' rgb1='0.2 0.2 0.2' rgb2='0.3 0.3 0.3' width='512' height='512'/>
     <material name='plane' reflectance='0.0' texture='plane' texrepeat='1 1' texuniform='true'/>
     <material name='cassie'    rgba='0.9 0.5 0.1 1'/>
-    <material name='collision' rgba='0.1 0.5 0.9 0'/>
+    <material name='collision' rgba='0.1 0.5 0.9 1'/>
     <material name='obstacle'  rgba='0.2 0.6 0.2 1'/>
     <mesh name='cassie-pelvis' file='pelvis.stl'/>
     <mesh name='left-hip-roll'     file='hip-roll.stl'/>
@@ -82,7 +84,7 @@
       <joint type='slide' axis='0 0 1' limited='false' ref='1.01'/>
       <joint type='ball' limited='false'/>
       <geom type='mesh' mesh='cassie-pelvis'/>
-      <geom type='sphere' size='0.15' pos='0.02 0 0.02' class='collision' group='1'/>
+      <geom type='sphere' size='0.15' pos='0.02 0 0.02' class='collision' group='3' user='1'/>
       <site name='imu' size='0.01' pos='0.03155 0 -0.07996' rgba='0.5 0.5 0.5 1.0'/>
 
       <body name='left-hip-roll' pos='0.021 0.135 0' xyaxes='0 0 -1 0 1 0'>
@@ -97,7 +99,7 @@
             <inertial pos='0.05946 5e-05 -0.03581' mass='5.52' fullinertia='0.010898 0.029714 0.030257 -0.0002669 -5.721e-05 9.17e-06'/>
             <joint name='left-hip-pitch' type='hinge' range='-50 80' damping='1' armature='0.09344'/>
             <geom type='mesh' mesh='left-hip-pitch'/>
-            <geom type='capsule' size='0.08' fromto='0 0 -0.04 0.12 0 -0.0355' class='collision' group='1'/>
+            <geom type='capsule' size='0.08' fromto='0 0 -0.04 0.12 0 -0.0355' class='collision' group='3' user='1'/>
             <body name='left-achilles-rod' pos='0 0 0.045' xyaxes='0.7922 -0.60599 -0.072096 0.60349 0.79547 -0.054922'>
               <inertial pos='0.24719 0 0' mass='0.1567' fullinertia='3.754e-06 0.004487 0.004488 -3.74e-08 -1.61e-08 0'/>
               <joint name='left-achilles-rod' type='ball' limited='false' damping='0.01'/>
@@ -168,7 +170,7 @@
             <inertial pos='0.05946 5e-05 0.03581' mass='5.52' fullinertia='0.010898 0.029714 0.030257 -0.0002669 5.721e-05 -9.17e-06'/>
             <joint name='right-hip-pitch' type='hinge' range='-50 80' damping='1' armature='0.09344'/>
             <geom type='mesh' mesh='right-hip-pitch'/>
-            <geom type='capsule' size='0.08' fromto='0 0 0.04 0.12 0 0.0355' class='collision' group='1'/>
+            <geom type='capsule' size='0.08' fromto='0 0 0.04 0.12 0 0.0355' class='collision' group='3' user='1'/>
             <body name='right-achilles-rod' pos='0 0 -0.045' xyaxes='0.7922 -0.60599 0.072096 0.60349 0.79547 0.054922'>
               <inertial pos='0.24719 0 0' mass='0.1567' fullinertia='3.754e-06 0.004487 0.004488 -3.74e-08 1.61e-08 0'/>
               <joint name='right-achilles-rod' type='ball' limited='false' damping='0.01'/>
