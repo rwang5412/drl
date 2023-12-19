@@ -12,9 +12,9 @@ class MjCassieSim(MujocoSim):
     """
     Wrapper for Cassie Mujoco. This class only defines several specifics for Cassie.
     """
-    def __init__(self, model_name: str = "cassiemujoco/cassie.xml", terrain=None):
+    def __init__(self, model_name: str = "cassiemujoco/cassie_fast.xml", terrain=None):
         if terrain == 'hfield':
-            model_name = "cassiemujoco/cassie_hfield.xml"
+            model_name = "cassiemujoco/cassie_hfield_fast.xml"
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
         # Torque delay, i.e. size of the torque buffer. Note that "delay" of 1 corresponds to no
         # delay. So torque_delay_cycles should be the number of sim steps before commanded torque is
@@ -56,10 +56,8 @@ class MjCassieSim(MujocoSim):
         self.simulator_rate = int(1 / self.model.opt.timestep)
 
         # List of bodies that cannot (prefer not) collide with environment
-        self.body_collision_list = ['left-tarsus', 'left-achilles-rod', 'left-heel-spring', 'left-foot-crank',\
-            'left-plantar-rod',\
-            'right-tarsus', 'right-achilles-rod', 'right-heel-spring', 'right-foot-crank',\
-            'right-plantar-rod']
+        self.body_collision_list = ['left-tarsus', 'left-heel-spring', 'left-plantar-rod',\
+            'right-tarsus', 'right-heel-spring', 'right-plantar-rod']
 
         # minimal list of unwanted collisions to avoid knee walking
         self.knee_walking_list = ['left-heel-spring', 'right-heel-spring',\

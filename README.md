@@ -104,3 +104,8 @@ The repo is split into 6 main folders. Each contains it's own readme with furthe
 - [`sim`](sim): Contains all of the simulation classes that the environment use and interact with.
 - [`testing`](testing): Contains all of the testing functions used for CI and debugging. Performance testing for policies will go here as well.
 - [`util`](util): Contains repo wide utility functions. Only utilities that are used across multiple of the above folders, or in scripts at the top level should be here. Otherwise they should go into the corresponding folder's util folder.
+
+## Changelog
+
+- We have updated to Mujoco version 3.0.0. If you encounter Mujoco issues when rendering policies (usually something to do with the `VISSTRING`) it's likely because your Mujoco version is out of date. Rerun the setup script to update your conda env (or just run `pip install mujoco==3.0.0`)
+- We have added new models which perform much faster and are now used by default. However note that these models do not have meshes, and thus you will only see the raw collision geoms. If you want to view the meshes again, change the model file being loaded manually in [`mj_digitsim.py`](./sim/digit_sim/mj_digitsim.py#L13)/['mj_cassiesim.py'](./sim/cassie_sim/mj_cassiesim.py#L15) (just delete the "-fast" part, and use the normal "digit-v3.xml"/"cassie.xml") files.

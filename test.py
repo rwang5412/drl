@@ -79,10 +79,11 @@ if __name__ == "__main__":
         test_mirror()
     if args.timing:
         from testing.tracker_test import tracker_test
-        from testing.sampling_speed import sampling_speed, run_PD_env_compare
+        from testing.sampling_speed import sampling_speed, run_PD_env_compare, run_model_compare
         sampling_speed()
         # run_PD_env_compare()
         # tracker_test()
+        # run_model_compare()
     if args.train:
         from testing.test_algo import train
         train()

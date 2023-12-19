@@ -1,3 +1,4 @@
+import mujoco as mj
 import numpy as np
 import time
 from types import SimpleNamespace
@@ -5,6 +6,7 @@ from types import SimpleNamespace
 from sim import (
     MjCassieSim,
     LibCassieSim,
+    MjDigitSim
 )
 from util.env_factory import env_factory
 
@@ -84,7 +86,7 @@ def run_PD_env_compare():
         dynamics_randomization = False
     )
     env1 = env_factory("LocomotionClockEnv", args)()
-    args['robot_name'] = "digit"
+    args.robot_name = "digit"
     env2 = env_factory("LocomotionClockEnv", args)()
     num_steps = 1000
     env1_time = 0
@@ -102,7 +104,97 @@ def run_PD_env_compare():
 
         # if (sim1.data.qpos[:] - sim2.data.qpos[:]).sum() > 0.00001:
         #     print("Different qpos")
-    print(f"Env2 took {env2_time / num_steps}, {1 / (env2_time / num_steps):.2f} Hz")
-    print(f"Env1 loop took {env1_time / num_steps}, {1 / (env1_time / num_steps):.2f} Hz")
+    print(f"Digit took {env2_time / num_steps}, {1 / (env2_time / num_steps):.2f} Hz")
+    print(f"Cassie loop took {env1_time / num_steps}, {1 / (env1_time / num_steps):.2f} Hz")
 
+def print_mj_profile(data):
+    print("Mujoco Interal Profiler, \u03BCs per step")
+    total_mj_time = 0
+    components = 0
+    for i in range(8):
+        num = max(1, data.timer[i].number)
+        istep = data.timer[i].duration / num
+        if i == 0:
+            total_mj_time = istep
+        if i >= int(mj.mjtTimer.mjTIMER_POSITION):
+            components += istep
+        timestr = mj.mjTIMERSTRING[i]
+        if len(timestr) > 7:
+            timestr += "\t"
+        else:
+            timestr += "\t\t"
+        print(f"\t\t{timestr}: {1e6 * istep:.2f}")
+    print(f"\t\tother\t\t: {1e6 * (total_mj_time-components):.2f}")
+    print()
+    print(f"\tposition total\t: {1e6 * data.timer[3].duration / data.timer[3].number:.2f}")
+    for i in range(8, 13):
+        num = max(1, data.timer[i].number)
+        istep = data.timer[i].duration / num
+        timestr = mj.mjTIMERSTRING[i][4:]
+        if len(timestr) <= 4:
+            timestr += "\t"
+        timestr += "\t"
+        print(f"\t  {timestr}: {1e6 * istep:.2f}")
+        if i == int(mj.mjtTimer.mjTIMER_POS_COLLISION):
+            for j in range(13, 16):
+                num = max(1, data.timer[j].number)
+                istep = data.timer[j].duration / num
+                timestr = mj.mjTIMERSTRING[j][4:]
+                if len(timestr) <= 4:
+                    timestr += "\t"
+                timestr += "\t"
+                print(f"\t    {timestr}: {1e6 * istep:.2f}")
+
+def run_model_compare():
+    # Compares the simulation performance between the original model and the optimized "fast" model.
+    # Shows runtime statistics with the Mujoco profiler
+    def Timer():
+        return time.perf_counter()
+
+    mj.set_mjcb_time(Timer)
+
+    num_step = 100000
+    ctrl_noise = 0.1
+
+    fast_sim = MjDigitSim(model_name="digit-v3-fast.xml")
+    sim = MjDigitSim(model_name="digit-v3.xml")
+
+    ctrl = np.zeros((num_step, sim.model.nu))
+    for i in range(num_step):
+        for j in range(sim.model.nu):
+            center = 0
+            radius = 1
+            ctrlrange = sim.model.actuator_ctrlrange[j, :]
+            if sim.model.actuator_ctrllimited[j]:
+                center = (ctrlrange[0] + ctrlrange[1]) / 2
+                radius = (ctrlrange[1] - ctrlrange[0]) / 2
+            radius *= ctrl_noise
+            ctrl[i, j] = center + radius * (2 * mj.mju_Halton(i, j+2) - 1)
+
+    print("Made ctrl sequence")
+
+    start_t = time.time()
+    for i in range(num_step):
+        sim.set_torque(ctrl[i, :])
+        sim.sim_forward()
+    elapsed = time.time() - start_t
+
+    print(f"Regular Sim Total simulation time\t: {elapsed:.4f} seconds")
+    print(f"Regular Sim Total steps per second\t: {num_step / elapsed:.2f}")
+    print(f"Regular Sim Realtime factor\t\t: {num_step * sim.model.opt.timestep / elapsed:.4f} x")
+    print()
+    print_mj_profile(sim.data)
+    print("\n")
+
+    start_t = time.time()
+    for i in range(num_step):
+        fast_sim.set_torque(ctrl[i, :])
+        fast_sim.sim_forward()
+    elapsed = time.time() - start_t
+
+    print(f"Fast Sim Total simulation time\t: {elapsed:.4f} seconds")
+    print(f"Fast Sim Total steps per second\t: {num_step / elapsed:.2f}")
+    print(f"Fast Sim Realtime factor\t\t: {num_step * sim.model.opt.timestep / elapsed:.4f} x")
+    print()
+    print_mj_profile(fast_sim.data)
 

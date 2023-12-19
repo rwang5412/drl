@@ -318,7 +318,7 @@ class GenericEnv(ABC):
     @abstractmethod
     def get_observation_mirror_indices(self):
         """Get a list of indices that mirror the observation space.
-        
+
         Returns:
             observation_mirror_indices (list): observation mirror indices
         """
