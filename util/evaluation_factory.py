@@ -72,9 +72,9 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewar
     if actor is None:
         raise RuntimeError(F"{FAIL}Interactive eval requires a non-null actor network for eval")
 
-    keyboard = Keyboard()
     print(f"{OKGREEN}Feeding keyboard inputs to policy for interactive eval mode.")
     print("Type commands into the terminal window to avoid interacting with the mujoco viewer keybinds." + '\033[0m')
+    keyboard = Keyboard()
 
     if plot_rewards:
         plotter = Plotter()
@@ -95,7 +95,9 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewar
         env.display_control_commands()
         while render_state:
             start_time = time.time()
-            cmd = keyboard.get_input()
+            cmd = None
+            if keyboard.data():
+                cmd = keyboard.get_input()
             if not env.sim.viewer_paused():
                 state = torch.Tensor(state).float()
                 action = actor(state).numpy()
@@ -113,10 +115,6 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewar
                 env.viewer_update_cop_marker()
             if cmd is not None:
                 env.interactive_control(cmd)
-            if cmd == "r":
-                env.reset(interactive_evaluation=True)
-                if hasattr(actor, 'init_hidden_state'):
-                    actor.init_hidden_state()
             if cmd == "quit":
                 done = True
             if cmd == "menu":
@@ -129,12 +127,14 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewar
             if done:
                 state = env.reset(interactive_evaluation=True)
                 env.display_control_commands(erase=True)
-                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward)}.")
+                print(f"Episode length = {episode_length}, Average reward is {np.mean(episode_reward) if episode_reward else 0}.")
                 env.display_control_commands()
                 episode_length = 0
                 if hasattr(actor, 'init_hidden_state'):
                     actor.init_hidden_state()
+                done = False
 
+        keyboard.restore()
         # clear terminal on ctrl+q
         print(f"\033[{len(env.control_commands_dict) + 3 - 1}B\033[K")
         termios.tcdrain(sys.stdout)

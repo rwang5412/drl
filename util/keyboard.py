@@ -1,34 +1,31 @@
-from pynput import keyboard
-import queue
+import termios, sys, tty, select
 
 class Keyboard():
     def __init__(self) -> None:
-        # make a thread to listen to keyboard and register our callback functions
-        self.listener = keyboard.Listener(on_press=self.on_press)
+        self.fd = sys.stdin.fileno()
+        self.new_term = termios.tcgetattr(self.fd)
+        self.old_term = termios.tcgetattr(self.fd)
 
-        # start listening
-        self.listener.start()
-        # queue to store keyboard commands
-        self.command_queue = queue.Queue(maxsize=1)
+        # New terminal setting unbuffered
+        self.new_term[3] = (self.new_term[3] & ~termios.ICANON & ~termios.ECHO)
+        termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.new_term)
 
-    def on_press(self, key):
-        """
-        Callback to add the last keyboard input to the length-1 command queue
-        """
-        if hasattr(key, 'char'):
-            print("\b \b", end = "\r")
-            self.command_queue.put(key.char)
-        if key == keyboard.Key.backspace:
-            self.command_queue.put("quit")
-        if key == keyboard.Key.enter:
-            self.command_queue.put("menu")
+    def data(self):
+        return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
 
-    def get_input(self,):
-        """
-        Retrieves the input command, if any, from the queue.
-        """
-        if self.command_queue.empty():
-            return None
-        else:
-            command = self.command_queue.get()
-            return command
+    def get_input(self):
+        key = sys.stdin.read(1)
+        if key == '\b':
+            return 'quit'
+        if key == '\n':
+            return 'menu'
+        return key
+
+    def restore(self):
+       termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old_term)
+
+    def __exit__(self):
+        termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old_term)
+
+    def __del__(self):
+        termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old_term)
