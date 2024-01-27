@@ -164,9 +164,10 @@ class MujocoSim(GenericSim):
         for i in range(3, 6):
             self.model.dof_damping[i] = 0
 
-    def viewer_init(self, width=1280, height=960, camera_id=-1):
+    def viewer_init(self, fps=50, width=1280, height=960, camera_id=-1):
         self.viewer = MujocoViewer(self.model, self.data, self.reset_qpos, width=width, \
             height=height, camera_id=camera_id)
+        self.viewer._fps = fps
 
     def viewer_render(self):
         assert not self.viewer is None, \
@@ -249,9 +250,9 @@ class MujocoSim(GenericSim):
             # print("Verify the Gl context object, ", self.renderer._gl_context)
         else:
             self.renderer = MujocoRender(self.model, height=height, width=width)
-    
+
     def get_render_image(self, camera_name: str, type: str = 'depth'):
-        """ Get render image (depth or rgb) given camera name and type. 
+        """ Get render image (depth or rgb) given camera name and type.
         To use offscreen rendering, first call init_offscreen_renderer() at reset().
         And then call this function.
         The depth value is in meters. To visualize depth on image with better constrast, use
@@ -259,7 +260,7 @@ class MujocoSim(GenericSim):
         """
         if camera_name is None:
             raise RuntimeError("Specify a camera name.")
-        
+
         if type == 'depth':
             self.renderer.enable_depth_rendering()
             self.renderer.update_scene(self.data, camera=camera_name)

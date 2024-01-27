@@ -1,13 +1,14 @@
 import glfw
+import copy
 import imageio
+import time
 import mujoco as mj
 import numpy as np
 
 from threading import Lock
+from multiprocessing import Process
 from util.colors import FAIL, WARNING, ENDC
 from util.quaternion import euler2so3
-
-
 """
 Class to handle visualization of generic Mujoco models. Adapted from cassie-mujoco-sim
 (https://github.com/osudrl/cassie-mujoco-sim) and mujoco-python-viewer
@@ -33,7 +34,8 @@ HELP_CONTENT = ("Alt mouse button\n"
         "Left drag\n"
         "[Shift] right drag\n"
         "Ctrl [Shift] drag\n"
-        "Ctrl [Shift] right drag")
+        "Ctrl [Shift] right drag\n"
+        "Ctrl v")
 
 HELP_TITLE = ("Swap left-right\n"
         "Show UI shortcuts\n"
@@ -52,7 +54,8 @@ HELP_TITLE = ("Swap left-right\n"
         "View rotate\n"
         "View translate\n"
         "Object rotate\n"
-        "Object translate")
+        "Object translate\n"
+        "Toggle video rec")
 
 class MujocoViewer():
     def __init__(self,
@@ -79,7 +82,7 @@ class MujocoViewer():
         if not height:
             _, height = glfw.get_video_mode(glfw.get_primary_monitor()).size
         self.window = glfw.create_window(
-            width, height, "", None, None)
+            width, height, "Mujoco Sim", None, None)
         glfw.make_context_current(self.window)
         glfw.swap_interval(1)
 
@@ -153,7 +156,7 @@ class MujocoViewer():
         self._last_mouse_x = 0
         self._last_mouse_y = 0
         self._image_idx = 0
-        self._image_path = "/tmp/frame_%07d.png"
+        self._image_path = "/tmp/screenshot_"
         self._time_per_render = 1 / 60.0
         self._run_speed = 1.0
         self._loop_count = 0
@@ -164,6 +167,12 @@ class MujocoViewer():
         self.num_marker = 0
         self.marker_info = {}
         self.pointcloud_marker_ids = []
+
+        # Video recording
+        self._record_video = False
+        self._video_frames = []
+        self._video_path = "/tmp/video_"
+        self._fps = None
 
     def render(self):
         if glfw.window_should_close(self.window):
@@ -252,6 +261,15 @@ class MujocoViewer():
                                self.ctx)
             glfw.swap_buffers(self.window)
         glfw.poll_events()
+
+        if self._record_video:
+            frame = np.zeros(
+                        (glfw.get_framebuffer_size(
+                            self.window)[1], glfw.get_framebuffer_size(
+                            self.window)[0], 3), dtype=np.uint8)
+            mj.mjr_readPixels(frame, None, self.viewport, self.ctx)
+            self._video_frames.append(np.flipud(frame))
+
         return True
 
     def _key_callback(self, window, key, scancode, action, mods):
@@ -283,14 +301,29 @@ class MujocoViewer():
                             qpos_str += ", "
                     print(qpos_str)
                     return
+                elif key == glfw.KEY_V or \
+                (key == glfw.KEY_ESCAPE and self._record_video): # Start or stop a recording
+                    if self._fps is not None and self._fps > 0:
+                        self._record_video = not self._record_video
+                        if self._record_video:
+                            glfw.set_window_title(self.window, "Mujoco Sim (recording)")
+                if not self._record_video and len(self._video_frames) > 0:
+                    frames = [f for f in self._video_frames]
+                    time_stamp = time.strftime("%Y-%m-%d_%H%M%S")
+                    self.save_video_process = Process(target=save_video,
+                                  args=(frames, self._video_path + time_stamp + ".mp4", self._fps))
+                    self.save_video_process.start()
+                    self._video_frames = []
+                    glfw.set_window_title(self.window, "Mujoco Sim")
                 elif key == glfw.KEY_T: # Save screenshot
+                    time_stamp = time.strftime("%Y%m%d_%X")
                     img = np.zeros(
                         (glfw.get_framebuffer_size(
                             self.window)[1], glfw.get_framebuffer_size(
                             self.window)[0], 3), dtype=np.uint8)
                     mj.mjr_readPixels(img, None, self.viewport, self.ctx)
-                    imageio.imwrite(self._image_path % self._image_idx, np.flipud(img))
-                    print(f"Saved screenshot to {self._image_path % self._image_idx}")
+                    imageio.imwrite(self._image_path + time_stamp + ".png", np.flipud(img))
+                    print(f"Saved screenshot to {self._image_path + time_stamp}.png")
                     self._image_idx += 1
                     return
                 elif key == glfw.KEY_Q:
@@ -728,7 +761,25 @@ class MujocoViewer():
                 self.pointcloud_marker_ids.append(id)
 
     def close(self):
+        # If video recording is still active, save video before closing
+        if len(self._video_frames) > 0:
+            frames = [f for f in self._video_frames]
+            time_stamp = time.strftime("%Y-%m-%d_%H%M%S")
+            save_video(frames, self._video_path + time_stamp + ".mp4", self._fps)
         self.ctx.free()
         glfw.destroy_window(self.window)
         self.window = None
         self.is_alive = False
+        # If video saving process not finished yet, join process
+        if hasattr(self, "save_video_process"):
+            self.save_video_process.join()
+
+
+def save_video(frames, filename, fps):
+    """
+    Utility function for saving a video
+    """
+    writer = imageio.get_writer(filename, fps=fps, macro_block_size=None, ffmpeg_log_level="error")
+    for f in frames:
+        writer.append_data(f)
+    writer.close()

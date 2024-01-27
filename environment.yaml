@@ -41,7 +41,7 @@ dependencies:
   - gstreamer=1.14.1=h5eee18b_1
   - icu=58.2=hf484d3e_1000
   - idna=3.4=py310h06a4308_0
-  - imageio=2.26.0=py310h06a4308_0
+  - imageio=2.31.4=py310h06a4308_0
   - intel-openmp=2023.1.0=hdb19cb5_46305
   - jinja2=3.1.2=py310h06a4308_0
   - jpeg=9e=h5eee18b_1
@@ -171,6 +171,7 @@ dependencies:
       - google-auth==2.18.0
       - google-auth-oauthlib==1.0.0
       - grpcio==1.51.3
+      - imageio-ffmpeg==0.4.9
       - ipython==8.13.2
       - jedi==0.18.2
       - jsonschema==4.17.3

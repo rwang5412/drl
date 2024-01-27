@@ -26,7 +26,7 @@ def simple_eval(actor, env, episode_length_max=300):
         if hasattr(actor, 'init_hidden_state'):
             actor.init_hidden_state()
 
-        env.sim.viewer_init()
+        env.sim.viewer_init(fps = env.default_policy_rate)
         render_state = env.sim.viewer_render()
         while render_state:
             start_time = time.time()
@@ -89,7 +89,7 @@ def interactive_eval(actor, env, episode_length_max=300, critic=None, plot_rewar
             actor.init_hidden_state()
         if hasattr(critic, 'init_hidden_state'):
             critic.init_hidden_state()
-        env.sim.viewer_init()
+        env.sim.viewer_init(fps = env.default_policy_rate)
         render_state = env.sim.viewer_render()
         env.display_controls_menu()
         env.display_control_commands()
