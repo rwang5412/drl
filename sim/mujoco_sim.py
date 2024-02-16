@@ -59,7 +59,8 @@ class MujocoSim(GenericSim):
                                    "mass": self.get_body_mass(),
                                    "ipos": self.get_body_ipos(),
                                    "spring": self.get_joint_stiffness(),
-                                   "friction": self.get_geom_friction("floor")}
+                                   "friction": self.get_geom_friction("floor"),
+                                   "solref": self.get_geom_solref()}
 
         # Load geoms/bodies for hfield/box/obstacle/stone/stair
         self.load_fixed_object()
@@ -499,6 +500,9 @@ class MujocoSim(GenericSim):
     def get_joint_adr(self, name: str):
         return mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, name)
 
+    def get_geom_adr(self, name: str):
+        return mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_GEOM, name)
+    
     def get_simulation_time(self):
         return self.data.time
 
@@ -768,6 +772,12 @@ class MujocoSim(GenericSim):
         else:
             return copy.deepcopy(self.model.geom_friction)
 
+    def get_geom_solref(self, name: str = None):
+        if name:
+            return copy.deepcopy(self.model.geom(name).solref)
+        else:
+            return copy.deepcopy(self.model.geom_solref)
+
     def set_joint_position(self, position: np.ndarray):
         assert position.shape == (self.num_joints,), \
                f"{FAIL}set_joint_position got array of shape {position.shape} but " \
@@ -912,6 +922,18 @@ class MujocoSim(GenericSim):
                 f"{FAIL}set_geom_friction got array of shape {fric.shape} when setting all geom " \
                 f"friction but should be shape ({self.model.ngeom}, 3).{ENDC}"
             self.model.geom_friction = fric
+
+    def set_geom_solref(self, solref: np.ndarray, name: str = None):
+        if name:
+            assert solref.shape == (1, 2), \
+                f"{FAIL}set_geom_solref got array of shape {solref.shape} when setting solref " \
+                f"for single geom {name} but should be shape (1,2).{ENDC}"
+            self.model.geom(name).solref = solref
+        else:
+            assert solref.shape == (self.model.ngeom, 2), \
+                f"{FAIL}set_geom_solref got array of shape {solref.shape} when setting all geom " \
+                f"solref but should be shape ({self.model.ngeom}, 2).{ENDC}"
+            self.model.geom_solref = solref
 
     def set_geom_pose(self, name: str, pose: np.ndarray):
         self.model.geom(name).pos = pose[0:3]

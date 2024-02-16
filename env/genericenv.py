@@ -206,8 +206,10 @@ class GenericEnv(ABC):
             self.sim.randomize_dynamics(self.dr_ranges)
             self.motor_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=self.robot.n_actuators)
             self.joint_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=self.robot.n_unactuated_joints)
+            self.sim.torque_delay_cycles = np.random.randint(*self.dr_ranges["torque-delay"]["ranges"])
+            self.sim.torque_efficiency = np.random.uniform(*self.dr_ranges["torque-efficiency"]["ranges"])
             if self.terrain != "hfield" and self.simulator_type == "mujoco":
-                rand_euler = np.random.uniform(-.05, .05, size=2)
+                rand_euler = np.random.uniform(*self.dr_ranges["slope"]["ranges"], size=2)
                 rand_quat = scipy2mj(R.from_euler("xyz", [rand_euler[0], rand_euler[1], 0]).as_quat())
                 if self.robot.robot_name == "digit":
                     self.sim.model.geom("floor").sameframe = 0
@@ -523,9 +525,27 @@ class GenericEnv(ABC):
         spring_ranges = np.array(spring_ranges)
         dr_ranges["spring"] = {"inds":spring_inds,
                                 "ranges":spring_ranges}
+        
+        # Solref
+        solref_inds = []
+        solref_ranges = []
+        for geom_name, rand_range in dyn_rand_data["solref"].items():
+            solref_inds.append(self.sim.get_geom_adr(geom_name))
+            solref_ranges.append(rand_range)
+        solref_ranges = np.array(solref_ranges)
+        dr_ranges["solref"] = {"inds":solref_inds,
+                                "ranges":solref_ranges}
+
         # Friction
         dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}
         dr_ranges["encoder-noise"] = {"ranges": dyn_rand_data["encoder-noise"]}
+
+        # slope
+        dr_ranges["slope"] = {"ranges": dyn_rand_data["friction"]}
+
+        # torque
+        dr_ranges["torque-delay"] = {"ranges": dyn_rand_data["torque-delay"]}
+        dr_ranges["torque-efficiency"] = {"ranges": dyn_rand_data["torque-efficiency"]}
 
         return dr_ranges
 
