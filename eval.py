@@ -35,6 +35,7 @@ if __name__ == "__main__":
             if arg_group.title == "Env arguments":
                 env_dict = {a.dest: getattr(args, a.dest, None) for a in arg_group._group_actions}
                 env_args = argparse.Namespace(**env_dict)
+        env_args.simulator_type += "_mesh"
         env = env_factory(env_name, env_args)()
         simple_eval(actor=None, env=env)
         exit()
@@ -74,6 +75,7 @@ if __name__ == "__main__":
         delattr(previous_args_dict['env_args'], 'state_est')
 
     # Load environment
+    previous_args_dict['env_args'].simulator_type += "_mesh"      # Use mesh model
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
 
     # Load model class and checkpoint

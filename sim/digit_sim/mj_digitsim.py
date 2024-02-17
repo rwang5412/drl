@@ -10,9 +10,11 @@ class MjDigitSim(MujocoSim):
     """
     Wrapper for Digit Mujoco. This class only defines several specifics for Digit.
     """
-    def __init__(self, model_name: str = "digit-v3-fast.xml", terrain=None):
+    def __init__(self, model_name: str = "digit-v3.xml", terrain=None, fast=True):
         if terrain == 'hfield':
-            model_name = "digit-v3-hfield-fast.xml"
+            model_name = "digit-v3-hfield.xml"
+        if fast:
+            model_name = model_name[:-4] + "-fast.xml"
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
         # Number of sim steps before commanded torque is actually applied
         self.torque_delay_cycles = 6

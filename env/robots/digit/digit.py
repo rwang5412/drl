@@ -82,8 +82,13 @@ class Digit(BaseRobot):
 
         # Select simulator
         self.state_est = state_est
+        if "mesh" in simulator_type:
+            fast = False
+            simulator_type = simulator_type.replace("_mesh", "")
+        else:
+            fast = True
         if simulator_type == "mujoco":
-            self._sim = MjDigitSim(terrain=terrain)
+            self._sim = MjDigitSim(terrain=terrain, fast=fast)
         elif simulator_type == 'ar_async':
             self.llapi_obs = None
             self.ar_async = MjDigitSim(terrain=terrain)

@@ -12,9 +12,11 @@ class MjCassieSim(MujocoSim):
     """
     Wrapper for Cassie Mujoco. This class only defines several specifics for Cassie.
     """
-    def __init__(self, model_name: str = "cassiemujoco/cassie_fast.xml", terrain=None):
+    def __init__(self, model_name: str = "cassiemujoco/cassie.xml", terrain=None, fast=True):
         if terrain == 'hfield':
-            model_name = "cassiemujoco/cassie_hfield_fast.xml"
+            model_name = "cassiemujoco/cassie_hfield.xml"
+        if fast:
+            model_name = model_name[:-4] + "_fast.xml"
         model_path = pathlib.Path(__file__).parent.resolve() / model_name
         # Torque delay, i.e. size of the torque buffer. Note that "delay" of 1 corresponds to no
         # delay. So torque_delay_cycles should be the number of sim steps before commanded torque is

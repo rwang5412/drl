@@ -37,7 +37,7 @@ def test_offscreen_rendering():
     for s in size:
         print(f"Testing resolution {s}x{s}")
         # Init mujoco sim
-        sim = MjCassieSim(terrain='hfield') if TERRAIN == 'hfield' else MjCassieSim()
+        sim = MjCassieSim(terrain='hfield', fast=False) if TERRAIN == 'hfield' else MjCassieSim(fast=False)
         sim.reset()
         if TERRAIN == 'flat':
             sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.3, length=0.3, width=0.3)
@@ -144,7 +144,7 @@ def test_pointcloud_rendering():
 	size = [[420, 240]]
 	for s in size:
 		# Init mujoc sim and optional viewer to verify
-		sim = MjCassieSim()
+		sim = MjCassieSim(fast=False)
 		sim.reset()
 		sim.geom_generator._create_geom('box0', *[1, 0, 0], rise=0.3, length=0.3, width=0.3)
 		sim.adjust_robot_pose()
@@ -165,7 +165,7 @@ def test_pointcloud_rendering():
 					sim.sim_forward()
 			if not OFFSCREEN:
 				render_state = sim.viewer_render()
-			depth = sim.get_depth_image(camera_name)
+			depth = sim.get_render_image(camera_name)
 
 			start_time = time.time()
 			pcl = sim.get_point_cloud(camera_name, depth, 10)

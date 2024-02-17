@@ -502,7 +502,7 @@ class MujocoSim(GenericSim):
 
     def get_geom_adr(self, name: str):
         return mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_GEOM, name)
-    
+
     def get_simulation_time(self):
         return self.data.time
 

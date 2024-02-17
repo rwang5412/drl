@@ -118,6 +118,7 @@ class LocomotionClockEnv(GenericEnv):
 
         # Reset env counter variables
         self.traj_idx = 0
+        self.max_foot_vel = 0
         self.last_action = None
 
         return self.get_state()

@@ -72,6 +72,7 @@ class LocomotionEnv(GenericEnv):
         self.traj_idx = 0
         self.last_action = None
         self.feet_air_time = np.array([0, 0])
+        self.max_foot_vel = 0
 
         return self.get_state()
 

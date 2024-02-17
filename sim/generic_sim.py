@@ -84,11 +84,12 @@ class GenericSim(object):
         rand_stiff[dr_ranges["spring"]["inds"]] *= rand_scale
         self.set_joint_stiffness(rand_stiff)
         # Geom solref randomization
-        rand_solref = copy.deepcopy(self.default_dyn_params["solref"])
-        rand_scale = 1 + np.random.uniform(dr_ranges["solref"]["ranges"][:, 0],
-                                           dr_ranges["solref"]["ranges"][:, 1])
-        rand_solref[dr_ranges["solref"]["inds"], 0] *= rand_scale
-        self.set_geom_solref(rand_solref)
+        if not self.__class__.__name__ == 'LibCassieSim':
+            rand_solref = copy.deepcopy(self.default_dyn_params["solref"])
+            rand_scale = 1 + np.random.uniform(dr_ranges["solref"]["ranges"][:, 0],
+                                            dr_ranges["solref"]["ranges"][:, 1])
+            rand_solref[dr_ranges["solref"]["inds"], 0] *= rand_scale
+            self.set_geom_solref(rand_solref)
 
     def default_dynamics(self):
         """
@@ -98,7 +99,8 @@ class GenericSim(object):
         self.set_body_mass(self.default_dyn_params["mass"])
         self.set_body_ipos(self.default_dyn_params["ipos"])
         self.set_geom_friction(self.default_dyn_params["friction"], name="floor")
-        self.set_geom_solref(self.default_dyn_params["solref"])
+        if not self.__class__.__name__ == 'LibCassieSim':
+            self.set_geom_solref(self.default_dyn_params["solref"])
 
     """Getter/Setter to unify across simulators
     """
@@ -200,6 +202,6 @@ class GenericSim(object):
 
     def get_geom_solref(self, name: str = None):
         raise NotImplementedError
-    
+
     def set_geom_solref(self, solref: np.ndarray, name: str = None):
         raise NotImplementedError

@@ -49,10 +49,15 @@ class Cassie(BaseRobot):
         ]
 
         # Select simulator
+        if "mesh" in simulator_type:
+            fast = False
+            simulator_type = simulator_type.replace("_mesh", "")
+        else:
+            fast = True
         if state_est and not simulator_type == 'libcassie':
             raise RuntimeError(f"State estimator input can only be used with libcassie sim.")
         if simulator_type == "mujoco":
-            self._sim = MjCassieSim(terrain=terrain)
+            self._sim = MjCassieSim(terrain=terrain, fast=fast)
             self.state_est = False
         elif simulator_type == 'libcassie':
             self._sim = LibCassieSim()

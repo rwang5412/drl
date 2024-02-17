@@ -525,16 +525,17 @@ class GenericEnv(ABC):
         spring_ranges = np.array(spring_ranges)
         dr_ranges["spring"] = {"inds":spring_inds,
                                 "ranges":spring_ranges}
-        
+
         # Solref
-        solref_inds = []
-        solref_ranges = []
-        for geom_name, rand_range in dyn_rand_data["solref"].items():
-            solref_inds.append(self.sim.get_geom_adr(geom_name))
-            solref_ranges.append(rand_range)
-        solref_ranges = np.array(solref_ranges)
-        dr_ranges["solref"] = {"inds":solref_inds,
-                                "ranges":solref_ranges}
+        if not self.simulator_type == 'libcassie':
+            solref_inds = []
+            solref_ranges = []
+            for geom_name, rand_range in dyn_rand_data["solref"].items():
+                solref_inds.append(self.sim.get_geom_adr(geom_name))
+                solref_ranges.append(rand_range)
+            solref_ranges = np.array(solref_ranges)
+            dr_ranges["solref"] = {"inds":solref_inds,
+                                    "ranges":solref_ranges}
 
         # Friction
         dr_ranges["friction"] = {"ranges": dyn_rand_data["friction"]}

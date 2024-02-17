@@ -346,7 +346,7 @@ def test_sim_body_contact_force(sim):
     """Hold robot in the air while feet touching ground. Check contact forces from each foot.
     Then drop the robot and check if floating base body gets contact forces.
     """
-    test_sim = sim()
+    test_sim = sim(fast=False)
     test_sim.reset()
     # Slightly tilted down to let base falling to ground
     x_target = np.array([0, 0, 1, 0.9961947, 0, 0.0871557, 0])
@@ -461,7 +461,7 @@ def test_sim_hfield(sim):
 
 def test_self_collision(sim):
     if hasattr(sim, 'is_self_collision'):
-        test_sim = sim()
+        test_sim = sim(fast=False)
         test_sim.reset()
         assert test_sim.is_self_collision() == False, f"robot at default pose should be collision-free, is_self_collsion() returned True"
         #expand all geoms to ensure robot is in self collision
