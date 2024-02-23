@@ -24,6 +24,7 @@ _dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Initialize libcassiesim
 default_model = _dir_path +  "/cassie_lib.xml"
+cassie_mujoco_init(str.encode(default_model))
 
 # Interface classes
 # Note: Making the optional argument be a global var be default is perhaps not the safest thing to do
