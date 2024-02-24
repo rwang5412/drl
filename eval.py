@@ -4,7 +4,7 @@ import sys
 import pickle
 import os
 
-from util.evaluation_factory import simple_eval, interactive_eval, simple_eval_offscreen
+from util.evaluation_factory import simple_eval, interactive_eval, simple_eval_offscreen, slowmo_interactive_eval
 from util.nn_factory import load_checkpoint, nn_factory
 from util.env_factory import env_factory, add_env_parser
 
@@ -42,6 +42,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str)
+    parser.add_argument('--slow-factor', default=4, type=int)
     parser.add_argument('--traj-len', default=300, type=int)
     parser.add_argument('--plot-rewards', default=False, action='store_true')
     # Manually handle path argument
@@ -91,6 +92,10 @@ if __name__ == "__main__":
         if not hasattr(env, 'interactive_control'):
             raise RuntimeError("this environment does not support interactive control")
         interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len, critic=critic, plot_rewards=args.plot_rewards)
+    elif evaluation_type == 'slowmo':
+        if not hasattr(env, 'interactive_control'):
+            raise RuntimeError("this environment does not support interactive control")
+        slowmo_interactive_eval(actor=actor, env=env, episode_length_max=args.traj_len, slowmo=args.slow_factor, critic=critic)
     elif evaluation_type == "offscreen":
         simple_eval_offscreen(actor=actor, env=env, episode_length_max=args.traj_len)
     else:
