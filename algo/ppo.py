@@ -65,7 +65,7 @@ class PPOOptim(AlgoWorker):
         torch.set_num_threads(self.backprop_cpu_count)
 
     def _auto_optimize_backprop(self, kwargs):
-        """ 
+        """
         Auto detects the fastest settings for backprop on the current machine
         """
         print("Auto optimizing backprop settings...")
@@ -361,8 +361,11 @@ class PPO(AlgoWorker):
         critic_param_id = ray.put(list(self.critic.parameters()))
         norm_id = ray.put([self.actor.welford_state_mean, self.actor.welford_state_mean_diff, \
                            self.actor.welford_state_n])
+
+        sync_jobs = []
         for w in self.workers:
-            w.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id)
+            sync_jobs.append(w.sync_policy.remote(actor_param_id, critic_param_id, input_norm=norm_id))
+        ray.get(sync_jobs)
         if verbose:
             print("\t{:5.4f}s to sync up networks params to workers.".format(time() - copy_start))
 
@@ -382,7 +385,7 @@ class PPO(AlgoWorker):
         sample_jobs = [w.sample_traj.remote(self.args.traj_len) for w in self.workers[num_eval_workers:]]
         jobs = eval_jobs + sample_jobs
         while len(sample_memory) < self.args.num_steps:
-            # Wait for a job to finish 
+            # Wait for a job to finish
             done_id, remain_id = ray.wait(jobs, num_returns = 1)
             buf, efficiency, work_id = ray.get(done_id)[0]
 
