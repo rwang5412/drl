@@ -3,6 +3,7 @@ import agility.messages as msg
 import atexit
 import argparse
 import asyncio
+import copy
 import datetime
 import numpy as np
 import sys
@@ -23,7 +24,9 @@ from sim.digit_sim.digit_ar_sim.digit_udp import DigitUdp
 from sim.digit_sim.digit_ar_sim.interface_ctypes import *
 from testing.common import (
     DIGIT_MOTOR_MJ2LLAPI_INDEX,
-    MOTOR_POSITION_SET
+    MOTOR_POSITION_SET,
+    DIGIT_MOTOR_NAME_LLAPI,
+    DIGIT_JOINT_NAME_LLAPI
 )
 from util.colors import WARNING, ENDC
 from util.digit_topic import DigitStateTopic
@@ -34,30 +37,62 @@ from util.quaternion import mj2scipy
 LOGSIZE = 100000
 
 def save_log(log_data):
-    global logdir, log_ind, part_num
+    global logdir, log_ind, log_hf_ind, part_num
     filename = os.path.join(logdir, f"logdata_part{part_num}.pkl")
     print("Logging to {}".format(filename))
     # Truncate log data to actual size
-    if log_ind < LOGSIZE:
-        for key, val in log_data.items():
+    # if log_ind < LOGSIZE:
+    for key, val in log_data.items():
+        if key != "flags":
+            if "llapi" in key or key == "delay":
+                actual_ind = log_hf_ind
+            else:
+                actual_ind = log_ind
             if isinstance(val, dict):
                 for key2, val2 in val.items():
-                    log_data[key][key2] = val2[:log_ind]
+                    if isinstance(val2, dict):
+                        for key3, val3 in val2.items():
+                            log_data[key][key2][key3] = val3[:actual_ind]
+                    else:
+                        log_data[key][key2] = val2[:actual_ind]
             else:
-                log_data[key] = val[:log_ind]
+                log_data[key] = val[:actual_ind]
 
     with open(filename, "wb") as filep:
         pickle.dump(log_data, filep)
+
+def log_llapi(llapi_log, obs, log_ind):
+    llapi_log["time"][log_ind] = obs.time
+    llapi_log["battery charge"][log_ind] = obs.battery_charge
+    for i in range(len(DIGIT_JOINT_NAME_LLAPI)):
+        llapi_log["joint/position"][DIGIT_JOINT_NAME_LLAPI[i]][log_ind] = obs.joint.position[i]
+        llapi_log["joint/velocity"][DIGIT_JOINT_NAME_LLAPI[i]][log_ind] = obs.joint.velocity[i]
+    for i in range(len(DIGIT_MOTOR_NAME_LLAPI)):
+        llapi_log["motor/position"][DIGIT_MOTOR_NAME_LLAPI[i]][log_ind] = obs.motor.position[i]
+        llapi_log["motor/velocity"][DIGIT_MOTOR_NAME_LLAPI[i]][log_ind] = obs.motor.velocity[i]
+        llapi_log["motor/torque"][DIGIT_MOTOR_NAME_LLAPI[i]][log_ind] = obs.motor.torque[i]
+        llapi_log["motor/power"][DIGIT_MOTOR_NAME_LLAPI[i]][log_ind] = obs.motor.torque[i] * obs.motor.velocity[i]
+    for i, dim in zip(range(3), ["x", "y", "z"]):
+        llapi_log["imu"][f"ang-vel-{dim}"][log_ind] = obs.imu.angular_velocity[i]
+        llapi_log["imu"][f"lin-accel-{dim}"][log_ind] = obs.imu.linear_acceleration[i]
+        llapi_log["imu"][f"mag-field-{dim}"][log_ind] = obs.imu.magnetic_field[i]
+        llapi_log["base"][f"ang-vel-{dim}"][log_ind] = obs.base.angular_velocity[i]
+        llapi_log["base"][f"lin-vel-{dim}"][log_ind] = obs.base.linear_velocity[i]
+        llapi_log["base"][f"translation-{dim}"][log_ind] = obs.base.translation[i]
+    for dim in ["w", "x", "y", "z"]:
+        llapi_log["imu"][f"quat-{dim}"][log_ind] = getattr(obs.imu.orientation, dim)
+        llapi_log["base"][f"quat-{dim}"][log_ind] = getattr(obs.base.orientation, dim)
 
 def close_ar_sim(ar_sim):
     ar_sim.close()
 
 async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
 
-    global log_ind, part_num
+    global log_ind, log_hf_ind, part_num
 
     # Setup logging
     log_ind = 0
+    log_hf_ind = 0
     part_num = 0
     log_data = {"time": [time.time()] * LOGSIZE,
                 "orient add": [0.0] * LOGSIZE,}
@@ -69,6 +104,37 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
     for motor in env.robot.output_names:
         output_log[motor] = [0.0] * LOGSIZE
     log_data["output"] = output_log
+    llapi_log = {}
+    llapi_log["time"] = [0.0] * LOGSIZE
+    llapi_log["battery charge"] = [0] * LOGSIZE
+    llapi_joint_log = {}
+    for joint in DIGIT_JOINT_NAME_LLAPI:
+        llapi_joint_log[joint] = [0.0] * LOGSIZE
+    llapi_motor_log = {}
+    for motor in DIGIT_MOTOR_NAME_LLAPI:
+        llapi_motor_log[motor] = [0.0] * LOGSIZE
+    llapi_imu_log = {}
+    llapi_base_log = {}
+    for field in ["ang-vel", "lin-accel", "mag-field"]:
+        for dim in ["x", "y", "z"]:
+            llapi_imu_log[f"{field}-{dim}"] = [0.0] * LOGSIZE
+    for field in ["ang-vel", "lin-vel", "translation"]:
+        for dim in ["x", "y", "z"]:
+            llapi_base_log[f"{field}-{dim}"] = [0.0] * LOGSIZE
+    for dim in ["w", "x", "y", "z"]:
+        llapi_imu_log[f"quat-{dim}"] = [0.0] * LOGSIZE
+        llapi_base_log[f"quat-{dim}"] = [0.0] * LOGSIZE
+    llapi_log["joint/position"] = llapi_joint_log
+    llapi_log["joint/velocity"] = copy.deepcopy(llapi_joint_log)
+    llapi_log["motor/position"] = llapi_motor_log
+    llapi_log["motor/velocity"] = copy.deepcopy(llapi_motor_log)
+    llapi_log["motor/torque"] = copy.deepcopy(llapi_motor_log)
+    llapi_log["motor/power"] = copy.deepcopy(llapi_motor_log)
+    llapi_log["imu"] = llapi_imu_log
+    llapi_log["base"] = llapi_base_log
+    log_data["llapi"] = llapi_log
+    log_data["delay"] = [0.0] * LOGSIZE
+    log_data["flags"] = []
     # Init/allocate custom logs here
 
     # Start ar-control
@@ -128,6 +194,7 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
         obs = topic.recv()
         if time.perf_counter() - init_llapi_time > 1:
             raise Exception("Cannot receive observation from simulator!")
+    prev_obs_time = -1
     print("Connected Python with LLAPI and Digit!")
     for _ in range(50):
         obs = topic.recv()
@@ -176,6 +243,8 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
                         api_mode = "locomotion"
                         await api.request_privilege('change-action-command')
                         await api.send(msg.ActionSetOperationMode(mode="locomotion"))
+                if c == "f": # Set log flag
+                    log_data["flags"].append([log_ind, log_hf_ind])
 
             update_time = time.perf_counter() - pol_time
             if update_time >= 1 / env.default_policy_rate:
@@ -197,7 +266,7 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
                 pol_time = time.perf_counter()
 
                 if log_data:
-                    log_data["time"][log_ind] = time.time()
+                    log_data["time"][log_ind] = obs.time
                     log_data["orient add"][log_ind] = env.orient_add
                     for i in range(len(env.robot.robot_state_names)):
                         log_data["input"][env.robot.robot_state_names[i]][log_ind] = robot_state[i]
@@ -212,15 +281,34 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
                             save_log_p.join()
                         save_log_p = Process(target=save_log, args=(log_data,))
                         save_log_p.start()
+                        log_data["flags"] = []
                         log_ind = 0
+                        log_hf_ind = 0
                         part_num += 1
 
-            delaytime = 1/1000 - (time.perf_counter() - loop_start_time)
+            if log_data and prev_obs_time != obs.time:
+                log_llapi(log_data["llapi"], obs, log_hf_ind)
+                if log_hf_ind == 0:
+                    log_data["delay"][log_hf_ind] = 0
+                else:
+                    log_data["delay"][log_hf_ind] = (obs.time - log_data["llapi"]["time"][log_hf_ind - 1]) - 1/2000
+                log_hf_ind += 1
+                if log_hf_ind >= LOGSIZE:
+                    if save_log_p is not None:
+                        save_log_p.join()
+                    save_log_p = Process(target=save_log, args=(log_data,))
+                    save_log_p.start()
+                    log_data["flags"] = []
+                    log_ind = 0
+                    log_hf_ind = 0
+                    part_num += 1
+            delaytime = 1/2000 - (time.perf_counter() - loop_start_time)
             while delaytime > 0:
                 t0 = time.perf_counter()
                 time.sleep(1e-5)
                 delaytime -= time.perf_counter() - t0
                 loop_start_time = time.perf_counter()
+            prev_obs_time = obs.time
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
 

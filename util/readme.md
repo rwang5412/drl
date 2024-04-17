@@ -26,3 +26,18 @@ python eval.py test --env-name MyEnv --reward-name myreward
 
 ## nn_factory
 [`nn_factory.py`](nn_factory.py) acts very similarly as `env_factory.py` but for NNs instead. You give it a Namespace of args (so args have to already be parsed from the command line) and it will construct and return the specified actor and critic objects. Whenever you need to make an actor/critic should use this function, that way you only have import the single function `nn_factory`. This file also contains the functions for saving and loading policy checkpoint `.pt` files.
+
+## plot_log
+[`plot_log.py`](plot_log.py) is our utility for plotting the hardware logs that are saved from `digit_udp.py` (as of now `udp.py` for Cassie has not been updated and is not compatible with `plot_log.py`). This utility uses dash and plotly to do live plotting in your browser. Simply run
+```
+python util/plot_log.py
+```
+and then in a web browser navigate to `localhost:8050`. By default it will use port 8050, but if that port is taken you can change it with the `--port` argument. You will see a text box in which you can enter the path to the log folder you wish to plot. Remember that you give the folder containing the log files, the individual `logdata_partX.pkl` files themselves. Relative paths (relative to where ever you run the script from) are ok, and it will auto-populate the below section with existing directories as you type. You can click the buttons to auto fill in that directory.
+
+Once you have the folder path you want, click the "Load" button to load the data. If there are no pickle files found, and error will be printed and nothing will be loaded.
+
+With the data loaded, the sidebar will become populated the keys of the log data dictionary, showing each data type. Click on the data type to collapse/uncollapse the checklist of sub types and joint names to plot.
+
+Below the input path text box will also be a checklist of the loaded paths. Use this to select which data log to plot when you have loaded multiple runs.
+
+Things may still be a bit buggy, especially with flags. If things don't show up as expected try just unchecking and rechecking the boxes, that might fix it. Otherwise open an issue and I'll try to fix it. Another thing to note is that things may be slow when you try to load large data files, since it has to keep and pass around all of the data the whole time. The llapi data is biggest offender of this, since we log at such a high rate. If things get too slow, you can subsample the llapi data with the `LLAPI_SUBSAMPLE` variable in `plot_log.py`. This will only take every `LLAPI_SUBSAMPLE` datapoint. It is set to 10 by default.

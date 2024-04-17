@@ -29,6 +29,11 @@ class Digit(BaseRobot):
         self.kd = np.array([8, 8, 10, 12, 6, 6, 9, 9, 7, 9,
                             8, 8, 10, 12, 6, 6, 9, 9, 7, 9])
         self._min_base_height = 0.85
+        self._offset = np.array([0.33302015, -0.02661787, 0.19236959, 0.22897105, -0.01297343, -0.02038523,
+                -0.10554271, 0.89485253, -0.00863756, 0.34478028,
+                -0.33302007, 0.02661954, -0.19238219, -0.22897119, 0.01412999, 0.01937679,
+                0.1054447, -0.89489043, 0.00885979, -0.34472329])
+
 
         # Mirror indices and make sure complete test_mirror when changes made below
         # Readable string format listed in /testing/commmon.py
@@ -96,7 +101,8 @@ class Digit(BaseRobot):
             raise RuntimeError(f"{FAIL}Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'ar_async'.{ENDC}")
 
-        self._offset = self.sim.reset_qpos[self.sim.motor_position_inds]
+        # self._offset = self.sim.reset_qpos[self.sim.motor_position_inds]
+        # print("offset", self._offset)
 
     def get_raw_robot_state(self):
         states = {}

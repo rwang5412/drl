@@ -274,7 +274,7 @@ class GenericEnv(ABC):
             states['joint_pos'] -= self.joint_encoder_noise
 
         # Apply noise to proprioceptive states per step
-        if isinstance(self.state_noise, list) and self.simulator_type != "ar_async":
+        if self.simulator_type != "ar_async" and isinstance(self.state_noise, list):
             noise_euler = np.random.normal(0, self.state_noise[0], size = 3)
             noise_quat_add = R.from_euler('xyz', noise_euler)
             noise_quat = noise_quat_add * R.from_quat(mj2scipy(states['base_orient']))
