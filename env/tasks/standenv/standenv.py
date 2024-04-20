@@ -51,7 +51,7 @@ class StandEnv(GenericEnv):
         self.base_adr = self.sim.get_body_adr(self.sim.base_body_name)
 
         # Only check obs if this envs is inited, not when it is parent:
-        if self.__class__.__name__ == "LocomotionEnv" and self.simulator_type != "ar_async":
+        if self.__class__.__name__ == "LocomotionEnv" and self.simulator_type not in ["ar_async", "real"]:
             self.check_observation_action_size()
 
     @property

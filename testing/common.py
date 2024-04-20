@@ -86,6 +86,13 @@ CASSIE_MOTOR_NAME = [
 
 CASSIE_JOINT_NAME = ["left-shin", "left-tarsus", "right-shin", "right-tarsus"]
 
+CASSIE_MOTOR_LLAPI_NAME = [
+  "left-leg/hip-roll", "left-leg/hip-yaw", "left-leg/hip-pitch", "left-leg/knee", "left-leg/foot",
+  "right-leg/hip-roll", "right-leg/hip-yaw", "right-leg/hip-pitch", "right-leg/knee", "right-leg/foot"
+]
+
+CASSIE_JOINT_LLAPI_NAME = ["left-leg/shin", "left-leg/tarsus", "right-leg/shin", "right-leg/tarsus"]
+
 
 DIGIT_MOTOR_NAME = [
   'left-leg/hip-roll', 'left-leg/hip-yaw', 'left-leg/hip-pitch', 'left-leg/knee',

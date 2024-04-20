@@ -402,8 +402,10 @@ def update_graph_show(data_type_checklist, path_name, fig, all_data, path_dash_s
             for i, data_type in enumerate(val):
                 split = data_type.split("/")
                 if split[0] not in all_data[key].keys(): # plot type not in name
-                    plot_type = dash.callback_context.triggered_id["index"]
-                    val[i] = plot_type + "/" + data_type
+                    for callback_input in dash.callback_context.inputs_list:
+                        if data_type in callback_input["value"]:
+                            plot_type = callback_input["id"]["index"]
+                            val[i] = plot_type + "/" + data_type
     else:
         return {"display": "none"}, fig
 
@@ -425,8 +427,11 @@ def update_graph_show(data_type_checklist, path_name, fig, all_data, path_dash_s
         for data in fig["data"]:
             if data["meta"][0] in to_plot.keys() and data["meta"][1] + "/" + data["name"] in to_plot[data["meta"][0]]:
                 to_plot[data["meta"][0]].remove(data["meta"][1] + "/" + data["name"])
-            # If flag plot already exists, don't add again, but need to adjust the y range
-            if do_flag and data["name"] == "flag" and data["meta"][0] not in to_plot.keys():
+                if not to_plot[data["meta"][0]]:
+                    del to_plot[data["meta"][0]]
+        # If flag plot already exists, don't add again, but need to adjust the y range
+        for data in fig["data"]:
+            if do_flag and data["name"] == "flag" and data["meta"][0] in to_plot.keys():
                 do_flag = False
                 adjust_flag_range = True
 
@@ -451,12 +456,14 @@ def update_graph_show(data_type_checklist, path_name, fig, all_data, path_dash_s
                     data = all_data[key][data_type][joint]
             else:
                 data = all_data[key][data_type]
+            meta_data_type = data_type
             if data_type == "input":
                 color = input_colors[joint]
             elif data_type == "output":
                 color = output_colors[joint]
             elif data_type == "llapi":
                 if sub_type:
+                    meta_data_type += "/" + sub_type
                     color = llapi_colors[sub_type][joint]
                 else:
                     color = llapi_colors[joint]
@@ -468,12 +475,12 @@ def update_graph_show(data_type_checklist, path_name, fig, all_data, path_dash_s
                           "line": {"dash": path_dash_style[key],
                           "color": color},
                           "showlegend":False,
-                          "meta":[key, data_type]})
+                          "meta":[key, meta_data_type]})
             # Add flag lines if flag is true and flag lines for this plot has not been added yet
             if do_flag:
                 min_y = min(data)
                 max_y = max(data)
-                if "yaxis" in fig["layout"].keys() and "range" in fig["layout"]["yaxis"].keys():
+                if "data" in fig.keys() and "yaxis" in fig["layout"].keys() and "range" in fig["layout"]["yaxis"].keys():
                     y_range = fig["layout"]["yaxis"]["range"]
                 else:
                     y_range = [min_y, max_y]
@@ -492,7 +499,7 @@ def update_graph_show(data_type_checklist, path_name, fig, all_data, path_dash_s
                                   "line": {"dash": path_dash_style[key], "color": "black"},
                                   "showlegend": False,
                                   "name": "flag",
-                                  "meta":[key, data_type]})
+                                  "meta":[key, meta_data_type]})
             # Adjust y values of flag lines to account for new data
             if adjust_flag_range:
                 min_y = min(data)
@@ -516,15 +523,16 @@ def update_graph_show(data_type_checklist, path_name, fig, all_data, path_dash_s
         legend_names = set()
         path_legend_names = set()
         for data in data_type_checklist:
-            legend_names.add(data.split("/")[1])
+            data_split = data.split("/")
+            if len(data_split) < 2:
+                legend_names.add(data_split[0])
+            elif "-" in data_split[0]:
+                legend_names.add(data)
+            else:
+                legend_names.add(data.split("/")[1])
         if data_type_checklist:
             for data in path_name:
                 path_legend_names.add(data)
-
-        # Find possible plots that need to have flag lines
-        plot_types = set()
-        for plot in plots:
-            plot_types.add(plot["meta"][1])
 
         # Loop through all current plots to find already existing legends (don't need to plot, can
         # remove from legend_names) and unneeded legends (remove from fig["data"])

@@ -101,9 +101,6 @@ class Digit(BaseRobot):
             raise RuntimeError(f"{FAIL}Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'ar_async'.{ENDC}")
 
-        # self._offset = self.sim.reset_qpos[self.sim.motor_position_inds]
-        # print("offset", self._offset)
-
     def get_raw_robot_state(self):
         states = {}
         if self.simulator_type == "ar_async":

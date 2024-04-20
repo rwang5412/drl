@@ -1,7 +1,9 @@
 import numpy as np
 
+from types import SimpleNamespace
 from env.robots.base_robot import BaseRobot
 from sim import MjCassieSim, LibCassieSim
+from sim.cassie_sim.cassiemujoco import state_out_t
 
 
 class Cassie(BaseRobot):
@@ -48,6 +50,24 @@ class Cassie(BaseRobot):
             33, 34, 31, 32,        # joint vel
         ]
 
+        # Define names for robot state input and action output
+        self.output_names = [
+            "left-hip-roll", "left-hip-yaw", "left-hip-pitch", "left-knee", "left-foot",
+            "right-hip-roll", "right-hip-yaw", "right-hip-pitch", "right-knee", "right-foot",
+        ]
+        self.robot_state_names = [
+            "base-orientation-w", "base-orientation-x", "base-orientation-y", "base-orientation-z",
+            "base-roll-velocity", "base-pitch-velocity", "base-yaw-velocity",
+            "left-hip-roll-pos", "left-hip-yaw-pos", "left-hip-pitch-pos", "left-knee-pos", "left-foot-pos",
+            "right-hip-roll-pos", "right-hip-yaw-pos", "right-hip-pitch-pos", "right-knee-pos", "right-foot-pos",
+            "left-hip-roll-vel", "left-hip-yaw-vel", "left-hip-pitch-vel", "left-knee-vel", "left-foot-vel",
+            "right-hip-roll-vel", "right-hip-yaw-vel", "right-hip-pitch-vel", "right-knee-vel", "right-foot-vel",
+            "left-shin-pos", "left-tarsus-pos",
+            "right-shin-pos", "right-tarsus-pos",
+            "left-shin-vel", "left-tarsus-vel",
+            "right-shin-vel", "right-tarsus-vel"
+        ]
+
         # Select simulator
         if "mesh" in simulator_type:
             fast = False
@@ -62,6 +82,9 @@ class Cassie(BaseRobot):
         elif simulator_type == 'libcassie':
             self._sim = LibCassieSim()
             self.state_est = state_est
+        elif simulator_type == 'real':
+            self.robot_estimator_state = state_out_t()
+            self.robot_estimator_state.pelvis.orientation[:] = [1, 0, 0, 0]
         else:
             raise RuntimeError(f"Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'libcassie'.")
@@ -75,6 +98,17 @@ class Cassie(BaseRobot):
             states['motor_vel'] = np.array(self.sim.get_motor_velocity(state_est = self.state_est))
             states['joint_pos'] = self.sim.get_joint_position(state_est = self.state_est)
             states['joint_vel'] = np.array(self.sim.get_joint_velocity(state_est = self.state_est))
+        elif self.simulator_type == "real":
+            states['base_orient'] = self.robot_estimator_state.pelvis.orientation[:]
+            states['base_ang_vel'] = self.robot_estimator_state.pelvis.rotationalVelocity[:]
+            states['motor_pos'] = self.robot_estimator_state.motor.position[:]
+            states['motor_vel'] = self.robot_estimator_state.motor.velocity[:]
+            joint_pos = self.robot_estimator_state.joint.position[:]
+            joint_pos = np.concatenate([joint_pos[:2], joint_pos[3:5]])
+            states['joint_pos'] = joint_pos
+            joint_vel = self.robot_estimator_state.joint.velocity[:]
+            joint_vel = np.concatenate([joint_vel[:2], joint_vel[3:5]])
+            states['joint_vel'] = joint_vel
         else:
             states['base_orient'] = self.sim.get_base_orientation()
             states['base_ang_vel'] = self.sim.get_base_angular_velocity()

@@ -29,7 +29,7 @@ from testing.common import (
     DIGIT_JOINT_NAME_LLAPI
 )
 from util.colors import WARNING, ENDC
-from util.digit_topic import DigitStateTopic
+from util.state_topic import StateTopic
 from util.env_factory import add_env_parser, env_factory
 from util.nn_factory import load_checkpoint, nn_factory
 from util.quaternion import mj2scipy
@@ -41,7 +41,6 @@ def save_log(log_data):
     filename = os.path.join(logdir, f"logdata_part{part_num}.pkl")
     print("Logging to {}".format(filename))
     # Truncate log data to actual size
-    # if log_ind < LOGSIZE:
     for key, val in log_data.items():
         if key != "flags":
             if "llapi" in key or key == "delay":
@@ -73,15 +72,15 @@ def log_llapi(llapi_log, obs, log_ind):
         llapi_log["motor/torque"][DIGIT_MOTOR_NAME_LLAPI[i]][log_ind] = obs.motor.torque[i]
         llapi_log["motor/power"][DIGIT_MOTOR_NAME_LLAPI[i]][log_ind] = obs.motor.torque[i] * obs.motor.velocity[i]
     for i, dim in zip(range(3), ["x", "y", "z"]):
-        llapi_log["imu"][f"ang-vel-{dim}"][log_ind] = obs.imu.angular_velocity[i]
-        llapi_log["imu"][f"lin-accel-{dim}"][log_ind] = obs.imu.linear_acceleration[i]
-        llapi_log["imu"][f"mag-field-{dim}"][log_ind] = obs.imu.magnetic_field[i]
-        llapi_log["base"][f"ang-vel-{dim}"][log_ind] = obs.base.angular_velocity[i]
-        llapi_log["base"][f"lin-vel-{dim}"][log_ind] = obs.base.linear_velocity[i]
-        llapi_log["base"][f"translation-{dim}"][log_ind] = obs.base.translation[i]
+        llapi_log["imu/ang-vel"][dim][log_ind] = obs.imu.angular_velocity[i]
+        llapi_log["imu/lin-accel"][dim][log_ind] = obs.imu.linear_acceleration[i]
+        llapi_log["imu/mag-field"][dim][log_ind] = obs.imu.magnetic_field[i]
+        llapi_log["base/ang-vel"][dim][log_ind] = obs.base.angular_velocity[i]
+        llapi_log["base/lin-vel"][dim][log_ind] = obs.base.linear_velocity[i]
+        llapi_log["base/translation"][dim][log_ind] = obs.base.translation[i]
     for dim in ["w", "x", "y", "z"]:
-        llapi_log["imu"][f"quat-{dim}"][log_ind] = getattr(obs.imu.orientation, dim)
-        llapi_log["base"][f"quat-{dim}"][log_ind] = getattr(obs.base.orientation, dim)
+        llapi_log["imu/quat"][dim][log_ind] = getattr(obs.imu.orientation, dim)
+        llapi_log["base/quat"][dim][log_ind] = getattr(obs.base.orientation, dim)
 
 def close_ar_sim(ar_sim):
     ar_sim.close()
@@ -113,25 +112,22 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
     llapi_motor_log = {}
     for motor in DIGIT_MOTOR_NAME_LLAPI:
         llapi_motor_log[motor] = [0.0] * LOGSIZE
-    llapi_imu_log = {}
-    llapi_base_log = {}
-    for field in ["ang-vel", "lin-accel", "mag-field"]:
-        for dim in ["x", "y", "z"]:
-            llapi_imu_log[f"{field}-{dim}"] = [0.0] * LOGSIZE
-    for field in ["ang-vel", "lin-vel", "translation"]:
-        for dim in ["x", "y", "z"]:
-            llapi_base_log[f"{field}-{dim}"] = [0.0] * LOGSIZE
-    for dim in ["w", "x", "y", "z"]:
-        llapi_imu_log[f"quat-{dim}"] = [0.0] * LOGSIZE
-        llapi_base_log[f"quat-{dim}"] = [0.0] * LOGSIZE
+    xyz_log = {"x": [0.0] * LOGSIZE, "y": [0.0] * LOGSIZE, "z": [0.0] * LOGSIZE}
+    quat_log = {"w": [0.0] * LOGSIZE, "x": [0.0] * LOGSIZE, "y": [0.0] * LOGSIZE, "z": [0.0] * LOGSIZE}
     llapi_log["joint/position"] = llapi_joint_log
     llapi_log["joint/velocity"] = copy.deepcopy(llapi_joint_log)
     llapi_log["motor/position"] = llapi_motor_log
     llapi_log["motor/velocity"] = copy.deepcopy(llapi_motor_log)
     llapi_log["motor/torque"] = copy.deepcopy(llapi_motor_log)
     llapi_log["motor/power"] = copy.deepcopy(llapi_motor_log)
-    llapi_log["imu"] = llapi_imu_log
-    llapi_log["base"] = llapi_base_log
+    llapi_log["imu/ang-vel"] = xyz_log
+    llapi_log["imu/lin-accel"] = copy.deepcopy(xyz_log)
+    llapi_log["imu/mag-field"] = copy.deepcopy(xyz_log)
+    llapi_log["imu/quat"] = quat_log
+    llapi_log["base/ang-vel"] = copy.deepcopy(xyz_log)
+    llapi_log["base/lin-vel"] = copy.deepcopy(xyz_log)
+    llapi_log["base/translation"] = copy.deepcopy(xyz_log)
+    llapi_log["base/quat"] = copy.deepcopy(quat_log)
     log_data["llapi"] = llapi_log
     log_data["delay"] = [0.0] * LOGSIZE
     log_data["flags"] = []
@@ -168,7 +164,7 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
                         f"Check if simulator is running and port is correct!")
 
     digit_udp = DigitUdp(robot_address=ROBOT_ADDRESS)
-    topic = DigitStateTopic(digit_udp)
+    topic = StateTopic(digit_udp)
 
     cmd_policy = llapi_command_pd_t()
     for i in range(NUM_MOTORS):
@@ -344,6 +340,7 @@ if __name__ == "__main__":
     if hasattr(previous_args_dict['env_args'], 'state_est'):
         delattr(previous_args_dict['env_args'], 'state_est')
     env = env_factory(previous_args_dict['all_args'].env_name, previous_args_dict['env_args'])()
+    env.trackers = {}
 
     # Load model class and checkpoint
     actor, critic = nn_factory(args=previous_args_dict['nn_args'], env=env)

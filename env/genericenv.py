@@ -65,15 +65,15 @@ class GenericEnv(ABC):
         self.num_menu_backspace_lines = None
         self.reward_dict = {}
         self.reward = 0
+        self.orient_add = 0
 
         # Configure menu of available commands for interactive control
         self._init_interactive_key_bindings()
 
-        if self.simulator_type == "ar_async":
+        if self.simulator_type in ["ar_async", "real"]:
             return # Can't do anything else if using AR
 
         # Init trackers to weigh/avg 2kHz signals and containers for each signal
-        self.orient_add = 0
         self.trackers = {
             self.update_tracker_grf: {"frequency": 50},
             self.update_tracker_velocity: {"frequency": 50},
@@ -95,13 +95,15 @@ class GenericEnv(ABC):
         self.torque_tracker_avg = np.zeros(self.sim.num_actuators) # log torque in 2kHz
         self.feet_grf_tracker_avg = {} # log GRFs in 2kHz
         self.feet_velocity_tracker_avg = {} # log feet velocity in 2kHz
-        for foot in self.sim.feet_body_name:
-            self.feet_grf_tracker_avg[foot] = self.sim.get_body_contact_force(name=foot)
-            self.feet_velocity_tracker_avg[foot] = self.sim.get_body_velocity(name=foot)
+        if simulator_type != "real":
+            for foot in self.sim.feet_body_name:
+                self.feet_grf_tracker_avg[foot] = self.sim.get_body_contact_force(name=foot)
+                self.feet_velocity_tracker_avg[foot] = self.sim.get_body_velocity(name=foot)
         self.cop = None
         self.cop_marker_id = None
 
-        self.dr_ranges = self.get_dr_ranges()
+        if simulator_type != "real":
+            self.dr_ranges = self.get_dr_ranges()
 
         assert isinstance(state_noise, list), \
                 f"{FAIL}Env {self.__class__.__name__} received 'state_noise' arg that was not a " \
@@ -202,6 +204,8 @@ class GenericEnv(ABC):
         if self.simulator_type == "ar_async":
             self.robot.ar_sim.reset()
             return
+        elif self.simulator_type == "real":
+            return
         if self.dynamics_randomization:
             self.sim.randomize_dynamics(self.dr_ranges)
             self.motor_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=self.robot.n_actuators)
@@ -274,7 +278,7 @@ class GenericEnv(ABC):
             states['joint_pos'] -= self.joint_encoder_noise
 
         # Apply noise to proprioceptive states per step
-        if self.simulator_type != "ar_async" and isinstance(self.state_noise, list):
+        if self.simulator_type not in ["ar_async", "real"] and isinstance(self.state_noise, list):
             noise_euler = np.random.normal(0, self.state_noise[0], size = 3)
             noise_quat_add = R.from_euler('xyz', noise_euler)
             noise_quat = noise_quat_add * R.from_quat(mj2scipy(states['base_orient']))

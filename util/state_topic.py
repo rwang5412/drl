@@ -1,7 +1,7 @@
 from multiprocessing import Manager, Process
 import time
 
-class DigitStateTopic:
+class StateTopic:
     def __init__(self, socket):
         # Initialize process to fetch state and send command with LLAPI
         self.socket = socket

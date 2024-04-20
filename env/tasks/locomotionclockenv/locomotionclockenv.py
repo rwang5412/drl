@@ -77,7 +77,7 @@ class LocomotionClockEnv(GenericEnv):
         self.clock._von_mises_buf = None
 
         # Only check obs if this envs is inited, not when it is parent:
-        if self.__class__.__name__ == "LocomotionClockEnv" and self.simulator_type != "ar_async":
+        if self.__class__.__name__ == "LocomotionClockEnv" and self.simulator_type not in ["ar_async", "real"]:
             self.check_observation_action_size()
 
     @property

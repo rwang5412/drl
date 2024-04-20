@@ -64,7 +64,7 @@ class StoneEnv(LocomotionClockEnv):
         # self.nonstate_dim = 7
 
         # Only check obs if this envs is inited, not when it is parent:
-        if self.__class__.__name__ == "StoneEnv" and self.simulator_type != "ar_async":
+        if self.__class__.__name__ == "StoneEnv" and self.simulator_type not in ["ar_async", "real"]:
             self.check_observation_action_size()
 
     @property
