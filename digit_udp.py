@@ -33,6 +33,7 @@ from util.state_topic import StateTopic
 from util.env_factory import add_env_parser, env_factory
 from util.nn_factory import load_checkpoint, nn_factory
 from util.quaternion import mj2scipy
+from util.xbox import XboxController, check_xbox_connection
 
 LOGSIZE = 100000
 
@@ -89,49 +90,62 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
 
     global log_ind, log_hf_ind, part_num
 
+    print("in run")
     # Setup logging
-    log_ind = 0
-    log_hf_ind = 0
-    part_num = 0
-    log_data = {"time": [time.time()] * LOGSIZE,
-                "orient add": [0.0] * LOGSIZE,}
-    input_log = {} # network inputs
-    for name in env.robot.robot_state_names + env.extra_input_names:
-        input_log[name] = [0.0] * LOGSIZE
-    log_data["input"] = input_log
-    output_log = {}
-    for motor in env.robot.output_names:
-        output_log[motor] = [0.0] * LOGSIZE
-    log_data["output"] = output_log
-    llapi_log = {}
-    llapi_log["time"] = [0.0] * LOGSIZE
-    llapi_log["battery charge"] = [0] * LOGSIZE
-    llapi_joint_log = {}
-    for joint in DIGIT_JOINT_NAME_LLAPI:
-        llapi_joint_log[joint] = [0.0] * LOGSIZE
-    llapi_motor_log = {}
-    for motor in DIGIT_MOTOR_NAME_LLAPI:
-        llapi_motor_log[motor] = [0.0] * LOGSIZE
-    xyz_log = {"x": [0.0] * LOGSIZE, "y": [0.0] * LOGSIZE, "z": [0.0] * LOGSIZE}
-    quat_log = {"w": [0.0] * LOGSIZE, "x": [0.0] * LOGSIZE, "y": [0.0] * LOGSIZE, "z": [0.0] * LOGSIZE}
-    llapi_log["joint/position"] = llapi_joint_log
-    llapi_log["joint/velocity"] = copy.deepcopy(llapi_joint_log)
-    llapi_log["motor/position"] = llapi_motor_log
-    llapi_log["motor/velocity"] = copy.deepcopy(llapi_motor_log)
-    llapi_log["motor/torque"] = copy.deepcopy(llapi_motor_log)
-    llapi_log["motor/power"] = copy.deepcopy(llapi_motor_log)
-    llapi_log["imu/ang-vel"] = xyz_log
-    llapi_log["imu/lin-accel"] = copy.deepcopy(xyz_log)
-    llapi_log["imu/mag-field"] = copy.deepcopy(xyz_log)
-    llapi_log["imu/quat"] = quat_log
-    llapi_log["base/ang-vel"] = copy.deepcopy(xyz_log)
-    llapi_log["base/lin-vel"] = copy.deepcopy(xyz_log)
-    llapi_log["base/translation"] = copy.deepcopy(xyz_log)
-    llapi_log["base/quat"] = copy.deepcopy(quat_log)
-    log_data["llapi"] = llapi_log
-    log_data["delay"] = [0.0] * LOGSIZE
-    log_data["flags"] = []
-    # Init/allocate custom logs here
+    if do_log:
+        log_ind = 0
+        log_hf_ind = 0
+        part_num = 0
+        log_data = {"time": [time.time()] * LOGSIZE,
+                    "orient add": [0.0] * LOGSIZE,}
+        input_log = {} # network inputs
+        for name in env.robot.robot_state_names + env.extra_input_names:
+            input_log[name] = [0.0] * LOGSIZE
+        log_data["input"] = input_log
+        output_log = {}
+        for motor in env.robot.output_names:
+            output_log[motor] = [0.0] * LOGSIZE
+        log_data["output"] = output_log
+        llapi_log = {}
+        llapi_log["time"] = [0.0] * LOGSIZE
+        llapi_log["battery charge"] = [0] * LOGSIZE
+        llapi_joint_log = {}
+        for joint in DIGIT_JOINT_NAME_LLAPI:
+            llapi_joint_log[joint] = [0.0] * LOGSIZE
+        llapi_motor_log = {}
+        for motor in DIGIT_MOTOR_NAME_LLAPI:
+            llapi_motor_log[motor] = [0.0] * LOGSIZE
+        xyz_log = {"x": [0.0] * LOGSIZE, "y": [0.0] * LOGSIZE, "z": [0.0] * LOGSIZE}
+        quat_log = {"w": [0.0] * LOGSIZE, "x": [0.0] * LOGSIZE, "y": [0.0] * LOGSIZE, "z": [0.0] * LOGSIZE}
+        llapi_log["joint/position"] = llapi_joint_log
+        llapi_log["joint/velocity"] = copy.deepcopy(llapi_joint_log)
+        llapi_log["motor/position"] = llapi_motor_log
+        llapi_log["motor/velocity"] = copy.deepcopy(llapi_motor_log)
+        llapi_log["motor/torque"] = copy.deepcopy(llapi_motor_log)
+        llapi_log["motor/power"] = copy.deepcopy(llapi_motor_log)
+        llapi_log["imu/ang-vel"] = xyz_log
+        llapi_log["imu/lin-accel"] = copy.deepcopy(xyz_log)
+        llapi_log["imu/mag-field"] = copy.deepcopy(xyz_log)
+        llapi_log["imu/quat"] = quat_log
+        llapi_log["base/ang-vel"] = copy.deepcopy(xyz_log)
+        llapi_log["base/lin-vel"] = copy.deepcopy(xyz_log)
+        llapi_log["base/translation"] = copy.deepcopy(xyz_log)
+        llapi_log["base/quat"] = copy.deepcopy(quat_log)
+        log_data["llapi"] = llapi_log
+        log_data["delay"] = [0.0] * LOGSIZE
+        log_data["flags"] = []
+        # Init/allocate custom logs here
+
+    # Check if xbox controller connected. If not default to keyboard control
+    print("Checking controller connection. Move joysticks to check connection.")
+    if check_xbox_connection():
+        print("Xbox controller connected")
+        use_xbox = True
+        xbox = XboxController()
+        env.xbox_scale_factor = 0.005
+    else:
+        print("No xbox controller connected, using keyboard control")
+        use_xbox = False
 
     # Start ar-control
     ar_control_path = os.path.expanduser("~/ar-software-2023.01.13a/ar-software/ar-control")
@@ -205,7 +219,10 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
         return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
     old_settings = termios.tcgetattr(sys.stdin)
 
-    env.display_controls_menu()
+    if use_xbox:
+        env.display_xbox_controls_menu
+    else:
+        env.display_controls_menu()
     env.display_control_commands()
     print(f"\033[{env.num_menu_backspace_lines}B\033[K", end='\r')
     loop_start_time = time.perf_counter()
@@ -219,28 +236,59 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
                 await api.query(msg.GetRobotInfo())
                 query_json = False
 
-            if isData():
-                c = sys.stdin.read(1)
-                print(f"\033[{env.num_menu_backspace_lines}A\033[K", end='\r')
-                env.interactive_control(c)
-                print(f"\033[{env.num_menu_backspace_lines}B\033[K", end='\r')
-                if c == "m":  # Toggle api mode
+            # Xbox control
+            if use_xbox:
+                env.interactive_xbox_control(xbox)
+                if xbox.Start == 1 and not xbox.Start_pressed: # Toggle api mode
+                    xbox.Start_pressed = True
                     if api_mode == "locomotion":
                         api_mode = "llapi"
                         await api.request_privilege('change-action-command')
                         await api.send(msg.ActionSetOperationMode(mode="low-level-api"))
                         q = np.array([obs.base.orientation.w,
-                                      obs.base.orientation.x,
-                                      obs.base.orientation.y,
-                                      obs.base.orientation.z])
+                                    obs.base.orientation.x,
+                                    obs.base.orientation.y,
+                                    obs.base.orientation.z])
                         euler = R.from_quat(mj2scipy(q)).as_euler('xyz')
                         env.orient_add = euler[2]
                     elif api_mode == "llapi":
                         api_mode = "locomotion"
                         await api.request_privilege('change-action-command')
                         await api.send(msg.ActionSetOperationMode(mode="locomotion"))
-                if c == "f": # Set log flag
-                    log_data["flags"].append([log_ind, log_hf_ind])
+                elif xbox.Start_pressed and xbox.Start == 0:
+                    xbox.Start_pressed = False
+                if xbox.RightBumper == 1:
+                    if xbox.A == 1 and not xbox.A_pressed:
+                        xbox.A_pressed = True
+                        if do_log:
+                            log_data["flags"].append([log_ind, log_hf_ind])
+                    elif xbox.A_pressed and xbox.A == 0:
+                        xbox.A_pressed = False
+            # Keyboard control
+            else:
+                if isData():
+                    c = sys.stdin.read(1)
+                    print(f"\033[{env.num_menu_backspace_lines}A\033[K", end='\r')
+                    env.interactive_control(c)
+                    print(f"\033[{env.num_menu_backspace_lines}B\033[K", end='\r')
+                    if c == "m":  # Toggle api mode
+                        if api_mode == "locomotion":
+                            api_mode = "llapi"
+                            await api.request_privilege('change-action-command')
+                            await api.send(msg.ActionSetOperationMode(mode="low-level-api"))
+                            q = np.array([obs.base.orientation.w,
+                                        obs.base.orientation.x,
+                                        obs.base.orientation.y,
+                                        obs.base.orientation.z])
+                            euler = R.from_quat(mj2scipy(q)).as_euler('xyz')
+                            env.orient_add = euler[2]
+                        elif api_mode == "llapi":
+                            api_mode = "locomotion"
+                            await api.request_privilege('change-action-command')
+                            await api.send(msg.ActionSetOperationMode(mode="locomotion"))
+                    if c == "f": # Set log flag
+                        if do_log:
+                            log_data["flags"].append([log_ind, log_hf_ind])
 
             update_time = time.perf_counter() - pol_time
             if update_time >= 1 / env.default_policy_rate:
@@ -261,7 +309,7 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
                       f"delay: {((time.perf_counter() - pol_time) - (1 / env.default_policy_rate)) * 100:.3f} ms", end="\r")
                 pol_time = time.perf_counter()
 
-                if log_data:
+                if do_log:
                     log_data["time"][log_ind] = obs.time
                     log_data["orient add"][log_ind] = env.orient_add
                     for i in range(len(env.robot.robot_state_names)):
@@ -282,7 +330,7 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
                         log_hf_ind = 0
                         part_num += 1
 
-            if log_data and prev_obs_time != obs.time:
+            if do_log and prev_obs_time != obs.time:
                 log_llapi(log_data["llapi"], obs, log_hf_ind)
                 if log_hf_ind == 0:
                     log_data["delay"][log_hf_ind] = 0

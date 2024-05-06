@@ -68,7 +68,7 @@ class LocomotionClockEnv(GenericEnv):
             self._cycle_time_bounds = [0.6, 1.0]
         else:
             self._swing_ratio_bounds = [0.5, 0.5]
-            self._period_shift_bounds = [0.5, 0.5]
+            self._period_shift_bounds = [0.0, 0.0]
             self._cycle_time_bounds = [0.7, 0.7]
 
         # Initialize clock for now. Will be randomized in reset()
@@ -286,6 +286,41 @@ class LocomotionClockEnv(GenericEnv):
             self.clock.set_swing_ratios([0.5, 0.5])
             self.clock.set_period_shifts([0, 0.5])
         self.input_keys_dict["0"] = {
+            "description": "reset all commands to zero",
+            "func": zero_command
+        }
+
+    def _init_interactive_xbox_bindings(self):
+        self.input_xbox_dict["LeftJoystickY"] = {
+            "description": "in/decrement x velocity",
+            "func": lambda self, joystick: setattr(self, "x_velocity", self.x_velocity + joystick / self.default_policy_rate)
+        }
+        self.input_xbox_dict["LeftJoystickX"] = {
+            "description": "in/decrement y velocity",
+            "func": lambda self, joystick: setattr(self, "y_velocity", self.y_velocity - joystick / self.default_policy_rate)
+        }
+        self.input_xbox_dict["RightJoystickX"] = {
+            "description": "in/decrement turn rate",
+            "func": lambda self, joystick: setattr(self, "turn_rate", self.turn_rate - joystick / self.default_policy_rate)
+        }
+        self.input_xbox_dict["DPadX"] = {
+            "description": "in/decrement clock cycle time",
+            "func": lambda self, dpad: setattr(self.clock, "_cycle_time", np.clip(self.clock._cycle_time + 0.01 * dpad, *self._cycle_time_bounds))
+        }
+        self.input_xbox_dict["DPadY"] = {
+            "description": "in/decrement clock cycle time",
+            "func": lambda self, dpad: setattr(self.clock, "_swing_ratios", np.ones(2) * np.clip(self.clock._swing_ratios[0] + 0.1 * dpad, *self._swing_ratio_bounds))
+        }
+        self.input_xbox_dict[("RightBumper", "DPadY")] = {
+            "description": "in/decrement period shift",
+            "func": lambda self, dpad: setattr(self.clock, "_period_shifts", np.array([0, np.clip(self.clock._period_shifts[1] + 0.05 * dpad, *self._period_shift_bounds)]))
+        }
+        def zero_command(self, back):
+            self.x_velocity, self.y_velocity, self.turn_rate = 0, 0, 0
+            self.clock.set_cycle_time(0.8)
+            self.clock.set_swing_ratios([0.5, 0.5])
+            self.clock.set_period_shifts([0, 0.5])
+        self.input_xbox_dict["Back"] = {
             "description": "reset all commands to zero",
             "func": zero_command
         }

@@ -61,6 +61,8 @@ class GenericEnv(ABC):
                 os.path.join(Path(__file__).parent, 'robots', self.robot.robot_name.lower(), "dynamics_randomization.json")
 
         self.input_keys_dict = {}
+        self.input_xbox_dict = {}
+        self.xbox_scale_factor = 1.0
         self.control_commands_dict = {}
         self.num_menu_backspace_lines = None
         self.reward_dict = {}
@@ -69,6 +71,7 @@ class GenericEnv(ABC):
 
         # Configure menu of available commands for interactive control
         self._init_interactive_key_bindings()
+        self._init_interactive_xbox_bindings()
 
         if self.simulator_type in ["ar_async", "real"]:
             return # Can't do anything else if using AR
@@ -403,6 +406,22 @@ class GenericEnv(ABC):
                 self.print_command(key, value["description"], color=WHITE)
             print("")
 
+    def display_xbox_controls_menu(self,):
+        """
+        Method to pretty print menu of available controls.
+        """
+        if ((type(self.input_xbox_dict) is dict) and (len(self.input_xbox_dict) > 0)):
+            print("")
+            self.print_xbox_command("Key", "Function", color=BLUE)
+            for key, value in self.input_xbox_dict.items():
+                assert isinstance(key, str) or isinstance(key, tuple), (
+                    f"{FAIL}input_xbox_dict key must be either a single string corresponding \
+                    to the desired xbox input or a tuple of such strings.{ENDC}")
+                assert isinstance(value["description"], str), (
+                    f"{FAIL}control command description must be of type string{ENDC}")
+                self.print_xbox_command(key, value["description"], color=WHITE)
+            print("")
+
     def display_control_commands(self, erase : bool = False):
         """
         Method to pretty print menu of current commands.
@@ -420,12 +439,27 @@ class GenericEnv(ABC):
             print(f"\033[{num_backspace_lines}A\033[K", end='\r')
 
     def print_command(self, char, info, color=ENDC):
-            char += " " * (10 - len(char))
-            print(f"\033[K", end='')
-            if isinstance(info, float):
-                print(f"{color}{char}\t{info:.3f}{ENDC}")
-            else:
-                print(f"{color}{char}\t{info}{ENDC}")
+        char += " " * (10 - len(char))
+        print(f"\033[K", end='')
+        if isinstance(info, float):
+            print(f"{color}{char}\t{info:.3f}{ENDC}")
+        else:
+            print(f"{color}{char}\t{info}{ENDC}")
+
+    def print_xbox_command(self, xbox_input, info, color=ENDC):
+        if isinstance(xbox_input, tuple):
+            char = xbox_input[0]
+            for i in range(1, len(xbox_input)):
+                char += " & " + xbox_input[i]
+        else:
+            char = xbox_input
+
+        char += " " * (20 - len(char))
+        print(f"\033[K", end='')
+        if isinstance(info, float):
+            print(f"{color}{char}\t{info:.3f}{ENDC}")
+        else:
+            print(f"{color}{char}\t{info}{ENDC}")
 
     @abstractmethod
     def _init_interactive_key_bindings(self):
@@ -442,6 +476,45 @@ class GenericEnv(ABC):
     def interactive_control(self, c):
         if c in self.input_keys_dict:
             self.input_keys_dict[c]["func"](self)
+            self._update_control_commands_dict()
+            self.display_control_commands()
+
+    def interactive_xbox_control(self, xbox):
+        for xbox_input, func_dict in self.input_xbox_dict.items():
+            # Handle multiple inputs
+            if isinstance(xbox_input, tuple):
+                if len(xbox_input) == 2:    # Layer 2 and 3
+                    if getattr(xbox, xbox_input[0]) != 0:
+                        self._xbox_control_helper(xbox, xbox_input[1], func_dict["func"])
+                elif len(xbox_input) == 3:  # Layer 4
+                    if getattr(xbox, xbox_input[0]) != 0 and getattr(xbox, xbox_input[1]) != 0:
+                        self._xbox_control_helper(xbox, xbox_input[2], func_dict["func"])
+                else:
+                    raise RuntimeError(f"{FAIL}Invalid xbox control input tuple length "
+                        f"{len(xbox_input)} for xbox control. Should either be single string or 2 or "
+                        f" 3 element tuple.{ENDC}")
+            # Handle single input
+            else:
+                if xbox.RightBumper == 0 and xbox.LeftBumper == 0:
+                    self._xbox_control_helper(xbox, xbox_input, func_dict["func"])
+
+    def _xbox_control_helper(self, xbox, xbox_input, func):
+        print_update = False
+        # Handle continuous inputs (joysticks and triggers)
+        if "Joystick" in xbox_input or "Trigger" in xbox_input:
+            if getattr(xbox, xbox_input) != 0:
+                # print("nonzero input!")
+                func(self, getattr(xbox, xbox_input) * self.xbox_scale_factor)
+                print_update = True
+        # Handle button inputs
+        else:
+            if getattr(xbox, xbox_input) != 0 and not getattr(xbox, f"{xbox_input}_pressed"):
+                setattr(xbox, f"{xbox_input}_pressed", True)
+                func(self, getattr(xbox, xbox_input))
+                print_update = True
+            elif getattr(xbox, f"{xbox_input}_pressed") and getattr(xbox, xbox_input) == 0:
+                setattr(xbox, f"{xbox_input}_pressed", False)
+        if print_update:
             self._update_control_commands_dict()
             self.display_control_commands()
 

@@ -149,6 +149,18 @@ class StandEnv(GenericEnv):
             "func": zero_command,
         }
 
+    def _init_interactive_xbox_bindings(self):
+        self.input_xbox_dict["LeftJoystickY"] = {
+            "description": "in/decrement cmd height",
+            "func": lambda self, joystick: setattr(self, "cmd_height", self.cmd_height + joystick / self.default_policy_rate)
+        }
+        def zero_command(self, back):
+            self.cmd_height
+        self.input_xbox_dict["Back"] = {
+            "description": "reset all commands to zero",
+            "func": zero_command
+        }
+
     def _update_control_commands_dict(self):
         self.control_commands_dict["cmd height"] = self.cmd_height
 

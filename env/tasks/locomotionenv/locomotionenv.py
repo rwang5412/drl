@@ -180,6 +180,26 @@ class LocomotionEnv(GenericEnv):
             "func": zero_command,
         }
 
+    def _init_interactive_xbox_bindings(self):
+        self.input_xbox_dict["LeftJoystickY"] = {
+            "description": "in/decrement x velocity",
+            "func": lambda self, joystick: setattr(self, "x_velocity", self.x_velocity + joystick / self.default_policy_rate)
+        }
+        self.input_xbox_dict["LeftJoystickX"] = {
+            "description": "in/decrement y velocity",
+            "func": lambda self, joystick: setattr(self, "y_velocity", self.y_velocity - joystick / self.default_policy_rate)
+        }
+        self.input_xbox_dict["RightJoystickX"] = {
+            "description": "in/decrement turn rate",
+            "func": lambda self, joystick: setattr(self, "turn_rate", self.turn_rate - joystick / self.default_policy_rate)
+        }
+        def zero_command(self, back):
+            self.x_velocity, self.y_velocity, self.turn_rate = 0, 0, 0
+        self.input_xbox_dict["Back"] = {
+            "description": "reset all commands to zero",
+            "func": zero_command
+        }
+
     def _update_control_commands_dict(self):
         self.control_commands_dict["x velocity"] = self.x_velocity
         self.control_commands_dict["y velocity"] = self.y_velocity

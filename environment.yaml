@@ -176,6 +176,7 @@ dependencies:
       - google-auth-oauthlib==1.0.0
       - grpcio==1.51.3
       - imageio-ffmpeg==0.4.9
+      - inputs==0.5
       - ipython==8.13.2
       - jedi==0.18.2
       - jsonschema==4.17.3
