@@ -6,17 +6,17 @@ import numpy as np
 import time
 
 from .digit_ar_sim.interface_ctypes import (
-    llapi_command_t, 
-    llapi_observation_t, 
-    NUM_MOTORS, 
+    llapi_command_t,
+    llapi_observation_t,
+    NUM_MOTORS,
     NUM_JOINTS,
     Locomotion
 )
 
 from .digit_ar_sim.interface_ctypes import (
-    llapi_init, 
-    llapi_get_limits, 
-    llapi_get_observation, 
+    llapi_init,
+    llapi_get_limits,
+    llapi_get_observation,
     llapi_send_command,
     llapi_connected
 )
@@ -24,11 +24,11 @@ from .digit_ar_sim.interface_ctypes import (
 
 class ArDigitSim:
     """
-    This class will handle simulator initialization and close. The path to ar-control binary file 
+    This class will handle simulator initialization and close. The path to ar-control binary file
     should be provided at construction. Conf files (args) can be loaded as well.
     @TODO (helei): best way to sync up ports/ips for sim/api/llapi?
     """
-    def __init__(self, 
+    def __init__(self,
                  args,
                  path_to_ar_control: str,
                  address: str = '127.0.0.1',
@@ -44,10 +44,10 @@ class ArDigitSim:
                                    connect_timeout=connect_timeout)
         # Other parameters
         self.simulator_frequency = 2000 #Hz. This is really up to 400Hz
-        
+
         # Initialize LLAPI
         self._init_llapi()
-        
+
         # Register atexit calls
         atexit.register(self._simulator_close)
 
@@ -94,7 +94,7 @@ class ArDigitSim:
     async def sim_forward(self, dt:float, actions:list=None):
         """Step simulator by dt and update/track self.t.
         NOTE: Tries to run step at 2kHz, but tested can only reliably run up to 200Hz before losing
-        time accuracy, so max dt that correctly sim forward is 0.005s. 
+        time accuracy, so max dt that correctly sim forward is 0.005s.
         Keep 2kHz (dt=1/2000) does not affect accuracy.
 
         Args:
@@ -115,11 +115,11 @@ class ArDigitSim:
     def _get_observations(self):
         """Update the observations from LLAPI
         """
-        # Since UDP-based comm and loop-rate bottleneck, obs will be as close to 400Hz signals with 
+        # Since UDP-based comm and loop-rate bottleneck, obs will be as close to 400Hz signals with
         # some delays. We can probabaly never get 2kHz state since UDP and loop-time.
         llapi_get_observation(self._obs)
         # To make sure obs is update-to-date, we use return code to validate obs.
-        # TODO: helei, below adds tons of extra time to get fresh obs. Figure out if we need to 
+        # TODO: helei, below adds tons of extra time to get fresh obs. Figure out if we need to
         # 1. sim_forward with less dt or 2. actually need to make sure obs is update-to-date.
         # start_time = time.monotonic()
         # while not llapi_get_observation(self._obs):
@@ -148,50 +148,50 @@ class ArDigitSim:
         self._cmd.fallback_opmode = Locomotion
         self._cmd.apply_command = apply_command
         llapi_send_command(self._cmd)
-    
+
     """Followings are getter functions for observations.
     """
     def get_motor_position(self):
         return np.array(self._obs.motor.position[:NUM_MOTORS])
-    
+
     def get_motor_velocity(self):
         return np.array(self._obs.motor.velocity[:NUM_MOTORS])
 
     def get_motor_torque(self):
         return np.array(self._obs.motor.torque[:NUM_MOTORS])
-    
+
     def get_joint_position(self):
         return np.array(self._obs.joint.position[:NUM_JOINTS])
-    
+
     def get_joint_velocity(self):
         return np.array(self._obs.joint.velocity[:NUM_JOINTS])
-    
+
     def get_base_translation(self):
         return np.array(self._obs.base.translation[:3])
-    
+
     def get_base_orientation(self):
         return np.array(self._obs.base.orientation[:4])
-    
+
     def get_base_linear_velocity(self):
         return np.array(self._obs.base.linear_velocity[:3])
-    
+
     def get_base_angular_velocity(self):
         return np.array(self._obs.base.angular_velocity[:3])
-    
+
     def get_imu_linear_accleration(self):
         return np.array(self._obs.imu.linear_acceleration[:3])
 
     def get_imu_angular_velocity(self):
         return np.array(self._obs.imu.angular_velocity[:3])
-    
+
     def get_imu_orientation(self):
         return np.array(self._obs.imu.orientation[:4])
-    
+
     """Placeholder since ar-control visualize via websockets automatically
     """
     def viewer_init(self):
         pass
-    
+
     def viewer_render(self):
         pass
 
@@ -200,7 +200,7 @@ class ArDigitSim:
 
     async def _api_close(self):
         await self.api.close()
-        
+
     def _simulator_close(self):
         self.sim.close()
 

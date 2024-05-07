@@ -419,6 +419,7 @@ class MujocoViewer():
             if self.model.ncam > 0:
                 if self.cam.type != mj.mjtCamera.mjCAMERA_FIXED:
                     self.cam.type = mj.mjtCamera.mjCAMERA_FIXED
+                    self.cam.fixedcamid = 0
                 elif self.cam.fixedcamid < self.model.ncam - 1:
                     self.cam.fixedcamid += 1
 

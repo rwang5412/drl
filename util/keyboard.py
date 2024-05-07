@@ -17,7 +17,7 @@ class Keyboard():
         key = sys.stdin.read(1)
         if key == '\b':
             return 'quit'
-        if key == '\n':
+        elif key == '\n':
             return 'menu'
         return key
 

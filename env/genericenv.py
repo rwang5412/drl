@@ -82,7 +82,7 @@ class GenericEnv(ABC):
             self.update_tracker_velocity: {"frequency": 50},
             self.update_tracker_torque: {"frequency": 50},
         }
-        if self.simulator_type == "mujoco":
+        if "mujoco" in self.simulator_type:
             self.trackers[self.update_tracker_cop] = {"frequency": 50}
 
         # Double check tracker frequencies and convert to number of sim steps
@@ -215,7 +215,7 @@ class GenericEnv(ABC):
             self.joint_encoder_noise = np.random.uniform(*self.dr_ranges["encoder-noise"]["ranges"], size=self.robot.n_unactuated_joints)
             self.sim.torque_delay_cycles = np.random.randint(*self.dr_ranges["torque-delay"]["ranges"])
             self.sim.torque_efficiency = np.random.uniform(*self.dr_ranges["torque-efficiency"]["ranges"])
-            if self.terrain != "hfield" and self.simulator_type == "mujoco":
+            if self.terrain != "hfield" and "mujoco" in self.simulator_type:
                 rand_euler = np.random.uniform(*self.dr_ranges["slope"]["ranges"], size=2)
                 rand_quat = scipy2mj(R.from_euler("xyz", [rand_euler[0], rand_euler[1], 0]).as_quat())
                 if self.robot.robot_name == "digit":
@@ -225,7 +225,7 @@ class GenericEnv(ABC):
             self.sim.default_dynamics()
             self.motor_encoder_noise = np.zeros(self.robot.n_actuators)
             self.joint_encoder_noise = np.zeros(self.robot.n_unactuated_joints)
-            if self.terrain != "hfield" and self.simulator_type == "mujoco":
+            if self.terrain != "hfield" and "mujoco" in self.simulator_type:
                 self.sim.model.opt.disableflags = 0
                 self.sim.model.geom("floor").sameframe = 1
                 self.sim.set_geom_quat("floor", np.array([1, 0, 0, 0]))

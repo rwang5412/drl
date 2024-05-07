@@ -63,9 +63,9 @@ class Digit(BaseRobot):
 
         # Define names for robot state input and action output
         self.output_names = [
-            "left-hip-roll", "left-hip-yaw", "left-hip-pitch", "left-knee", "left-foot",
+            "left-hip-roll", "left-hip-yaw", "left-hip-pitch", "left-knee", "left-toe-a", "left-toe-b",
             "left-shoulder-roll", "left-shoulder-pitch", "left-shoulder-yaw", "left-elbow",
-            "right-hip-roll", "right-hip-yaw", "right-hip-pitch", "right-knee", "right-foot",
+            "right-hip-roll", "right-hip-yaw", "right-hip-pitch", "right-knee", "right-toe-a", "right-toe-b",
             "right-shoulder-roll", "right-shoulder-pitch", "right-shoulder-yaw", "right-elbow"
         ]
         self.robot_state_names = [
@@ -96,7 +96,7 @@ class Digit(BaseRobot):
             self._sim = MjDigitSim(terrain=terrain, fast=fast)
         elif simulator_type == 'ar_async':
             self.llapi_obs = None
-            self.ar_async = MjDigitSim(terrain=terrain)
+            self._sim = MjDigitSim(terrain=terrain)
         else:
             raise RuntimeError(f"{FAIL}Simulator type {simulator_type} not correct!"
                                "Select from 'mujoco' or 'ar_async'.{ENDC}")

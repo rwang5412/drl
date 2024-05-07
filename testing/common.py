@@ -3,7 +3,7 @@ This file includes some constants that are used for mujoco or ar-control.
 """
 
 # Testing utils for Digit ar-control
-SIM_PATH = './sim/digit_sim/digit_ar_sim/ar-control'
+SIM_PATH = '~/ar-software-2023.01.13a/ar-software/ar-control'
 
 ROBOT_CONFIG = ["""
 # Add robot to world

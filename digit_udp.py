@@ -24,6 +24,7 @@ from sim.digit_sim.digit_ar_sim.digit_udp import DigitUdp
 from sim.digit_sim.digit_ar_sim.interface_ctypes import *
 from testing.common import (
     DIGIT_MOTOR_MJ2LLAPI_INDEX,
+    DIGIT_MOTOR_LLAPI2MJ_INDEX,
     MOTOR_POSITION_SET,
     DIGIT_MOTOR_NAME_LLAPI,
     DIGIT_JOINT_NAME_LLAPI
@@ -300,7 +301,10 @@ async def run(actor, env: GenericEnv, do_log = True, pol_name = "test"):
 
                 with torch.no_grad():
                     action = actor(torch.tensor(RL_state).float(), deterministic=True).numpy()
-                action_sum = env.robot.offset + action
+                if env.integral_action:
+                    action_sum = action + np.array(obs.motor.position[:])[DIGIT_MOTOR_LLAPI2MJ_INDEX]
+                else:
+                    action_sum = action + env.robot.offset
                 for i in range(NUM_MOTORS):
                     cmd_policy.position[i] = action_sum[DIGIT_MOTOR_MJ2LLAPI_INDEX[i]]
                 digit_udp.send_pd(cmd_policy)

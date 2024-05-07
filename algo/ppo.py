@@ -2,6 +2,7 @@
 import argparse
 import numpy as np
 import os
+import psutil
 import ray
 import wandb
 import torch
@@ -15,6 +16,7 @@ from types import SimpleNamespace
 from algo.util.sampling import AlgoSampler
 from algo.util.worker import AlgoWorker
 from algo.util.sampling import Buffer
+from util.colors import WARNING, ENDC
 from util.mirror import mirror_tensor
 from util.nn_factory import save_checkpoint
 
@@ -315,11 +317,22 @@ class PPO(AlgoWorker):
         self.collect_eval_data_next_iter = False
         self.eval_threshold_reached = False
 
+        if args.backprop_workers <= 0:
+            ray_workers = args.workers + 20
+        else:
+            ray_workers = args.workers + args.backprop_workers
+        if ray_workers > psutil.cpu_count():
+            print(f"{WARNING}Warning: Total number of workers (sampling and optimization, "
+                  f"{ray_workers} workers) exceeds CPU count ({psutil.cpu_count()}). Intializating "
+                  f"ray with only {psutil.cpu_count()} workers, there may be thread clashing due to "
+                  f"ray overhead. Recommended to scaling down the number of workers.{ENDC}")
+            ray_workers = psutil.cpu_count()
+
         if not ray.is_initialized():
             if args.redis is not None:
-                ray.init(redis_address=args.redis)
+                ray.init(redis_address=args.redis, num_cpus=ray_workers)
             else:
-                ray.init(num_cpus=args.workers)
+                ray.init(num_cpus=ray_workers)
 
         self.state_mirror_indices = None
         self.action_mirror_indices = None

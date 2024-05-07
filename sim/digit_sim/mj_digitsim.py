@@ -30,7 +30,7 @@ class MjDigitSim(MujocoSim):
         self.base_linear_velocity_inds = [0, 1, 2]
         self.base_angular_velocity_inds = [3, 4, 5]
         self.arm_position_inds = [30, 31, 32, 33, 57, 58, 59, 60]
-        self.arm_velocity_inds = [26, 27, 28, 29, 51, 52, 53, 54]
+        self.arm_velocity_inds = [26, 27, 28, 29, 50, 51, 52, 53]
         self.base_body_name = "torso/base"
         self.feet_site_name = ["left-foot-mid", "right-foot-mid"] # pose purpose
         self.feet_body_name = ["left-leg/toe-roll", "right-leg/toe-roll"] # force purpose
