@@ -1,0 +1,461 @@
+# this file contains manual configurations for some benchmarks
+# benchmarks are defined in the benchmarks section and can be added or modified easily
+# each benchmark has a name, a type, n_seconds and a schedule
+# a schedule defines what env changes happen at what time, in seconds
+# each benchmark will be run n_traj times
+
+n_traj: 100
+
+
+benchmarks:
+  - name: x_velocity_constant 7 m/s
+    type: command_following
+    n_seconds: 24 
+    schedule:
+      0:
+        x_velocity: 7.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 6 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 6.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 5 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 5.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 4 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 4.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 3 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 3.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 2 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 2.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 1 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 1.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 0.5 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 0.5
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant -0.5 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: -0.5
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant -1.0 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: -1.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant -2.0 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: -2.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_dynamic
+    type: command_following
+    n_seconds: 20
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      4:
+        x_velocity: 2.0
+      12:
+        x_velocity: 0.0
+      14:
+        x_velocity: -0.5
+      18:
+        x_velocity: 0.0
+
+  - name: y_velocity_constant 0.5 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.5
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: y_velocity_constant -0.5 m/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: -0.5
+        turn_rate: 0.0
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: y_velocity_dynamic
+    type: command_following
+    n_seconds: 20
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      4:
+        y_velocity: 0.4
+      12:
+        y_velocity: 0.0
+      14:
+        y_velocity: -0.4
+      18:
+        y_velocity: 0.0
+
+  - name: standing
+    type: command_following
+    description: standing still
+    n_seconds: 20
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: turn_rate_constant 0.5 rad/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.5
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: turn_rate_constant -0.5 rad/s
+    type: command_following
+    n_seconds: 24
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: -0.5
+      20:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: turn_rate_dynamic
+    type: command_following
+    n_seconds: 20
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+      4:
+        turn_rate: 0.5
+      12:
+        turn_rate: 0.0
+      14:
+        turn_rate: -0.5
+      18:
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 0.2 m/s
+    type: command_following
+    n_seconds: 5
+    schedule:
+      0:
+        x_velocity: 0.2
+        y_velocity: 0.0
+        turn_rate: 0.0
+      2:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: y_velocity_constant 0.2 m/s
+    type: command_following
+    n_seconds: 5
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.2
+        turn_rate: 0.0
+      2:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: x_velocity_constant 0.1 m/s
+    type: command_following
+    n_seconds: 5
+    schedule:
+      0:
+        x_velocity: 0.1
+        y_velocity: 0.0
+        turn_rate: 0.0
+      2:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: y_velocity_constant 0.1 m/s
+    type: command_following
+    n_seconds: 5
+    schedule:
+      0:
+        x_velocity: 0.0
+        y_velocity: 0.1
+        turn_rate: 0.0
+      2:
+        x_velocity: 0.0
+        y_velocity: 0.0
+        turn_rate: 0.0
+
+  - name: perturb_1
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 10.0
+        y_force: 10.0
+        z_force: 0.0
+
+  - name: perturb_2
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 20.0
+        y_force: 20.0
+        z_force: 0.0
+
+  - name: perturb_3
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 30.0
+        y_force: 30.0
+        z_force: 0.0
+  
+  - name: perturb_4
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 40.0
+        y_force: 40.0
+        z_force: 0.0
+
+  - name: perturb_5
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 50.0
+        y_force: 50.0
+        z_force: 0.0
+
+  - name: perturb_6
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 60.0
+        y_force: 60.0
+        z_force: 0.0
+
+  - name: perturb_7
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 70.0
+        y_force: 70.0
+        z_force: 0.0
+
+  - name: perturb_8
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 80.0
+        y_force: 80.0
+        z_force: 0.0
+
+  - name: perturb_9
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 90.0
+        y_force: 90.0
+        z_force: 0.0
+
+  - name: perturb_10
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 100.0
+        y_force: 100.0
+        z_force: 0.0
+
+  - name: perturb_11
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 110.0
+        y_force: 110.0
+        z_force: 0.0
+
+  - name: perturb_12
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 120.0
+        y_force: 120.0
+        z_force: 0.0
+
+  - name: perturb_13
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 130.0
+        y_force: 130.0
+        z_force: 0.0
+
+  - name: perturb_14
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 140.0
+        y_force: 140.0
+        z_force: 0.0
+
+  - name: perturb_15
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 150.0
+        y_force: 150.0
+        z_force: 0.0
+
+  - name: perturb_16
+    type: perturb_test
+    n_seconds: 6
+    schedule:
+      0:
+        x_force: 160.0
+        y_force: 160.0
+        z_force: 0.0

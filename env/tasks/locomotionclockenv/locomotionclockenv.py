@@ -3,6 +3,7 @@ import numpy as np
 from env.util.periodicclock import PeriodicClock
 from env.genericenv import GenericEnv
 from util.colors import FAIL, WARNING, ENDC
+from env.util.commands import Commands
 
 
 class LocomotionClockEnv(GenericEnv):
@@ -44,6 +45,12 @@ class LocomotionClockEnv(GenericEnv):
             integral_action=integral_action,
             **kwargs,
         )
+
+        # Velocity commands
+        self.commands = Commands()
+        self.commands.add('x_velocity', 0.0, (-0.5, 2.0))
+        self.commands.add('y_velocity', 0.0, (-0.5, 0.5))
+        self.commands.add('turn_rate', 0.0, (-0.5, 0.5)) # rad/s
 
         # Command randomization ranges
         self._x_velocity_bounds = [-0.5, 2.0]
@@ -110,7 +117,7 @@ class LocomotionClockEnv(GenericEnv):
         self.randomize_commands()
 
         self.reset_simulation()
-        self.randomize_base_orientation()
+        # self.randomize_base_orientation()
 
         self.interactive_evaluation = interactive_evaluation
         if self.interactive_evaluation:

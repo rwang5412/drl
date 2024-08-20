@@ -20,7 +20,7 @@ def nn_factory(args, env=None):
     """
     # Unpack args with iterators
     layers = [int(x) for x in args.layers.split(',')]
-    if args.std_array != "":
+    if args.std_array != "" and args.std_array is not None:
         args.std = args.std_array
         std = [float(x) for x in args.std.split(',')]
         assert len(std) == args.action_dim,\

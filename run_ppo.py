@@ -29,7 +29,7 @@ def get_ppo_args():
 
     # Set env and robot
     args.env_name = "LocomotionClockEnv"
-    args.robot_name = "cassie"
+    args.robot_name = "digit"
 
     # Set env args
     args.simulator_type = "mujoco"

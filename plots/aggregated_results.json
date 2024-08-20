@@ -1,0 +1,22 @@
+[
+    {
+        "name": "benchmark_1",
+        "type": "type_1",
+        "mean_x_vel": -0.26118767733767306,
+        "mean_y_vel": 1.0738401706335265,
+        "mean_turn_rate": -0.22875158440104978,
+        "termination_times": [
+            5.0
+        ]
+    },
+    {
+        "name": "benchmark_2",
+        "type": "type_2",
+        "mean_x_vel": 2.191529391860582,
+        "mean_y_vel": 0.936659883784344,
+        "mean_turn_rate": 0.047434970601650146,
+        "termination_times": [
+            3.0
+        ]
+    }
+]
