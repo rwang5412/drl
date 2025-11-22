@@ -1,4 +1,9 @@
 # Roadrunner Refactor
+This was a repo that I worked on last summer doing research at Oregon State. It's on my resume for reference. This lab specifically did robotic locomotion work and I worked on creating a visualizer for testing perturbations on different policies and benchmarking those policies.
+
+
+
+
 
 ## Setup Instructions
 Conda is required to run the setup script included with this repository.
